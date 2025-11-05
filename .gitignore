@@ -5,8 +5,9 @@
 **/env/
 **/venv39/ 
 
-node_modules
+/node_modules
 /public/sefaria-cache
+dist/
 
 # --- Python caches
 **/__pycache__/
