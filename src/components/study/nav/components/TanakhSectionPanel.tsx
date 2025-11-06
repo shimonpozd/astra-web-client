@@ -13,6 +13,7 @@ export interface TanakhSectionPanelProps {
   loadingSeed: boolean;
   theme: 'dark' | 'light' | 'system';
   variants: Variants;
+  className?: string;
 }
 
 const TORAH_BOOKS = ['Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy'] as const;
@@ -177,6 +178,7 @@ function TanakhSectionPanel({
   loadingSeed,
   theme,
   variants,
+  className,
 }: TanakhSectionPanelProps) {
   const currentSection = section ?? 'Torah';
   const headerLabel = getTanakhSectionLabel(currentSection);
@@ -234,6 +236,7 @@ function TanakhSectionPanel({
         theme === 'dark'
           ? 'border-white/10 bg-white/10 shadow-black/20'
           : 'border-gray-200 bg-white/20 shadow-gray-200/20',
+        className,
       )}
     >
       <h3

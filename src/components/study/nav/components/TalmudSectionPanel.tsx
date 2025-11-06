@@ -22,6 +22,7 @@ interface TalmudSectionPanelProps {
   onSelectDaf: (dafLabel: string) => void;
   theme: 'dark' | 'light' | 'system';
   variants: Variants;
+  className?: string;
 }
 
 
@@ -37,6 +38,7 @@ function TalmudSectionPanel({
   onSelectDaf,
   theme,
   variants,
+  className,
 }: TalmudSectionPanelProps) {
   const currentSeder = useMemo(() => {
     if (selectedSeder && sedarim[selectedSeder]?.length) {
@@ -78,6 +80,7 @@ function TalmudSectionPanel({
         theme === 'dark'
           ? 'border-white/10 bg-white/10 shadow-black/20'
           : 'border-gray-200 bg-white/20 shadow-gray-200/20',
+        className,
       )}
     >
       <div className="space-y-4">

@@ -1,5 +1,5 @@
-import { useState, memo, useMemo, useEffect, useRef } from "react";
-import { BookOpen } from "lucide-react";
+import { useState, memo, useMemo, useEffect, useRef, useCallback } from "react";
+import { BookOpen, X } from "lucide-react";
 import { containsHebrew } from "../../utils/hebrewUtils";
 import { useTranslation } from "../../hooks/useTranslation";
 import { safeScrollIntoView } from "../../utils/scrollUtils";
@@ -171,9 +171,11 @@ const WorkbenchContainer = memo(({
 const WorkbenchHeader = memo(({
   item,
   headerVariant,
+  onClear,
 }: {
   item: WorkbenchItemLike;
   headerVariant: 'hidden' | 'mini' | 'default';
+  onClear?: () => void;
 }) => {
   if (headerVariant === 'hidden') {
     return null;
@@ -190,7 +192,7 @@ const WorkbenchHeader = memo(({
         '\u0418\u0441\u0442\u043E\u0447\u043D\u0438\u043A';
 
   return (
-    <header className="flex-shrink-0 flex items-center px-2 py-1.5 sm:px-3 sm:py-2 border-b border-border/20">
+    <header className="flex-shrink-0 flex items-center justify-between gap-2 px-2 py-1.5 sm:px-3 sm:py-2 border-b border-border/20">
       <div className="flex items-center gap-2 min-w-0">
         <div
           id={`wbp-${refString}-title`}
@@ -215,6 +217,20 @@ const WorkbenchHeader = memo(({
           )}
         </div>
       </div>
+      {onClear ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onClear();
+          }}
+          className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          title="Clear panel"
+          aria-label="Clear panel"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
     </header>
   );
 });
@@ -469,12 +485,17 @@ const WorkbenchPanelInline = memo(({
   const rafIdRef = useRef<number | null>(null);
 
   // Состояние для перевода (если есть item)
-  const { translatedText, isTranslating, error, translate } = useTranslation({
+  const { translatedText, isTranslating, error, clear } = useTranslation({
     tref: typeof item === 'string' ? item : item?.ref || '',
   });
 
   // Состояние для отслеживания показа перевода
   const [showTranslation, setShowTranslation] = useState(false);
+  const handlePanelClear = useCallback(() => {
+    clear();
+    setShowTranslation(false);
+    onClear?.();
+  }, [clear, onClear, setShowTranslation]);
 
   // Сброс состояния перевода при смене элемента
   useEffect(() => {
@@ -552,7 +573,11 @@ const WorkbenchPanelInline = memo(({
         className=""
         item={item}
       >
-      <WorkbenchHeader item={item} headerVariant={headerVariant} />
+      <WorkbenchHeader
+        item={item}
+        headerVariant={headerVariant}
+        onClear={onClear ? handlePanelClear : undefined}
+      />
 
       <WorkbenchContent
         item={item}

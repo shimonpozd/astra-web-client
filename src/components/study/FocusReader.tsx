@@ -121,7 +121,7 @@ const FocusReader = memo(({
     setStableTranslatedText('');
   }, [activeSegment?.ref]);
 
-  const { speechify, isLoading: isSpeechifying } = useSpeechify();
+  const { speechify } = useSpeechify();
 
   const {
     isPlaying: ttsIsPlaying,
@@ -130,7 +130,6 @@ const FocusReader = memo(({
     stop,
     pause: pauseTTS,
     resume,
-    isLoading: ttsIsLoading,
   } = useTTS({
     language: 'ru',
     speed: 1.0,
@@ -150,7 +149,6 @@ const FocusReader = memo(({
   const sanitizedEnglish = useMemo(() => sanitizeText(englishText), [englishText, sanitizeText]);
 
   const isActiveTTS = activeTTSRef === activeSegmentRef && (ttsIsPlaying || isPaused);
-  const isPlaybackLoading = isSpeechifying || ttsIsLoading;
   const isCurrentSegmentPlaying = isActiveTTS && ttsIsPlaying;
   const leftPanelIsVisible = showLeftPanel !== false;
   const rightPanelIsVisible = showRightPanel !== false;
@@ -302,16 +300,6 @@ const FocusReader = memo(({
     }
     return false;
   }, [continuousText, activeSegment, getChapterIdentifier]);
-
-  const setScrollLock = useCallback(() => {
-    scrollLockRef.current = true;
-    if (scrollLockTimeoutRef.current) {
-      clearTimeout(scrollLockTimeoutRef.current);
-    }
-    scrollLockTimeoutRef.current = setTimeout(() => {
-      scrollLockRef.current = false;
-    }, 1500);
-  }, []);
 
   useEffect(() => {
     if (focusRef.current && !scrollLockRef.current) {

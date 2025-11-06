@@ -5,9 +5,10 @@ export interface ComingSoonPanelProps {
   sectionName: string;
   theme: 'dark' | 'light' | 'system';
   variants: Variants;
+  className?: string;
 }
 
-function ComingSoonPanel({ sectionName, theme, variants }: ComingSoonPanelProps) {
+function ComingSoonPanel({ sectionName, theme, variants, className }: ComingSoonPanelProps) {
   return (
     <motion.section
       key="coming-soon"
@@ -20,6 +21,7 @@ function ComingSoonPanel({ sectionName, theme, variants }: ComingSoonPanelProps)
         theme === 'dark'
           ? 'border-white/10 bg-white/10 text-white/70 shadow-black/20'
           : 'border-gray-200 bg-white/20 text-gray-600 shadow-gray-200/20',
+        className,
       )}
     >
       <div className="space-y-3">

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import type { TextSegment } from '../types/text';
 
 interface NavigationContextType {
   isNavOpen: boolean;
