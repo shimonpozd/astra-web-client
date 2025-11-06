@@ -12,6 +12,7 @@ interface ChatSidebarProps {
   onCreateChat: () => void;
   onCreateStudy?: () => void;
   onDeleteSession: (id: string, type: 'chat' | 'study' | 'daily') => void;
+  onModeChange?: (mode: 'split' | 'compact') => void;
 }
 
 export default function ChatSidebar({
@@ -23,6 +24,7 @@ export default function ChatSidebar({
   onCreateChat,
   onCreateStudy,
   onDeleteSession,
+  onModeChange,
 }: ChatSidebarProps) {
   
   const [mode, setMode] = useState<'split' | 'compact'>(() => {
@@ -106,6 +108,15 @@ export default function ChatSidebar({
       }
     }
   };
+
+  useEffect(() => {
+    onModeChange?.(mode);
+  }, [mode, onModeChange]);
+
+  const collapsed = mode === 'compact';
+  const listWidth = collapsed ? 0 : 300;
+  const listFlexBasis = collapsed ? '0px' : '300px';
+  const listBoxShadow = isDark ? '-1px 0 0 rgba(255,255,255,0.05)' : '-1px 0 0 rgba(0,0,0,0.05)';
   
   return (
     <aside className="border-r panel-outer flex flex-row min-h-0" style={{ color: colorFg }}>
@@ -119,6 +130,7 @@ export default function ChatSidebar({
         <div className="flex items-center justify-between px-2 pb-2">
           <button
             aria-label={mode === 'split' ? 'Collapse' : 'Expand'}
+            aria-expanded={mode === 'split'}
             className="h-8 w-8 grid place-items-center rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2"
             style={{ color: colorFgMuted, borderRadius: 8, border: '1px solid transparent' }}
             onClick={handleToggleMode}
@@ -153,8 +165,19 @@ export default function ChatSidebar({
         })}
       </div>
 
-      {/* Right List (always visible for easy switching) */}
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col" style={{ width: 300, boxShadow: isDark ? '-1px 0 0 rgba(255,255,255,0.05)' : '-1px 0 0 rgba(0,0,0,0.05)' }}>
+      {/* Right List */}
+      <div
+        className={`min-h-0 overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
+          collapsed ? 'flex-none opacity-0 pointer-events-none' : 'flex-1 opacity-100'
+        }`}
+        style={{
+          width: listWidth,
+          flexBasis: listFlexBasis,
+          flexGrow: collapsed ? 0 : 1,
+          boxShadow: listBoxShadow,
+        }}
+        aria-hidden={collapsed}
+      >
           <div className="panel-padding border-b border-[color:var(--color-separator,transparent)]" style={{ borderColor: colorSeparator }}>
             <div className="flex items-center justify-between">
               <h3 className="text-[12px] font-medium tracking-wide" style={{ color: colorFgMuted }}>
@@ -178,7 +201,7 @@ export default function ChatSidebar({
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto panel-padding-sm" role="list" onKeyDown={handleKeyDownList} tabIndex={0}
+          <div className="flex-1 overflow-auto panel-padding-sm" role="list" onKeyDown={handleKeyDownList} tabIndex={collapsed ? -1 : 0}
                style={{ transition: 'all 200ms cubic-bezier(0.25,1,0.5,1)', transform: isFading ? 'translateX(8px)' : 'translateX(0)', opacity: isFading ? 0 : 1 }}>
         {isLoading && (
           <div className="space-y-2">

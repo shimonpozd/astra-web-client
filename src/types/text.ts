@@ -37,12 +37,16 @@ export interface FocusReaderProps {
   isDailyMode?: boolean; // Flag to show special loading for Daily Mode
   isBackgroundLoading?: boolean; // Flag to show background loading progress
   // Navigation props
-  onBack?: () => void;
-  onForward?: () => void;
   onExit?: () => void;
   currentRef?: string;
+  onBack?: () => void;
+  onForward?: () => void;
   canBack?: boolean;
   canForward?: boolean;
+  onToggleLeftPanel?: () => void;
+  onToggleRightPanel?: () => void;
+  showLeftPanel?: boolean;
+  showRightPanel?: boolean;
 }
 
 // Message rendering types

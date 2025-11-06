@@ -25,6 +25,17 @@ export function ChatLayout() {
   const [agentId, setAgentId] = useState<string>(() => {
     return localStorage.getItem("astra_agent_id") || "default";
   });
+  const [sidebarMode, setSidebarMode] = useState<'split' | 'compact'>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('astra_sidebar_mode') as 'split' | 'compact' | null;
+        if (stored === 'compact') {
+          return 'compact';
+        }
+      } catch (err) {}
+    }
+    return 'split';
+  });
 
   // Study mode chat state
   const [studyMessages, setStudyMessages] = useState<any[]>([]);
@@ -239,12 +250,13 @@ export function ChatLayout() {
   };
 
 
+  const sidebarColumnWidth = sidebarMode === 'compact' ? '64px' : '320px';
   const cols = [] as string[];
   if (mode === 'vertical_three') {
     cols.push('1fr'); // Chat (left half)
     cols.push('1fr'); // Study (right half)
   } else {
-    if (isSidebarVisible) cols.push('320px');
+    if (isSidebarVisible) cols.push(sidebarColumnWidth);
     if (isChatAreaVisible) cols.push('1fr');
     if (isStudyActive && isChatAreaVisible) cols.push('400px');
   }
@@ -262,7 +274,7 @@ export function ChatLayout() {
       <div className="flex-1 min-h-0 grid" style={{ gridTemplateColumns: gridCols }}>
         {mode === 'vertical_three' ? (
           // Left half: chat list + chat panel
-          <div className="min-h-0 grid grid-cols-[320px_1fr] border-r border-border/20">
+          <div className="min-h-0 grid border-r border-border/20" style={{ gridTemplateColumns: `${sidebarColumnWidth} 1fr` }}>
             <div className="min-h-0 overflow-hidden">
               <ChatSidebar
                 chats={chats}
@@ -273,6 +285,7 @@ export function ChatLayout() {
                 onCreateChat={createChat}
                 onCreateStudy={handleCreateStudyGenesis}
                 onDeleteSession={deleteSession}
+                onModeChange={setSidebarMode}
               />
             </div>
             <div className="min-h-0 flex flex-col">
@@ -303,6 +316,7 @@ export function ChatLayout() {
               onCreateChat={createChat}
               onCreateStudy={handleCreateStudyGenesis}
               onDeleteSession={deleteSession}
+              onModeChange={setSidebarMode}
             />
           )
         )}

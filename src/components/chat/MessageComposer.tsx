@@ -164,7 +164,7 @@ export default function MessageComposer({
 
   return (
     <div className="panel-padding-lg panel-inner">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-2xl mx-auto w-full">
         <div
           className="relative panel-card rounded-2xl shadow-sm"
           onDrop={onDrop}

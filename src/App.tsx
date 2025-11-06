@@ -12,8 +12,10 @@ import { useTextSelectionListener } from './hooks/useTextSelectionListener';
 import { LexiconPanel } from './components/LexiconPanel';
 import { ThemeProvider } from './components/theme-provider';
 import { FontSettingsProvider } from './contexts/FontSettingsContext';
+import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
 import LoginPage from './pages/Login';
 import { RequireAuth } from './components/auth/RequireAuth';
+import FocusNavOverlay from './components/study/nav/FocusNavOverlay';
 
 function AuthenticatedShell() {
   return (
@@ -30,35 +32,50 @@ function App() {
   return (
     <ThemeProvider defaultTheme="light" storageKey="astra-ui-theme">
       <FontSettingsProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route element={<RequireAuth />}>
-              <Route element={<AuthenticatedShell />}>
-                <Route path="/" element={<ChatLayout />} />
-                <Route path="/chat" element={<Navigate to="/" replace />} />
-                <Route path="/chat/:sessionId" element={<ChatLayout />} />
-                <Route path="/study" element={<StudyLanding />} />
-                <Route path="/study/:sessionId" element={<ChatLayout />} />
-                <Route path="/daily/:sessionId" element={<ChatLayout />} />
-                <Route element={<RequireAuth admin />}>
-                  <Route path="/admin" element={<AdminLayout />}>
-                    <Route index element={<Navigate to="/admin/settings" replace />} />
-                    <Route path="settings" element={<GeneralSettings />} />
-                    <Route path="personalities" element={<PersonalityList />} />
-                    <Route path="personalities/new" element={<PersonalityCreate />} />
-                    <Route path="personalities/edit/:id" element={<PersonalityEdit />} />
-                    <Route path="prompts" element={<PromptEditor />} />
-                    <Route path="users" element={<UserManagementPage />} />
+        <NavigationProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route element={<RequireAuth />}>
+                <Route element={<AuthenticatedShell />}>
+                  <Route path="/" element={<ChatLayout />} />
+                  <Route path="/chat" element={<Navigate to="/" replace />} />
+                  <Route path="/chat/:sessionId" element={<ChatLayout />} />
+                  <Route path="/study" element={<StudyLanding />} />
+                  <Route path="/study/:sessionId" element={<ChatLayout />} />
+                  <Route path="/daily/:sessionId" element={<ChatLayout />} />
+                  <Route element={<RequireAuth admin />}>
+                    <Route path="/admin" element={<AdminLayout />}>
+                      <Route index element={<Navigate to="/admin/settings" replace />} />
+                      <Route path="settings" element={<GeneralSettings />} />
+                      <Route path="personalities" element={<PersonalityList />} />
+                      <Route path="personalities/new" element={<PersonalityCreate />} />
+                      <Route path="personalities/edit/:id" element={<PersonalityEdit />} />
+                      <Route path="prompts" element={<PromptEditor />} />
+                      <Route path="users" element={<UserManagementPage />} />
+                    </Route>
                   </Route>
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>
-                <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
-            </Route>
-          </Routes>
-        </BrowserRouter>
+            </Routes>
+          </BrowserRouter>
+          <GlobalNavigationModal />
+        </NavigationProvider>
       </FontSettingsProvider>
     </ThemeProvider>
+  );
+}
+
+function GlobalNavigationModal() {
+  const { isNavOpen, closeNav, onSelectRef, currentRef } = useNavigation();
+  return (
+    <FocusNavOverlay
+      open={isNavOpen}
+      onClose={closeNav}
+      onSelectRef={onSelectRef}
+      currentRef={currentRef}
+    />
   );
 }
 

@@ -1,12 +1,9 @@
 import { useState, memo, useMemo, useEffect, useRef } from "react";
-import { BookOpen, Languages, Eraser, Play, Pause } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { containsHebrew } from "../../utils/hebrewUtils";
 import { useTranslation } from "../../hooks/useTranslation";
-import { useTTS } from "../../hooks/useTTS";
-import { useSpeechify } from "../../hooks/useSpeechify";
 import { safeScrollIntoView } from "../../utils/scrollUtils";
 import { useFontSettings } from "../../contexts/FontSettingsContext";
-import { AudioContextMenu } from "./AudioContextMenu";
 import { debugLog, debugWarn } from '../../utils/debugLogger';
 // Note: Tooltip import would be added if using shadcn/ui
 
@@ -173,130 +170,54 @@ const WorkbenchContainer = memo(({
 
 const WorkbenchHeader = memo(({
   item,
-  // active, // Не используется - цветовой акцент через bg-primary/10 в контейнере
   headerVariant,
-  onTranslateClick,
-  isTranslating,
-  translated,
-  onClear,
-  isPlaying,
-  isActive,
-  textToPlay
 }: {
   item: WorkbenchItemLike;
-  // active: boolean; // Не используется
   headerVariant: 'hidden' | 'mini' | 'default';
-  onTranslateClick: () => void;
-  isTranslating: boolean;
-  translated: boolean;
-  onClear?: () => void;
-  isPlaying: boolean;
-  isActive: boolean;
-  textToPlay: string;
 }) => {
-  const [showAudioMenu, setShowAudioMenu] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   if (headerVariant === 'hidden') {
     return null;
   }
 
   const refString = typeof item === 'string' ? item : (item?.ref || '');
-  const displayTitle = typeof item === 'string' ? item : (item?.commentator || item?.indexTitle || item?.title || 'Источник');
-  const { speechify } = useSpeechify();
-  const tts = useTTS({});
-  const handleSpeechify = async () => {
-    try {
-      const hebrew = typeof item === 'string' ? '' : (item?.heTextFull || '');
-      const english = typeof item === 'string' ? '' : (item?.text_full || '');
-      const speechText = await speechify({ hebrewText: hebrew, englishText: english });
-      await tts.play(speechText, { language: 'en' });
-    } catch (e) {
-      console.error('Workbench speechify failed', e);
-    }
-  };
+  const displayTitle =
+    typeof item === 'string'
+      ? item
+      : item?.commentator ||
+        item?.indexTitle ||
+        item?.title ||
+        refString ||
+        '\u0418\u0441\u0442\u043E\u0447\u043D\u0438\u043A';
 
   return (
-    <header className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-border/20">
+    <header className="flex-shrink-0 flex items-center px-2 py-1.5 sm:px-3 sm:py-2 border-b border-border/20">
       <div className="flex items-center gap-2 min-w-0">
-        <div id={`wbp-${refString}-title`} className="min-w-0" title={`${displayTitle} — ${refString}`}>
+        <div
+          id={`wbp-${refString}-title`}
+          className="min-w-0"
+          title={refString ? `${displayTitle} - ${refString}` : displayTitle}
+        >
           {headerVariant === 'mini' ? (
-            // Мини-режим: только ref мелким шрифтом
-            <div className="text-xs font-mono text-muted-foreground truncate max-w-[220px]">
+            <div className="text-xs font-mono text-muted-foreground truncate max-w-[160px] md:max-w-[200px] xl:max-w-[220px]">
               {refString}
             </div>
           ) : (
-            // Дефолтный режим: полная информация с даунскейлом
             <>
-        <div className="text-sm font-medium truncate max-w-[240px]">
-          {displayTitle}
-        </div>
-              <div className="text-xs font-mono text-muted-foreground truncate max-w-[220px]">
-                {typeof item === 'string' ? item : (item?.ref || '')}
+              <div className="text-sm font-medium truncate max-w-[180px] md:max-w-[220px] xl:max-w-[240px]">
+                {displayTitle}
               </div>
+              {refString && (
+                <div className="text-xs font-mono text-muted-foreground truncate max-w-[160px] md:max-w-[200px] xl:max-w-[220px]">
+                  {refString}
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
-      {/* Кнопки как в FocusReader: Translate, Play (speechify), Clear */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={onTranslateClick}
-          disabled={isTranslating}
-          className={`w-8 h-8 grid place-items-center rounded hover:bg-accent/50 disabled:opacity-50 ${translated ? 'bg-accent/40' : ''}`}
-          aria-pressed={translated}
-          aria-busy={isTranslating || undefined}
-          title={translated ? 'Показать оригинал' : 'Перевести'}
-        >
-          {isTranslating ? <span className="w-4 h-4 animate-spin rounded-full border-2 border-b-transparent" /> : <Languages className="w-4 h-4" />}
-        </button>
-
-        {/* Кнопка проигрывания с расширенной функциональностью */}
-        <button
-          onClick={handleSpeechify}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setMenuPosition({ x: e.clientX, y: e.clientY });
-            setShowAudioMenu(true);
-          }}
-          className="w-8 h-8 grid place-items-center rounded border transition-colors"
-          style={{
-            backgroundColor: isActive
-              ? 'rgba(194, 169, 112, 0.15)' 
-              : 'rgba(194, 169, 112, 0.05)',
-            borderColor: isActive
-              ? '#C2A970' 
-              : 'rgba(194, 169, 112, 0.2)',
-            color: isActive
-              ? '#C2A970' 
-              : 'rgba(194, 169, 112, 0.6)'
-          }}
-          title={isActive ? (isPlaying ? 'Пауза' : 'Возобновить') : 'Проигрывать текст (правый клик для опций)'}
-        >
-          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-        </button>
-        
-        {onClear && (
-          <button
-            onClick={onClear}
-            className="w-8 h-8 grid place-items-center rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-            title="Очистить панель"
-          >
-            <Eraser className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-
-      {/* Контекстное меню аудио */}
-      <AudioContextMenu
-        text={textToPlay}
-        isVisible={showAudioMenu}
-        onClose={() => setShowAudioMenu(false)}
-        position={menuPosition}
-      />
     </header>
   );
 });
-
 const WorkbenchContent = memo(({
   item,
   // size, // Не используется - размеры теперь через CSS переменные
@@ -573,48 +494,14 @@ const WorkbenchPanelInline = memo(({
   }, [isTranslating, translatedText, error, showTranslation]);
 
   // Функция для переключения между переводом и оригиналом
-  const handleTranslateClick = async () => {
-    if (showTranslation) {
-      // Если показывается перевод, переключаемся на оригинал
-      setShowTranslation(false);
-    } else {
-      // Если показывается оригинал, получаем перевод и переключаемся на него
-      if (!translatedText) {
-        debugLog('[WorkbenchPanelInline] Starting translation for item:', typeof item === 'string' ? item : item?.ref);
-        try {
-          await translate();
-          debugLog('[WorkbenchPanelInline] Translation completed, result:', translatedText);
-        } catch (err) {
-          console.error('[WorkbenchPanelInline] Translation failed:', err);
-        }
-      }
-      setShowTranslation(true);
-    }
-  };
-
-  // TTS функциональность
-  const { isPlaying, isPaused, currentText } = useTTS({
-    language: 'he', // Hebrew by default
-    speed: 1.0
-  });
-
   // Получаем текст для озвучки
-  const textToPlay = typeof item === 'string' ? '' : (item?.heTextFull || item?.text_full || item?.preview || item?.hePreview || '');
-  const isCurrentText = currentText === textToPlay;
-  const isActive = isCurrentText && (isPlaying || isPaused);
 
 
-  // Размеры для разных режимов - ограничиваем высоту чтобы не превышать FocusReader
+  // Вертикальная отзывчивость: убираем жесткие max-height, даем панели занимать всю доступную высоту
   const sizeConfig = {
-    compact: {
-      minHeight: 'h-full max-h-[400px]', // фиксированная высота с ограничением
-    },
-    normal: {
-      minHeight: 'h-full max-h-[500px]',
-    },
-    expanded: {
-      minHeight: 'h-full max-h-[600px]',
-    }
+    compact: { minHeight: 'h-full min-h-0' },
+    normal: { minHeight: 'h-full min-h-0' },
+    expanded: { minHeight: 'h-full min-h-0' },
   }[size];
 
 
@@ -665,17 +552,7 @@ const WorkbenchPanelInline = memo(({
         className=""
         item={item}
       >
-      <WorkbenchHeader
-        item={item}
-        headerVariant={headerVariant}
-        onTranslateClick={handleTranslateClick}
-        isTranslating={isTranslating}
-        translated={showTranslation}
-        onClear={onClear}
-        isPlaying={isPlaying}
-        isActive={isActive}
-        textToPlay={textToPlay}
-      />
+      <WorkbenchHeader item={item} headerVariant={headerVariant} />
 
       <WorkbenchContent
         item={item}

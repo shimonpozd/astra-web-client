@@ -70,7 +70,7 @@ const StarfieldBackground: React.FC<StarfieldProps> = ({
   twinkleFreq = { near: 2.0, mid: 4.0, far: 7.0 },
   maxRadius = { near: 1.8, mid: 1.3, far: 1.0 },
   colors,
-  mouseParallax = true,
+  mouseParallax = false,
   showConnections = true,
   connectionDistance = 150,
   showNebulae = true,
@@ -205,12 +205,13 @@ const StarfieldBackground: React.FC<StarfieldProps> = ({
     function drawLayer(stars: Star[], t: number, driftPxPerSec: number, twinkleT: number, parallaxScale: number) {
       if (!canvas) return;
       const w = canvas.width, h = canvas.height;
-      const mx = (mouseRef.current.x - 0.5) * parallaxScale * w * 0.02;
-      const my = (mouseRef.current.y - 0.5) * parallaxScale * h * 0.02;
+      const appliedParallax = mouseParallax ? parallaxScale : 0;
+      const mx = (mouseRef.current.x - 0.5) * appliedParallax * w * 0.02;
+      const my = (mouseRef.current.y - 0.5) * appliedParallax * h * 0.02;
 
       const phase = (driftPxPerSec * t) % w;
 
-      if (showConnections && parallaxScale > 0.5) {
+      if (showConnections && appliedParallax > 0.5) {
         const dpr = dpiRef.current;
         const maxDist = connectionDistance * dpr;
 
@@ -315,10 +316,10 @@ const StarfieldBackground: React.FC<StarfieldProps> = ({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [drift.far, drift.mid, drift.near, twinkleAmplitude, twinkleFreq.far, twinkleFreq.mid, twinkleFreq.near, showConnections, connectionDistance]);
+  }, [drift.far, drift.mid, drift.near, twinkleAmplitude, twinkleFreq.far, twinkleFreq.mid, twinkleFreq.near, showConnections, connectionDistance, mouseParallax]);
 
   return (
-    <div ref={containerRef} className={`absolute inset-0 pointer-events-none ${className}`}>
+    <div ref={containerRef} className={`fixed inset-0 pointer-events-none ${className}`}>
       {backdrop}
       <canvas ref={canvasRef} className="absolute inset-0" />
     </div>

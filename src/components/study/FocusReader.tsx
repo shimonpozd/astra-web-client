@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Compass, Languages, Loader2, Play, Pause, Settings, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Compass, Move, Settings } from 'lucide-react';
 
 import { FocusReaderProps, TextSegment } from '../../types/text';
 import { normalizeRefForAPI, parseRefSmart } from '../../utils/refUtils';
@@ -72,14 +72,19 @@ const FocusReader = memo(({
   onLexiconDoubleClick,
   onBack,
   onForward,
-  onExit,
   currentRef,
   canBack = false,
   canForward = false,
+  onToggleLeftPanel,
+  onToggleRightPanel,
+  showLeftPanel,
+  showRightPanel,
 }: FocusReaderProps) => {
   const focusRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const navOriginRef = useRef<'user' | 'data'>('data');
+  const scrollLockRef = useRef(false);
+  const scrollLockTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [showSettings, setShowSettings] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
@@ -147,13 +152,173 @@ const FocusReader = memo(({
   const isActiveTTS = activeTTSRef === activeSegmentRef && (ttsIsPlaying || isPaused);
   const isPlaybackLoading = isSpeechifying || ttsIsLoading;
   const isCurrentSegmentPlaying = isActiveTTS && ttsIsPlaying;
+  const leftPanelIsVisible = showLeftPanel !== false;
+  const rightPanelIsVisible = showRightPanel !== false;
+  const [navControlsExpanded, setNavControlsExpanded] = useState(false);
+
+  const navButtonClass =
+    'flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/80 text-foreground/80 backdrop-blur-sm shadow-sm transition-colors hover:bg-accent/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50';
+
+  const getChapterIdentifier = useCallback((segment?: TextSegment | null) => {
+    if (!segment) return null;
+    const metadata = segment.metadata;
+    if (metadata?.chapter != null) {
+      return `chapter:${metadata.chapter}`;
+    }
+    if (metadata?.page) {
+      return `page:${metadata.page}`;
+    }
+    if (metadata?.title) {
+      return `title:${metadata.title}`;
+    }
+    if (metadata?.indexTitle) {
+      return `index:${metadata.indexTitle}`;
+    }
+    if (segment.ref) {
+      const [base] = segment.ref.split(':');
+      return `ref:${base}`;
+    }
+    return null;
+  }, []);
+
+  const handleChapterNavigation = useCallback(
+    (direction: 'prev' | 'next') => {
+      if (!continuousText?.segments?.length || !onNavigateToRef) {
+        return;
+      }
+
+      const segments = continuousText.segments;
+      const focusIndex =
+        typeof continuousText.focusIndex === 'number'
+          ? Math.min(Math.max(continuousText.focusIndex, 0), segments.length - 1)
+          : Math.max(
+              segments.findIndex((segment) => segment.ref === activeSegment?.ref),
+              0
+            );
+
+      const currentSegment = segments[focusIndex] ?? activeSegment ?? null;
+      const currentIdentifier = getChapterIdentifier(currentSegment);
+      if (!currentIdentifier) {
+        return;
+      }
+
+      if (direction === 'prev') {
+        for (let idx = focusIndex - 1; idx >= 0; idx -= 1) {
+          const candidate = segments[idx];
+          const candidateIdentifier = getChapterIdentifier(candidate);
+          if (candidateIdentifier && candidateIdentifier !== currentIdentifier) {
+            onNavigateToRef(candidate.ref, candidate);
+            return;
+          }
+        }
+      } else {
+        for (let idx = focusIndex + 1; idx < segments.length; idx += 1) {
+          const candidate = segments[idx];
+          const candidateIdentifier = getChapterIdentifier(candidate);
+          if (candidateIdentifier && candidateIdentifier !== currentIdentifier) {
+            onNavigateToRef(candidate.ref, candidate);
+            return;
+          }
+        }
+      }
+    },
+    [continuousText, onNavigateToRef, activeSegment, getChapterIdentifier]
+  );
+
+  const handleNavigateBack = useCallback(() => {
+    if (!onBack || isLoading || !canBack) {
+      return;
+    }
+    navOriginRef.current = 'user';
+    onBack();
+  }, [onBack, isLoading, canBack]);
+
+  const handleNavigateForward = useCallback(() => {
+    if (!onForward || isLoading || !canForward) {
+      return;
+    }
+    navOriginRef.current = 'user';
+    onForward();
+  }, [onForward, isLoading, canForward]);
+
+  const handleNavigatePrevChapter = useCallback(() => {
+    navOriginRef.current = 'user';
+    handleChapterNavigation('prev');
+  }, [handleChapterNavigation]);
+
+  const handleNavigateNextChapter = useCallback(() => {
+    navOriginRef.current = 'user';
+    handleChapterNavigation('next');
+  }, [handleChapterNavigation]);
+
+  const canNavigateToPreviousChapter = useMemo(() => {
+    if (!continuousText?.segments?.length) {
+      return false;
+    }
+    const segments = continuousText.segments;
+    const focusIndex =
+      typeof continuousText.focusIndex === 'number'
+        ? Math.min(Math.max(continuousText.focusIndex, 0), segments.length - 1)
+        : Math.max(
+            segments.findIndex((segment) => segment.ref === activeSegment?.ref),
+            0
+          );
+    const currentSegment = segments[focusIndex] ?? activeSegment ?? null;
+    const currentIdentifier = getChapterIdentifier(currentSegment);
+    if (!currentIdentifier) {
+      return false;
+    }
+    for (let idx = focusIndex - 1; idx >= 0; idx -= 1) {
+      const candidateIdentifier = getChapterIdentifier(segments[idx]);
+      if (candidateIdentifier && candidateIdentifier !== currentIdentifier) {
+        return true;
+      }
+    }
+    return false;
+  }, [continuousText, activeSegment, getChapterIdentifier]);
+
+  const canNavigateToNextChapter = useMemo(() => {
+    if (!continuousText?.segments?.length) {
+      return false;
+    }
+    const segments = continuousText.segments;
+    const focusIndex =
+      typeof continuousText.focusIndex === 'number'
+        ? Math.min(Math.max(continuousText.focusIndex, 0), segments.length - 1)
+        : Math.max(
+            segments.findIndex((segment) => segment.ref === activeSegment?.ref),
+            0
+          );
+    const currentSegment = segments[focusIndex] ?? activeSegment ?? null;
+    const currentIdentifier = getChapterIdentifier(currentSegment);
+    if (!currentIdentifier) {
+      return false;
+    }
+    for (let idx = focusIndex + 1; idx < segments.length; idx += 1) {
+      const candidateIdentifier = getChapterIdentifier(segments[idx]);
+      if (candidateIdentifier && candidateIdentifier !== currentIdentifier) {
+        return true;
+      }
+    }
+    return false;
+  }, [continuousText, activeSegment, getChapterIdentifier]);
+
+  const setScrollLock = useCallback(() => {
+    scrollLockRef.current = true;
+    if (scrollLockTimeoutRef.current) {
+      clearTimeout(scrollLockTimeoutRef.current);
+    }
+    scrollLockTimeoutRef.current = setTimeout(() => {
+      scrollLockRef.current = false;
+    }, 1500);
+  }, []);
 
   useEffect(() => {
-    if (focusRef.current) {
-      focusRef.current.scrollIntoView({
+    if (focusRef.current && !scrollLockRef.current) {
+    focusRef.current.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
-      });
+    });
     }
   }, [continuousText?.focusIndex]);
 
@@ -172,6 +337,9 @@ const FocusReader = memo(({
 
   useEffect(() => {
     return () => {
+      if (scrollLockTimeoutRef.current) {
+        clearTimeout(scrollLockTimeoutRef.current);
+      }
       stop().catch(() => {});
       setActiveTTSRef(null);
     };
@@ -348,103 +516,59 @@ const FocusReader = memo(({
   return (
     <div className="relative h-full flex flex-col bg-background">
       <div className="flex-shrink-0 border-b panel-outer">
-        <div className="flex items-center gap-3 p-3">
-            <div className="flex items-center gap-1">
-              <button
-              onClick={onBack}
-              disabled={isLoading || !canBack}
-                className="flex items-center justify-center w-6 h-6 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
-              title="Предыдущий сегмент"
-              >
-                <ChevronUp className="w-3 h-3" />
-              </button>
-              <button
-              onClick={onForward}
-              disabled={isLoading || !canForward}
-                className="flex items-center justify-center w-6 h-6 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
-              title="Следующий сегмент"
-              >
-                <ChevronDown className="w-3 h-3" />
-              </button>
-            </div>
+        <div className="flex items-center justify-between gap-3 p-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggleLeftPanel}
+              disabled={!onToggleLeftPanel}
+              className="h-8 w-8 grid place-items-center rounded-md border border-border/60 bg-background/90 text-foreground/80 hover:bg-accent/10 hover:text-foreground transition-colors disabled:opacity-50"
+              title={leftPanelIsVisible ? "Hide left workbench" : "Show left workbench"}
+              aria-label={leftPanelIsVisible ? "Hide left workbench" : "Show left workbench"}
+            >
+              {leftPanelIsVisible ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => setIsNavOpen(true)}
+              className="h-8 w-8 grid place-items-center rounded-md border border-border/60 bg-background/90 text-foreground/80 hover:bg-accent/10 hover:text-foreground transition-colors"
+              title="Open navigator"
+              aria-label="Open navigator"
+            >
+              <Compass className="w-4 h-4" />
+            </button>
+          </div>
           
-          <button
-            type="button"
-            onClick={() => setIsNavOpen(true)}
-            className="fr-chip"
-            title="Открыть навигацию"
-          >
-            <Compass className="w-3 h-3" />
-            <span>Навигация</span>
-          </button>
-
-          <div className="flex-1">
-            <div className="fr-badge w-full justify-start gap-1">
-              <span className="font-mono">
+          <div className="flex-1 px-1">
+            <div className="fr-badge w-full justify-center gap-1">
+              <span className="font-mono truncate">
                 {formatDisplayRef(currentRef || activeSegment?.ref)}
               </span>
             </div>
           </div>
-
-               <div className="flex items-center gap-1">
+          
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                if (showTranslation) {
-                  setShowTranslation(false);
-                  clear();
-                } else {
-                  setShowTranslation(true);
-                  translate().catch(() => {});
-                }
-              }}
-              className={`fr-chip ${showTranslation ? 'is-active' : ''}`}
-              title={showTranslation ? 'Скрыть перевод' : 'Показать перевод'}
-            >
-              <Languages className="w-3 h-3" />
-              <span>Перевод</span>
-            </button>
-
-            <button
-              onClick={handlePlayClick}
-              disabled={
-                isLoading ||
-                isPlaybackLoading ||
-                (!hasHebrew && !hasEnglish)
-              }
-              className={`fr-chip ${isActiveTTS ? 'is-active' : ''} ${isPlaybackLoading ? 'opacity-50 cursor-wait' : ''}`}
-              title={isActiveTTS ? 'Остановить озвучку' : 'Озвучить текущий отрывок'}
-            >
-              {isPlaybackLoading ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : isActiveTTS ? (
-                isCurrentSegmentPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />
-              ) : (
-                <Play className="w-3 h-3" />
-              )}
-              <span>Озвучка</span>
-            </button>
-
-                 <button
               onClick={() => setShowSettings((prev) => !prev)}
-                   className={`fr-chip ${showSettings ? 'is-active' : ''}`}
-              title="Настройки отображения"
-                 >
-                   <Settings className="w-3 h-3" />
-                   <span>Настройки</span>
-                 </button>
-
-            {onExit && (
-              <button
-                onClick={onExit}
-                disabled={isLoading}
-                className="fr-chip disabled:opacity-50"
-                title="Закрыть"
-              >
-                <X className="w-3 h-3" />
-                <span>Закрыть</span>
-              </button>
-            )}
-               </div>
+              className={`h-8 w-8 grid place-items-center rounded-md border border-border/60 transition-colors hover:bg-accent/10 hover:text-foreground ${showSettings ? 'bg-accent/10 text-foreground' : 'bg-background/90 text-foreground/80'}`}
+              title="Reader settings"
+              aria-label="Reader settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+            
+            <button
+              type="button"
+              onClick={onToggleRightPanel}
+              disabled={!onToggleRightPanel}
+              className="h-8 w-8 grid place-items-center rounded-md border border-border/60 bg-background/90 text-foreground/80 hover:bg-accent/10 hover:text-foreground transition-colors disabled:opacity-50"
+              title={rightPanelIsVisible ? "Hide right workbench" : "Show right workbench"}
+              aria-label={rightPanelIsVisible ? "Hide right workbench" : "Show right workbench"}
+            >
+              {rightPanelIsVisible ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -473,6 +597,74 @@ const FocusReader = memo(({
             ttsIsPlaying={isCurrentSegmentPlaying}
           handlePlayClick={handlePlayClick}
         />
+        <div className="pointer-events-none absolute bottom-4 right-4 md:bottom-6 md:right-6">
+          <div className="pointer-events-auto relative">
+            <div
+              className={`absolute left-1/2 top-1/2 grid grid-cols-3 grid-rows-3 gap-1 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${
+                navControlsExpanded ? 'pointer-events-auto opacity-100 scale-100' : 'pointer-events-none opacity-0 scale-90'
+              }`}
+            >
+              <div />
+              <button
+                type="button"
+                onClick={handleNavigateBack}
+                className={navButtonClass}
+                disabled={!onBack || isLoading || !canBack}
+                aria-label="Previous segment"
+                title="Previous segment"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </button>
+              <div />
+
+              <button
+                type="button"
+                onClick={handleNavigatePrevChapter}
+                className={navButtonClass}
+                disabled={!canNavigateToPreviousChapter}
+                aria-label="Previous chapter"
+                title="Previous chapter"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="h-9 w-9" />
+              <button
+                type="button"
+                onClick={handleNavigateNextChapter}
+                className={navButtonClass}
+                disabled={!canNavigateToNextChapter}
+                aria-label="Next chapter"
+                title="Next chapter"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+
+              <div />
+              <button
+                type="button"
+                onClick={handleNavigateForward}
+                className={navButtonClass}
+                disabled={!onForward || isLoading || !canForward}
+                aria-label="Next segment"
+                title="Next segment"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              <div />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setNavControlsExpanded((prev) => !prev)}
+              className={`${navButtonClass} relative z-10`}
+              aria-pressed={navControlsExpanded}
+              aria-label={navControlsExpanded ? 'Скрыть навигацию' : 'Показать навигацию'}
+              title={navControlsExpanded ? 'Скрыть навигацию' : 'Показать навигацию'}
+            >
+              <Move className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
           </div>
         
         {showSettings && (
@@ -569,3 +761,4 @@ const FocusReader = memo(({
 FocusReader.displayName = 'FocusReader';
 
 export default FocusReader;
+

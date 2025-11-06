@@ -96,6 +96,38 @@ export default function StudyMode({
   // Get current study mode
   const studyMode = selectedPanelId ? 'iyun' : 'girsa';
 
+  // Visibility states for side workbench panels
+  const [leftPanelVisibility, setLeftPanelVisibility] = useState(true);
+  const [rightPanelVisibility, setRightPanelVisibility] = useState(true);
+
+  const toggleLeftPanel = useCallback(() => {
+    setLeftPanelVisibility((visible) => {
+      const next = !visible;
+      if (!next) {
+        onWorkbenchClear?.('left');
+      }
+      return next;
+    });
+  }, [onWorkbenchClear]);
+
+  const toggleRightPanel = useCallback(() => {
+    setRightPanelVisibility((visible) => {
+      const next = !visible;
+      if (!next) {
+        onWorkbenchClear?.('right');
+      }
+      return next;
+    });
+  }, [onWorkbenchClear]);
+
+  const gridTemplate = leftPanelVisibility && rightPanelVisibility
+    ? 'grid grid-cols-[300px_1fr_300px]'
+    : leftPanelVisibility && !rightPanelVisibility
+    ? 'grid grid-cols-[300px_1fr]'
+    : !leftPanelVisibility && rightPanelVisibility
+    ? 'grid grid-cols-[1fr_300px]'
+    : 'grid grid-cols-1';
+
   // New lexicon double-click handler using global store
   const handleLexiconDoubleClick = async (segment?: TextSegment) => {
     const selected = (window.getSelection()?.toString() || '').trim();
@@ -176,171 +208,177 @@ export default function StudyMode({
 
   return (
     <div className="flex flex-col h-full panel-inner">
-      <div className="h-[calc(260vh-360px+160px)] min-h-0 flex flex-col">
-        {/* Upper fixed height - Workbench and Focus (+160px) */}
-        <div className="flex-1 min-h-0 panel-padding">
-          <div className="h-full grid grid-cols-[300px_1fr_300px] gap-spacious min-h-0">
-            {/* Left Workbench */}
-            <div className="min-h-0 max-h-full overflow-hidden">
-              <WorkbenchPanelInline
-                title="Левая панель"
-                item={snapshot?.workbench?.left || null}
-                active={snapshot?.discussion_focus_ref === snapshot?.workbench?.left?.ref}
-                selected={selectedPanelId === 'left_workbench'}
-                onDropRef={(ref: string, dragData) => {
-                  debugLog('StudyMode: Dropped on left workbench:', ref, dragData);
-                  if (dragData?.type === 'group') {
-                    debugLog('Group data:', dragData.data);
-                    // TODO: Здесь можно добавить специальную обработку для групп
-                    // Например, добавить все части группы в workbench или показать специальный UI
-                  }
-                  onWorkbenchDrop ? onWorkbenchDrop('left', ref, dragData) : onWorkbenchSet('left', ref, dragData);
-                }}
-                onPanelClick={() => {
-                  handlePanelClick('left_workbench');
-                }}
-                onBorderClick={() => {
-                  onWorkbenchFocus('left');
-                }}
-                onClear={snapshot?.workbench?.left ? () => onWorkbenchClear?.('left') : undefined}
-              />
-            </div>
-
-            {/* Focus Reader */}
-            <div
-              className={`bg-card/60 rounded-lg overflow-hidden transition-all min-h-0 ${
-                selectedPanelId === 'focus' ? 'focus-reader-selected' : 
-                snapshot?.discussion_focus_ref === snapshot?.ref ? 'focus-reader-active' : 'border border-border/60'
-              }`}
-              onClick={(e) => {
-                // Выделение панели - при любом клике (нужно для общения с LLM)
-                handlePanelClick('focus');
-                // Фокус чата - только при клике по границе (не по контенту)
-                if (e.target === e.currentTarget) {
-                  onFocusClick && onFocusClick();
-                }
-              }}
-            >
-              <FocusReader
-                continuousText={continuousText}
-                isLoading={isLoading}
-                onSegmentClick={(segment) => {
-                  if (segment) {
-                    onNavigateToRef?.(segment.ref, segment);
-                  } else if (snapshot?.ref) {
-                    onNavigateToRef?.(snapshot.ref);
+      <div className="flex flex-1 min-h-0 flex-col">
+        <div className="flex flex-1 min-h-0 flex-col">
+          <div className="min-h-0 flex-[1_1_50%] basis-1/2 panel-padding">
+            <div className={`h-full ${gridTemplate} gap-spacious min-h-0`}>
+              {/* Left Workbench */}
+              {leftPanelVisibility && (
+                <div className="min-h-0 max-h-full overflow-hidden">
+                  <WorkbenchPanelInline
+                    title="Левая панель"
+                    item={snapshot?.workbench?.left || null}
+                    active={snapshot?.discussion_focus_ref === snapshot?.workbench?.left?.ref}
+                    selected={selectedPanelId === 'left_workbench'}
+                    onDropRef={(ref: string, dragData) => {
+                      debugLog('StudyMode: Dropped on left workbench:', ref, dragData);
+                      if (dragData?.type === 'group') {
+                        debugLog('Group data:', dragData.data);
+                        // TODO: специальная обработка для групп
+                      }
+                      onWorkbenchDrop ? onWorkbenchDrop('left', ref, dragData) : onWorkbenchSet('left', ref, dragData);
+                    }}
+                    onPanelClick={() => {
+                      handlePanelClick('left_workbench');
+                    }}
+                    onBorderClick={() => {
+                      onWorkbenchFocus('left');
+                    }}
+                    onClear={snapshot?.workbench?.left ? () => onWorkbenchClear?.('left') : undefined}
+                  />
+                </div>
+              )}
+  
+              {/* Focus Reader */}
+              <div
+                className={`bg-card/60 rounded-lg overflow-hidden transition-all min-h-0 ${
+                  selectedPanelId === 'focus' ? 'focus-reader-selected' : 
+                  snapshot?.discussion_focus_ref === snapshot?.ref ? 'focus-reader-active' : 'border border-border/60'
+                }`}
+                onClick={(e) => {
+                  // Выделение панели - при любом клике (нужно для общения с LLM)
+                  handlePanelClick('focus');
+                  // Фокус чата - только при клике по границе (не по контенту)
+                  if (e.target === e.currentTarget) {
+                    onFocusClick && onFocusClick();
                   }
                 }}
-                onNavigateToRef={onNavigateToRef}
-                onLexiconDoubleClick={handleLexiconDoubleClick}
-                isDailyMode={studySessionId?.startsWith('daily-') || false}
-                isBackgroundLoading={isBackgroundLoading}
-                // Navigation props
-                onBack={onNavigateBack}
-                onForward={onNavigateForward}
-                onExit={onExit}
-                currentRef={snapshot?.ref}
-                canBack={canNavigateBack}
-                canForward={canNavigateForward}
-              />
-            </div>
-
-            {/* Right Workbench */}
-            <div className="min-h-0">
-              <WorkbenchPanelInline
-                title="Правая панель"
-                item={snapshot?.workbench?.right || null}
-                active={snapshot?.discussion_focus_ref === snapshot?.workbench?.right?.ref}
-                selected={selectedPanelId === 'right_workbench'}
-                onDropRef={(ref: string, dragData) => {
-                  debugLog('StudyMode: Dropped on right workbench:', ref, dragData);
-                  if (dragData?.type === 'group') {
-                    debugLog('Group data:', dragData.data);
-                    // TODO: Здесь можно добавить специальную обработку для групп
-                    // Например, добавить все части группы в workbench или показать специальный UI
-                  }
-                  onWorkbenchDrop ? onWorkbenchDrop('right', ref, dragData) : onWorkbenchSet('right', ref, dragData);
-                }}
-                onPanelClick={() => {
-                  handlePanelClick('right_workbench');
-                }}
-                onBorderClick={() => {
-                  onWorkbenchFocus('right');
-                }}
-                onClear={snapshot?.workbench?.right ? () => onWorkbenchClear?.('right') : undefined}
-              />
+              >
+                <FocusReader
+                  continuousText={continuousText}
+                  isLoading={isLoading}
+                  onSegmentClick={(segment) => {
+                    if (segment) {
+                      onNavigateToRef?.(segment.ref, segment);
+                    } else if (snapshot?.ref) {
+                      onNavigateToRef?.(snapshot.ref);
+                    }
+                  }}
+                  onNavigateToRef={onNavigateToRef}
+                  onLexiconDoubleClick={handleLexiconDoubleClick}
+                  isDailyMode={studySessionId?.startsWith('daily-') || false}
+                  isBackgroundLoading={isBackgroundLoading}
+                  // Navigation props
+                  onBack={onNavigateBack}
+                  onForward={onNavigateForward}
+                  onExit={onExit}
+                  currentRef={snapshot?.ref}
+                  canBack={canNavigateBack}
+                  canForward={canNavigateForward}
+                  onToggleLeftPanel={toggleLeftPanel}
+                  onToggleRightPanel={toggleRightPanel}
+                  showLeftPanel={leftPanelVisibility}
+                  showRightPanel={rightPanelVisibility}
+                />
+              </div>
+  
+              {/* Right Workbench */}
+              {rightPanelVisibility && (
+                <div className="min-h-0">
+                  <WorkbenchPanelInline
+                    title="Правая панель"
+                    item={snapshot?.workbench?.right || null}
+                    active={snapshot?.discussion_focus_ref === snapshot?.workbench?.right?.ref}
+                    selected={selectedPanelId === 'right_workbench'}
+                    onDropRef={(ref: string, dragData) => {
+                      debugLog('StudyMode: Dropped on right workbench:', ref, dragData);
+                      if (dragData?.type === 'group') {
+                        debugLog('Group data:', dragData.data);
+                        // TODO: специальная обработка для групп
+                      }
+                      onWorkbenchDrop ? onWorkbenchDrop('right', ref, dragData) : onWorkbenchSet('right', ref, dragData);
+                    }}
+                    onPanelClick={() => {
+                      handlePanelClick('right_workbench');
+                    }}
+                    onBorderClick={() => {
+                      onWorkbenchFocus('right');
+                    }}
+                    onClear={snapshot?.workbench?.right ? () => onWorkbenchClear?.('right') : undefined}
+                  />
+                </div>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Lower fixed height - Chat */}
-        <div className="h-[700px] min-h-0 flex flex-col border-t border-border/20">
-          <div className="flex-1 min-h-0 overflow-y-auto panel-padding-sm">
-            <ChatViewport messages={messages.map(m => ({ ...m, id: String(m.id) }))} isLoading={isLoadingMessages} />
-          </div>
-          <div className="flex-shrink-0 panel-padding">
-            <MessageComposer
-              onSendMessage={async (message) => {
-                if (!studySessionId) return;
-                setIsSending(true);
-                const assistantMessageId = crypto.randomUUID();
-                const assistantMessage: any = {
-                  id: assistantMessageId,
-                  role: 'assistant',
-                  content: '',
-                  content_type: 'text.v1',
-                  timestamp: Date.now(),
-                };
-                setMessages((prev) => [
-                  ...prev,
-                  { id: crypto.randomUUID(), role: 'user', content: message, content_type: 'text.v1', timestamp: Date.now() },
-                  assistantMessage
-                ]);
-
-                await api.sendStudyMessage(studySessionId, message, {
-                  onChunk: (chunk) => {
-                    setMessages((prev) =>
-                      prev.map((msg) =>
-                        msg.id === assistantMessageId
-                          ? {
-                              ...msg,
-                              content: `${typeof msg.content === 'string' ? msg.content : ''}${chunk}`,
-                              content_type: 'text.v1'
-                            }
-                          : msg
-                      )
-                    );
-                  },
-                  onDoc: (doc) => {
-                    setMessages((prev) =>
-                      prev.map((msg) =>
-                        msg.id === assistantMessageId
-                          ? { ...msg, content: doc, content_type: 'doc.v1' }
-                          : msg
-                      )
-                    );
-                  },
-                  onComplete: () => {
-                    setIsSending(false);
-                    refreshStudySnapshot();
-                  },
-                  onError: (error) => {
-                    setMessages((prev) =>
-                      prev.map((msg) =>
-                        msg.id === assistantMessageId
-                          ? { ...msg, content: `Error: ${error.message}`, content_type: 'text.v1' }
-                          : msg
-                      )
-                    );
-                    setIsSending(false);
-                  },
-                }, agentId, selectedPanelId);
-              }}
-              disabled={isSending}
-                discussionFocusRef={snapshot?.discussion_focus_ref}
-                studyMode={studyMode}
-                selectedPanelId={selectedPanelId}
-              />
+          <div className="min-h-0 flex-[1_1_50%] basis-1/2 flex flex-col border-t border-border/20">
+            <div className="flex-1 min-h-0 overflow-y-auto panel-padding-sm">
+              <ChatViewport messages={messages.map(m => ({ ...m, id: String(m.id) }))} isLoading={isLoadingMessages} />
+            </div>
+            <div className="flex-shrink-0 panel-padding">
+              <MessageComposer
+                onSendMessage={async (message) => {
+                  if (!studySessionId) return;
+                  setIsSending(true);
+                  const assistantMessageId = crypto.randomUUID();
+                  const assistantMessage: any = {
+                    id: assistantMessageId,
+                    role: 'assistant',
+                    content: '',
+                    content_type: 'text.v1',
+                    timestamp: Date.now(),
+                  };
+                  setMessages((prev) => [
+                    ...prev,
+                    { id: crypto.randomUUID(), role: 'user', content: message, content_type: 'text.v1', timestamp: Date.now() },
+                    assistantMessage
+                  ]);
+  
+                  await api.sendStudyMessage(studySessionId, message, {
+                    onChunk: (chunk) => {
+                      setMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === assistantMessageId
+                            ? {
+                                ...msg,
+                                content: `${typeof msg.content === 'string' ? msg.content : ''}${chunk}`,
+                                content_type: 'text.v1'
+                              }
+                            : msg
+                        )
+                      );
+                    },
+                    onDoc: (doc) => {
+                      setMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === assistantMessageId
+                            ? { ...msg, content: doc, content_type: 'doc.v1' }
+                            : msg
+                        )
+                      );
+                    },
+                    onComplete: () => {
+                      setIsSending(false);
+                      refreshStudySnapshot();
+                    },
+                    onError: (error) => {
+                      setMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === assistantMessageId
+                            ? { ...msg, content: `Error: ${error.message}`, content_type: 'text.v1' }
+                            : msg
+                        )
+                      );
+                      setIsSending(false);
+                    },
+                  }, agentId, selectedPanelId);
+                }}
+                disabled={isSending}
+                  discussionFocusRef={snapshot?.discussion_focus_ref}
+                  studyMode={studyMode}
+                  selectedPanelId={selectedPanelId}
+                />
+            </div>
           </div>
         </div>
       </div>

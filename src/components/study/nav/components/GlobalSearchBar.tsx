@@ -28,7 +28,7 @@ function GlobalSearchBar({ query, onQueryChange, theme }: GlobalSearchBarProps) 
         value={query}
         onChange={handleChange}
         className={clsx(
-          'w-48 bg-transparent text-sm outline-none placeholder:text-xs placeholder:uppercase placeholder:tracking-wide',
+          'w-full bg-transparent text-sm outline-none placeholder:text-xs placeholder:uppercase placeholder:tracking-wide',
           theme === 'dark' ? 'placeholder:text-white/50 text-white' : 'placeholder:text-gray-400 text-gray-900',
         )}
         placeholder="поиск по библиотеке"

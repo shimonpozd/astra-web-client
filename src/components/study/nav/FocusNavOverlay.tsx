@@ -642,7 +642,7 @@ function FocusNavOverlay({
         {open && (
           <motion.div
             ref={overlayRef}
-            className="absolute inset-0 z-50 outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70"
+            className="fixed inset-0 z-50 outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -658,12 +658,12 @@ function FocusNavOverlay({
             />
             <StarfieldBackground />
 
-            <div className="relative mx-auto flex h-full max-w-5xl flex-col px-6 py-8">
+            <div className="relative mx-auto flex h-full max-w-none w-full flex-col px-6 py-8">
               <div className="mb-4 flex justify-end">
                 <OverlayCloseButton onClose={onClose} theme={theme} />
               </div>
               <div className="relative flex-1 min-h-0 overflow-y-auto">
-                <div className="pointer-events-auto relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-4 pb-16">
+                <div className="pointer-events-auto relative z-10 mx-auto flex w-full max-w-none flex-col gap-4 pb-16">
                   <motion.section
                     key="loading"
                     variants={SECTION_VARIANTS}
@@ -671,7 +671,7 @@ function FocusNavOverlay({
                     animate="animate"
                     exit="exit"
                     className={clsx(
-                      'rounded-2xl border p-4 shadow-lg backdrop-blur-lg',
+                      'rounded-2xl border p-4 shadow-lg backdrop-blur-lg w-full',
                       theme === 'dark'
                         ? 'border-white/10 bg-white/10 shadow-black/20'
                         : 'border-gray-200 bg-white/20 shadow-gray-200/20',
@@ -706,7 +706,7 @@ function FocusNavOverlay({
         {open && (
           <motion.div
             ref={overlayRef}
-            className="absolute inset-0 z-50 outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70"
+            className="fixed inset-0 z-50 outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -722,12 +722,12 @@ function FocusNavOverlay({
             />
             <StarfieldBackground />
 
-            <div className="relative mx-auto flex h-full max-w-5xl flex-col px-6 py-8">
+            <div className="relative mx-auto flex h-full max-w-none w-full flex-col px-6 py-8">
               <div className="mb-4 flex justify-end">
                 <OverlayCloseButton onClose={onClose} theme={theme} />
               </div>
               <div className="relative flex-1 min-h-0 overflow-y-auto">
-                <div className="pointer-events-auto relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-4 pb-16">
+                <div className="pointer-events-auto relative z-10 mx-auto flex w-full max-w-none flex-col gap-4 pb-16">
                   <motion.section
                     key="error"
                     variants={SECTION_VARIANTS}
@@ -735,7 +735,7 @@ function FocusNavOverlay({
                     animate="animate"
                     exit="exit"
                     className={clsx(
-                      'rounded-2xl border p-4 shadow-lg backdrop-blur-lg',
+                      'rounded-2xl border p-4 shadow-lg backdrop-blur-lg w-full',
                       theme === 'dark'
                         ? 'border-red-500/40 bg-red-500/10 text-red-200 shadow-black/20'
                         : 'border-red-300 bg-red-50 text-red-700 shadow-red-200/20',
@@ -765,7 +765,7 @@ function FocusNavOverlay({
       {open && (
         <motion.div
           ref={overlayRef}
-          className="absolute inset-0 z-50 outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70"
+          className="fixed inset-0 z-50 outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -781,7 +781,7 @@ function FocusNavOverlay({
           />
           <StarfieldBackground />
 
-          <div className="relative mx-auto flex h-full max-w-6xl flex-col px-6 py-8">
+          <div className="relative mx-auto flex h-full max-w-none w-full flex-col px-6 py-8">
             <div className="mb-4 flex items-center justify-between gap-4">
               <BreadcrumbTrail items={breadcrumbs} theme={theme} variants={ITEM_VARIANTS} />
               <div className="flex items-center gap-3">
@@ -833,6 +833,7 @@ function FocusNavOverlay({
                         loadingSeed={loadingTanakhSeed}
                         theme={theme}
                         variants={SECTION_VARIANTS}
+                        className="w-full"
                       />
                     )}
                   </AnimatePresence>
@@ -846,7 +847,7 @@ function FocusNavOverlay({
                         animate="animate"
                         exit="exit"
                         className={clsx(
-                          'rounded-2xl border p-5 shadow-lg backdrop-blur-xl',
+                          'rounded-2xl border p-5 shadow-lg backdrop-blur-xl w-full',
                           theme === 'dark'
                             ? 'border-white/10 bg-white/10 shadow-black/25'
                             : 'border-gray-200 bg-white/20 shadow-gray-200/25',
@@ -938,7 +939,7 @@ function FocusNavOverlay({
                         animate="animate"
                         exit="exit"
                         className={clsx(
-                          'rounded-2xl border p-4 shadow-lg backdrop-blur-lg',
+                          'rounded-2xl border p-4 shadow-lg backdrop-blur-lg w-full',
                           theme === 'dark'
                             ? 'border-white/10 bg-white/10 shadow-black/20'
                             : 'border-gray-200 bg-white/20 shadow-gray-200/20',
@@ -1026,12 +1027,13 @@ function FocusNavOverlay({
                         onSelectDaf={handleTalmudDafSelect}
                         theme={theme}
                         variants={SECTION_VARIANTS}
+                        className="w-full"
                       />
                     )}
                   </AnimatePresence>
 
                   {rootSection && rootSection !== 'Tanakh' && rootSection !== 'Talmud' && (
-                    <ComingSoonPanel sectionName={rootSection} theme={theme} variants={SECTION_VARIANTS} />
+                    <ComingSoonPanel sectionName={rootSection} theme={theme} variants={SECTION_VARIANTS} className="w-full" />
                   )}
                 </div>
               </div>
