@@ -1,7 +1,8 @@
 import { useState, memo, useMemo, useEffect, useRef, useCallback } from "react";
-import { BookOpen, X } from "lucide-react";
+import { BookOpen, Languages, Play, Pause, X } from "lucide-react";
 import { containsHebrew } from "../../utils/hebrewUtils";
 import { useTranslation } from "../../hooks/useTranslation";
+import { useTTS } from "../../hooks/useTTS";
 import { safeScrollIntoView } from "../../utils/scrollUtils";
 import { useFontSettings } from "../../contexts/FontSettingsContext";
 import { debugLog, debugWarn } from '../../utils/debugLogger';
@@ -171,10 +172,26 @@ const WorkbenchContainer = memo(({
 const WorkbenchHeader = memo(({
   item,
   headerVariant,
+  onToggleTranslate,
+  isTranslating,
+  translationActive,
+  onToggleAudio,
+  isAudioActive,
+  isAudioPlaying,
+  audioDisabled,
+  audioLoading,
   onClear,
 }: {
   item: WorkbenchItemLike;
   headerVariant: 'hidden' | 'mini' | 'default';
+  onToggleTranslate?: () => void;
+  isTranslating: boolean;
+  translationActive: boolean;
+  onToggleAudio?: () => void;
+  isAudioActive: boolean;
+  isAudioPlaying: boolean;
+  audioDisabled: boolean;
+  audioLoading: boolean;
   onClear?: () => void;
 }) => {
   if (headerVariant === 'hidden') {
@@ -217,20 +234,61 @@ const WorkbenchHeader = memo(({
           )}
         </div>
       </div>
-      {onClear ? (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onClear();
-          }}
-          className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          title="Clear panel"
-          aria-label="Clear panel"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      ) : null}
+      <div className="flex items-center gap-1">
+        {onToggleTranslate && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleTranslate();
+            }}
+            className={`fr-btn ${translationActive ? 'is-active' : ''}`}
+            disabled={isTranslating}
+            aria-pressed={translationActive}
+            aria-busy={isTranslating || undefined}
+            title={translationActive ? "Показать оригинал" : "Перевести"}
+          >
+            {isTranslating ? (
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-b-transparent" />
+            ) : (
+              <Languages className="h-4 w-4" />
+            )}
+          </button>
+        )}
+        {onToggleAudio && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleAudio();
+            }}
+            className={`fr-btn ${isAudioActive ? 'is-active' : ''}`}
+            disabled={audioDisabled || audioLoading}
+            aria-pressed={isAudioActive}
+            title={isAudioActive ? (isAudioPlaying ? "Пауза" : "Продолжить озвучку") : "Озвучить текст"}
+          >
+            {isAudioActive && isAudioPlaying ? (
+              <Pause className="h-4 w-4" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+          </button>
+        )}
+        {onClear ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClear();
+            }}
+            className="fr-btn text-muted-foreground hover:text-foreground"
+            title="Очистить панель"
+            aria-label="Очистить панель"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+      </div>
     </header>
   );
 });
@@ -485,17 +543,29 @@ const WorkbenchPanelInline = memo(({
   const rafIdRef = useRef<number | null>(null);
 
   // Состояние для перевода (если есть item)
-  const { translatedText, isTranslating, error, clear } = useTranslation({
+  const { translatedText, isTranslating, error, translate, clear } = useTranslation({
     tref: typeof item === 'string' ? item : item?.ref || '',
   });
+
+  const {
+    isPlaying,
+    isPaused,
+    currentText,
+    isLoading: ttsLoading,
+    play,
+    stop,
+    pause,
+    resume,
+  } = useTTS({ language: 'he', speed: 1.0 });
 
   // Состояние для отслеживания показа перевода
   const [showTranslation, setShowTranslation] = useState(false);
   const handlePanelClear = useCallback(() => {
     clear();
     setShowTranslation(false);
+    stop().catch(() => {});
     onClear?.();
-  }, [clear, onClear, setShowTranslation]);
+  }, [clear, onClear, stop]);
 
   // Сброс состояния перевода при смене элемента
   useEffect(() => {
@@ -513,6 +583,52 @@ const WorkbenchPanelInline = memo(({
       showTranslation
     });
   }, [isTranslating, translatedText, error, showTranslation]);
+
+  const handleTranslateToggle = useCallback(async () => {
+    if (showTranslation) {
+      setShowTranslation(false);
+      return;
+    }
+
+    const resolvedTranslation = translatedText || await translate();
+    if (resolvedTranslation && resolvedTranslation.trim()) {
+      setShowTranslation(true);
+    }
+  }, [showTranslation, translatedText, translate]);
+
+  const audioSourceRaw = typeof item === 'string'
+    ? ''
+    : item?.heTextFull || item?.text_full || item?.preview || item?.hePreview || '';
+  const audioText = audioSourceRaw ? audioSourceRaw.trim() : '';
+  const audioLanguage = containsHebrew(audioText.slice(0, 120)) ? 'he' : 'en';
+  const isCurrentAudio = !!audioText && currentText === audioText;
+  const isAudioActive = !!audioText && isCurrentAudio && (isPlaying || isPaused);
+  const isAudioPlaying = !!audioText && isCurrentAudio && isPlaying;
+
+  useEffect(() => {
+    stop().catch(() => {});
+  }, [typeof item === 'string' ? item : item?.ref, stop]);
+
+  const handleAudioToggle = useCallback(async () => {
+    if (!audioText) return;
+
+    try {
+      if (isCurrentAudio) {
+        if (isPlaying) {
+          await pause();
+        } else if (isPaused) {
+          await resume();
+        } else {
+          await stop();
+        }
+      } else {
+        await stop();
+        await play(audioText, { language: audioLanguage });
+      }
+    } catch (err) {
+      console.error('[WorkbenchPanelInline] Audio toggle failed:', err);
+    }
+  }, [audioText, audioLanguage, isCurrentAudio, isPlaying, isPaused, pause, resume, stop, play]);
 
   // Функция для переключения между переводом и оригиналом
   // Получаем текст для озвучки
@@ -576,6 +692,14 @@ const WorkbenchPanelInline = memo(({
       <WorkbenchHeader
         item={item}
         headerVariant={headerVariant}
+        onToggleTranslate={handleTranslateToggle}
+        isTranslating={isTranslating}
+        translationActive={showTranslation}
+        onToggleAudio={audioText ? handleAudioToggle : undefined}
+        isAudioActive={isAudioActive}
+        isAudioPlaying={isAudioPlaying}
+        audioDisabled={!audioText}
+        audioLoading={ttsLoading}
         onClear={onClear ? handlePanelClear : undefined}
       />
 
