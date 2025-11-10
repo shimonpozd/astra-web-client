@@ -8,7 +8,7 @@ import type { TalmudEdition, TalmudSeder } from '../types';
 import { TALMUD_SEDER_LABELS } from '../constants';
 import TalmudEditionSelector from './TalmudEditionSelector';
 import TractateList from './TractateList';
-import TalmudDafGrid from './TalmudDafGrid';
+import TalmudDafGrid, { type DafSelection } from './TalmudDafGrid';
 
 interface TalmudSectionPanelProps {
   edition: TalmudEdition;
@@ -23,6 +23,7 @@ interface TalmudSectionPanelProps {
   theme: 'dark' | 'light' | 'system';
   variants: Variants;
   className?: string;
+  activeDaf?: DafSelection | null;
 }
 
 
@@ -39,6 +40,7 @@ function TalmudSectionPanel({
   theme,
   variants,
   className,
+  activeDaf,
 }: TalmudSectionPanelProps) {
   const currentSeder = useMemo(() => {
     if (selectedSeder && sedarim[selectedSeder]?.length) {
@@ -163,7 +165,7 @@ function TalmudSectionPanel({
           )}
 
           {activeTractate ? (
-            <TalmudDafGrid tractate={activeTractate} onSelect={onSelectDaf} theme={theme} />
+            <TalmudDafGrid tractate={activeTractate} onSelect={onSelectDaf} theme={theme} value={activeDaf} />
           ) : (
             <div
               className={clsx(

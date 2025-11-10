@@ -36,7 +36,7 @@ function CurrentLocationPanel({
     detail = `Глава ${location.chapter}${location.verse ? `, стих ${location.verse}` : ''}`;
   } else {
     const editionLabel = location.edition === 'Bavli' ? 'Бавли' : 'Иерушалми';
-    heading = location.tractate;
+    heading = location.tractateDisplay ?? location.tractate;
     subtitle = `Талмуд · ${editionLabel}`;
     detail = `Лист ${location.daf}`;
   }

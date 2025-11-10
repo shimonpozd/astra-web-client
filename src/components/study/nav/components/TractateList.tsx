@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 
 import type { CatalogWork } from '../../../../lib/sefariaCatalog';
 import { ITEM_VARIANTS } from '../variants';
+import { getWorkDisplayTitle } from '../utils/catalogWork';
 
 interface TractateListProps {
   tractates: CatalogWork[];
@@ -31,6 +32,9 @@ function TractateList({ tractates, activeTitle, onSelect, theme }: TractateListP
     <div className="flex flex-col gap-2">
       {tractates.map((tractate, index) => {
         const hebrewTitle = tractate.primaryTitles?.he;
+        const displayTitle = getWorkDisplayTitle(tractate);
+        const englishTitle = tractate.title?.trim() ?? '';
+        const showEnglishTitle = Boolean(englishTitle) && englishTitle !== displayTitle;
 
         return (
           <motion.button
@@ -54,7 +58,19 @@ function TractateList({ tractates, activeTitle, onSelect, theme }: TractateListP
                 : null,
             )}
           >
-            <span className="truncate">{tractate.title}</span>
+            <div className="min-w-0 flex-1">
+              <span className="block truncate">{displayTitle}</span>
+              {showEnglishTitle && (
+                <span
+                  className={clsx(
+                    'mt-1 block truncate text-xs font-normal',
+                    theme === 'dark' ? 'text-white/60' : 'text-gray-500',
+                  )}
+                >
+                  {englishTitle}
+                </span>
+              )}
+            </div>
             {hebrewTitle && (
               <span
                 className={clsx(

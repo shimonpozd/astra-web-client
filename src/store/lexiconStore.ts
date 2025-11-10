@@ -40,16 +40,19 @@ export const useLexiconStore = create<LexiconState>((set, get) => ({
     set({ isLoading: true, explanation: '', error: null, isPanelOpen: true });
 
     try {
-      const chunks: string[] = [];
+      let currentText = '';
 
       await api.explainTerm(term, context || '', {
         onChunk: (chunk: string) => {
-          chunks.push(chunk);
+          if (!chunk) {
+            return;
+          }
+          currentText += chunk;
+          set({ explanation: currentText });
         },
         onComplete: () => {
-          const fullExplanation = chunks.join('');
-          debugLog('[LexiconStore] Fetch complete, explanation:', fullExplanation);
-          set({ explanation: fullExplanation, isLoading: false });
+          debugLog('[LexiconStore] Fetch complete, explanation:', currentText);
+          set({ explanation: currentText, isLoading: false });
         },
         onError: (error: Error) => {
           console.error('[LexiconStore] Failed to fetch explanation:', error);

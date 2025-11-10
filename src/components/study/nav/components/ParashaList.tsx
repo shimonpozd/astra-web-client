@@ -46,7 +46,12 @@ function ParashaList({
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h4 className="text-sm font-semibold uppercase tracking-wide">{parasha.sharedTitle}</h4>
+              <h4 className="text-sm font-semibold uppercase tracking-wide">
+                {parasha.russianTitle || parasha.sharedTitle}
+              </h4>
+              {parasha.russianTitle && parasha.russianTitle !== parasha.sharedTitle && (
+                <p className="text-xs opacity-60 italic">{parasha.sharedTitle}</p>
+              )}
               <p className="text-xs opacity-70">{parasha.wholeRef}</p>
             </div>
             <button

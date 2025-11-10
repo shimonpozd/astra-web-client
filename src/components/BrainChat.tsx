@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { api } from '../services/api';
-import { ChatRequest, Message as MessageType, StreamHandler } from '../types';
+import type { StreamHandler as ApiStreamHandler } from '../services/api';
+import { ChatRequest, Message as MessageType, StreamHandler as LegacyStreamHandler } from '../types';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -128,15 +129,31 @@ export default function BrainChat({
     };
     setMessages(prev => [...prev, assistantMessage]);
 
-    const streamHandler: StreamHandler = {
-        onDraft: (draft: { chunk?: string }) => {
-            if (draft.chunk) {
-                setMessages(prev => prev.map(msg =>
-                    msg.id === assistantMessageId
-                        ? { ...msg, content: (msg.content || '') + draft.chunk }
-                        : msg
-                ));
+    const appendChunk = (chunk?: string) => {
+        if (!chunk) {
+            return;
+        }
+        setMessages(prev => prev.map(msg =>
+            msg.id === assistantMessageId
+                ? {
+                    ...msg,
+                    content: `${typeof msg.content === 'string' ? msg.content : ''}${chunk}`
+                  }
+                : msg
+        ));
+    };
+
+    const streamHandler: ApiStreamHandler = {
+        onChunk: appendChunk,
+        onDraft: (draft) => {
+            if (!draft) {
+                return;
             }
+            const chunk =
+                typeof draft === 'string'
+                    ? draft
+                    : draft.chunk ?? draft.draft ?? '';
+            appendChunk(chunk);
         },
         onComplete: () => {
             // Optional: any action on completion
@@ -200,7 +217,7 @@ export default function BrainChat({
         session_id: sessionId,
       };
 
-      const streamHandler: StreamHandler = {
+      const streamHandler: LegacyStreamHandler = {
         onStatus: (message: string) => {
             setResearchState(prev => ({ ...prev, currentStatus: message }));
         },

@@ -18,6 +18,7 @@ import ParashaList from './components/ParashaList';
 import TanakhSectionPanel from './components/TanakhSectionPanel';
 import ComingSoonPanel from './components/ComingSoonPanel';
 import TalmudSectionPanel from './components/TalmudSectionPanel';
+import type { DafSelection } from './components/TalmudDafGrid';
 import useFocusNavData from './hooks/useFocusNavData';
 import useTanakhCollections from './hooks/useTanakhCollections';
 import useBookData from './hooks/useBookData';
@@ -26,6 +27,7 @@ import { buildTanakhBreadcrumbs, resolveTanakhSection } from './utils/tanakh';
 import { findTanakhEntry, parseTanakhReference } from './utils/tanakhReference';
 import { SECTION_VARIANTS, ITEM_VARIANTS } from './variants';
 import type { CatalogWork } from '../../../lib/sefariaCatalog';
+import { getWorkDisplayTitle } from './utils/catalogWork';
 import type {
   BookAliyah,
   BookParasha,
@@ -312,7 +314,12 @@ function FocusNavOverlay({
       setSelectedTractate(fallback);
       setCurrentLocation(null);
       setLocationNav(null);
-      setBreadcrumbs(['Талмуд', editionLabel, TALMUD_SEDER_LABELS[desiredSeder], fallback.title]);
+      setBreadcrumbs([
+        'Талмуд',
+        editionLabel,
+        TALMUD_SEDER_LABELS[desiredSeder],
+        getWorkDisplayTitle(fallback),
+      ]);
       return;
     }
   }, [talmudStructure, talmudSeder, selectedTractate, talmudEdition]);
@@ -325,7 +332,7 @@ function FocusNavOverlay({
     if (talmudSeder) {
       crumbs.push(TALMUD_SEDER_LABELS[talmudSeder]);
     }
-    crumbs.push(selectedTractate.title);
+    crumbs.push(getWorkDisplayTitle(selectedTractate));
     setBreadcrumbs(crumbs);
   }, [selectedTractate, talmudEdition, talmudSeder]);
 
@@ -427,18 +434,46 @@ function FocusNavOverlay({
       setSelectedTractate(tractate);
       setCurrentLocation(null);
       setLocationNav(null);
-      setBreadcrumbs(['Талмуд', talmudEdition === 'Bavli' ? 'Бавли' : 'Иерушалми', tractate.title]);
+      setBreadcrumbs([
+        'Талмуд',
+        talmudEdition === 'Bavli' ? 'Бавли' : 'Иерушалми',
+        getWorkDisplayTitle(tractate),
+      ]);
     },
     [talmudEdition],
   );
+  const activeTalmudDaf = useMemo<DafSelection | null>(() => {
+    if (
+      !selectedTractate ||
+      !currentLocation ||
+      currentLocation.type !== 'talmud' ||
+      currentLocation.edition !== talmudEdition ||
+      currentLocation.tractate !== selectedTractate.title
+    ) {
+      return null;
+    }
+    const match = currentLocation.daf.match(/(\d+)\s*([ab])/i);
+    if (!match) {
+      return null;
+    }
+    const number = Number.parseInt(match[1] ?? '', 10);
+    const side = (match[2] ?? 'a').toLowerCase() === 'b' ? 'b' : 'a';
+    if (!Number.isFinite(number)) {
+      return null;
+    }
+    return { number, side: side as 'a' | 'b' };
+  }, [currentLocation, selectedTractate, talmudEdition]);
+
   const handleTalmudDafSelect = useCallback((daf: string) => {
     if (!selectedTractate) {
       return;
     }
+    const displayTitle = getWorkDisplayTitle(selectedTractate);
     const baseRef = `${selectedTractate.title} ${daf}`;
     setCurrentLocation({
       type: 'talmud',
       tractate: selectedTractate.title,
+      tractateDisplay: displayTitle,
       daf,
       edition: talmudEdition,
       ref: baseRef,
@@ -448,7 +483,7 @@ function FocusNavOverlay({
     if (talmudSeder) {
       crumbs.push(TALMUD_SEDER_LABELS[talmudSeder]);
     }
-    crumbs.push(selectedTractate.title, `Лист ${daf}`);
+    crumbs.push(displayTitle, `Лист ${daf}`);
     setBreadcrumbs(crumbs);
     onSelectRef(`${baseRef}:1`);
     onClose();
@@ -587,6 +622,31 @@ function FocusNavOverlay({
       setTanakhSection('Torah');
     }
   }, [tanakhCollections, tanakhSection]);
+
+  useEffect(() => {
+    if (!mishnahCollections) {
+      return;
+    }
+    if (!mishnahSection && rootSection === 'Mishnah') {
+      // Автоматически выбираем первый седер с трактатами
+      const sederMap: Record<string, MishnahSection> = {
+        zeraim: 'Zeraim',
+        moed: 'Moed',
+        nashim: 'Nashim',
+        nezikin: 'Nezikin',
+        kodashim: 'Kodashim',
+        taharot: 'Taharot',
+      };
+      for (const [key, seder] of Object.entries(sederMap)) {
+        const collection = mishnahCollections[key as keyof typeof mishnahCollections];
+        if (collection && collection.length > 0) {
+          setMishnahSection(seder);
+          setBreadcrumbs(['Мишна', getMishnahSectionLabel(seder)]);
+          break;
+        }
+      }
+    }
+  }, [mishnahCollections, mishnahSection, rootSection]);
 
   useEffect(() => {
     if (!open || didInitFromRef) {
@@ -834,6 +894,7 @@ function FocusNavOverlay({
                         theme={theme}
                         variants={SECTION_VARIANTS}
                         className="w-full"
+                        activeDaf={activeTalmudDaf}
                       />
                     )}
                   </AnimatePresence>
@@ -1032,7 +1093,7 @@ function FocusNavOverlay({
                     )}
                   </AnimatePresence>
 
-                  {rootSection && rootSection !== 'Tanakh' && rootSection !== 'Talmud' && (
+                  {rootSection && rootSection !== 'Tanakh' && rootSection !== 'Talmud' && rootSection !== 'Mishnah' && (
                     <ComingSoonPanel sectionName={rootSection} theme={theme} variants={SECTION_VARIANTS} className="w-full" />
                   )}
                 </div>

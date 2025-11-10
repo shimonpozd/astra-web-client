@@ -40,6 +40,7 @@ export interface BookAliyah {
 export interface BookParasha {
   slug: string;
   sharedTitle: string;
+  russianTitle?: string;
   wholeRef: string;
   aliyot: BookAliyah[];
 }
@@ -69,6 +70,7 @@ export type CurrentLocation =
   | {
       type: 'talmud';
       tractate: string;
+      tractateDisplay?: string;
       daf: string;
       edition: TalmudEdition;
       ref: string;

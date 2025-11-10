@@ -297,14 +297,90 @@ export async function loadShape(
   }
 }
 
+interface IndexJsonAltStructs {
+  Parasha?: {
+    nodes: Array<{
+      sharedTitle: string;
+      wholeRef: string;
+      refs: string[];
+      match_templates?: Array<{
+        term_slugs?: string[];
+      }>;
+    }>;
+  };
+}
+
+interface IndexJson {
+  alt_structs?: IndexJsonAltStructs;
+  title?: string;
+}
+
+function convertIndexJsonToParashaData(
+  indexData: IndexJson,
+  workTitle: string,
+): ParashaData | null {
+  const parashaStruct = indexData.alt_structs?.Parasha;
+  if (!parashaStruct || !parashaStruct.nodes || parashaStruct.nodes.length === 0) {
+    return null;
+  }
+
+  const parshiot: ParashaRecord[] = parashaStruct.nodes.map((node, index) => {
+    // Извлекаем slug из match_templates или создаем из sharedTitle
+    let slug = '';
+    if (node.match_templates && node.match_templates.length > 0) {
+      // Ищем первый шаблон, который содержит "parasha" и имеет второй элемент
+      for (const template of node.match_templates) {
+        const termSlugs = template?.term_slugs;
+        if (termSlugs && termSlugs.length > 1 && termSlugs[0] === 'parasha') {
+          slug = termSlugs[1]; // Второй элемент обычно содержит slug параши
+          break;
+        }
+      }
+      // Если не нашли с "parasha", берем первый шаблон с несколькими элементами
+      if (!slug) {
+        for (const template of node.match_templates) {
+          const termSlugs = template?.term_slugs;
+          if (termSlugs && termSlugs.length > 1) {
+            slug = termSlugs[termSlugs.length - 1]; // Берем последний элемент
+            break;
+          }
+        }
+      }
+    }
+    
+    // Если slug не найден, создаем из sharedTitle
+    if (!slug) {
+      slug = slugify(node.sharedTitle);
+    }
+
+    // Преобразуем refs в aliyot
+    const aliyot: ParashaAliyah[] = node.refs.map((ref) => ({
+      ref,
+    }));
+
+    return {
+      slug,
+      sharedTitle: node.sharedTitle,
+      wholeRef: node.wholeRef,
+      aliyot,
+    };
+  });
+
+  return {
+    parshiot,
+    computedAt: new Date().toISOString(),
+  };
+}
+
 export async function loadParasha(
   basePath = '/sefaria-cache/',
   workPath: string,
 ): Promise<ParashaData | null> {
   const normalizedBase = normalizeBasePath(basePath);
   const normalizedWork = normalizeWorkPath(workPath);
+  
+  // Сначала пытаемся загрузить из отдельных файлов
   const candidates = ['alt.parasha.json', 'parasha.json'];
-
   for (const candidate of candidates) {
     const url = joinUrl(normalizedBase, `${normalizedWork}/${candidate}`);
     try {
@@ -313,6 +389,18 @@ export async function loadParasha(
       if (!isNotFoundError(error)) {
         throw error;
       }
+    }
+  }
+
+  // Если отдельные файлы не найдены, пытаемся загрузить из index.json
+  const indexUrl = joinUrl(normalizedBase, `${normalizedWork}/index.json`);
+  try {
+    const indexData = await fetchJson<IndexJson>(indexUrl);
+    const workTitle = indexData.title || normalizedWork.split('/').pop() || '';
+    return convertIndexJsonToParashaData(indexData, workTitle);
+  } catch (error) {
+    if (!isNotFoundError(error)) {
+      throw error;
     }
   }
 

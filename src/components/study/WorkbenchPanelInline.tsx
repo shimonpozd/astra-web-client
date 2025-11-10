@@ -3,6 +3,7 @@ import { BookOpen, Languages, Play, Pause, X } from "lucide-react";
 import { containsHebrew } from "../../utils/hebrewUtils";
 import { useTranslation } from "../../hooks/useTranslation";
 import { useTTS } from "../../hooks/useTTS";
+import { useSpeechify } from "../../hooks/useSpeechify";
 import { safeScrollIntoView } from "../../utils/scrollUtils";
 import { useFontSettings } from "../../contexts/FontSettingsContext";
 import { debugLog, debugWarn } from '../../utils/debugLogger';
@@ -267,7 +268,9 @@ const WorkbenchHeader = memo(({
             aria-pressed={isAudioActive}
             title={isAudioActive ? (isAudioPlaying ? "Пауза" : "Продолжить озвучку") : "Озвучить текст"}
           >
-            {isAudioActive && isAudioPlaying ? (
+            {audioLoading ? (
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-b-transparent" />
+            ) : isAudioActive && isAudioPlaying ? (
               <Pause className="h-4 w-4" />
             ) : (
               <Play className="h-4 w-4" />
@@ -550,13 +553,33 @@ const WorkbenchPanelInline = memo(({
   const {
     isPlaying,
     isPaused,
-    currentText,
     isLoading: ttsLoading,
     play,
     stop,
     pause,
     resume,
-  } = useTTS({ language: 'he', speed: 1.0 });
+  } = useTTS({ language: 'ru', speed: 1.0 });
+  const { speechify } = useSpeechify();
+
+  const itemRef = typeof item === 'string' ? item : item?.ref || '';
+
+  const sanitizeText = useCallback((value: string) => {
+    return (value || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }, []);
+
+  const rawHebrew = typeof item === 'string' ? '' : (item?.heTextFull || item?.hePreview || '');
+  const rawEnglish = typeof item === 'string' ? '' : (item?.text_full || item?.preview || '');
+
+  const sanitizedHebrew = useMemo(() => sanitizeText(rawHebrew), [rawHebrew, sanitizeText]);
+  const sanitizedEnglish = useMemo(() => sanitizeText(rawEnglish), [rawEnglish, sanitizeText]);
+
+  const hasHebrew = sanitizedHebrew.length > 0;
+  const hasEnglish = sanitizedEnglish.length > 0;
+
+  const [activeAudioRef, setActiveAudioRef] = useState<string | null>(null);
 
   // Состояние для отслеживания показа перевода
   const [showTranslation, setShowTranslation] = useState(false);
@@ -564,6 +587,7 @@ const WorkbenchPanelInline = memo(({
     clear();
     setShowTranslation(false);
     stop().catch(() => {});
+    setActiveAudioRef(null);
     onClear?.();
   }, [clear, onClear, stop]);
 
@@ -571,7 +595,7 @@ const WorkbenchPanelInline = memo(({
   useEffect(() => {
     debugLog('[WorkbenchPanelInline] Item changed, resetting translation state');
     setShowTranslation(false);
-  }, [typeof item === 'string' ? item : item?.ref]);
+  }, [itemRef]);
 
   // Отслеживание изменений состояния перевода
   useEffect(() => {
@@ -596,39 +620,77 @@ const WorkbenchPanelInline = memo(({
     }
   }, [showTranslation, translatedText, translate]);
 
-  const audioSourceRaw = typeof item === 'string'
-    ? ''
-    : item?.heTextFull || item?.text_full || item?.preview || item?.hePreview || '';
-  const audioText = audioSourceRaw ? audioSourceRaw.trim() : '';
-  const audioLanguage = containsHebrew(audioText.slice(0, 120)) ? 'he' : 'en';
-  const isCurrentAudio = !!audioText && currentText === audioText;
-  const isAudioActive = !!audioText && isCurrentAudio && (isPlaying || isPaused);
-  const isAudioPlaying = !!audioText && isCurrentAudio && isPlaying;
+  const isAudioActive = activeAudioRef === itemRef && (isPlaying || isPaused);
+  const isAudioPlaying = activeAudioRef === itemRef && isPlaying;
 
   useEffect(() => {
     stop().catch(() => {});
-  }, [typeof item === 'string' ? item : item?.ref, stop]);
+    setActiveAudioRef(null);
+  }, [itemRef, stop]);
 
   const handleAudioToggle = useCallback(async () => {
-    if (!audioText) return;
+    if (!hasHebrew && !hasEnglish) return;
 
     try {
-      if (isCurrentAudio) {
+      if (activeAudioRef === itemRef) {
         if (isPlaying) {
           await pause();
         } else if (isPaused) {
           await resume();
         } else {
           await stop();
+          setActiveAudioRef(null);
         }
-      } else {
-        await stop();
-        await play(audioText, { language: audioLanguage });
+        return;
       }
+
+      await stop();
+      setActiveAudioRef(null);
+
+      let textToSpeak = '';
+      let playbackLanguage: 'ru' | 'en' = 'ru';
+
+      try {
+        const response = await speechify({
+          hebrewText: sanitizedHebrew,
+          englishText: sanitizedEnglish,
+        });
+        const trimmed = typeof response === 'string' ? response.trim() : '';
+        if (trimmed) {
+          textToSpeak = trimmed;
+        }
+      } catch (err) {
+        debugWarn('[WorkbenchPanelInline] Speechify failed, fallback to raw text', err);
+      }
+
+      if (!textToSpeak) {
+        const fallback = sanitizedEnglish || sanitizedHebrew;
+        if (!fallback) return;
+        textToSpeak = fallback;
+        playbackLanguage = sanitizedEnglish ? 'en' : 'ru';
+      }
+
+      await play(textToSpeak, { language: playbackLanguage });
+      setActiveAudioRef(itemRef);
     } catch (err) {
-      console.error('[WorkbenchPanelInline] Audio toggle failed:', err);
+      debugWarn('[WorkbenchPanelInline] Audio toggle failed:', err);
+      setActiveAudioRef(null);
     }
-  }, [audioText, audioLanguage, isCurrentAudio, isPlaying, isPaused, pause, resume, stop, play]);
+  }, [
+    activeAudioRef,
+    hasEnglish,
+    hasHebrew,
+    isPaused,
+    isPlaying,
+    itemRef,
+    pause,
+    play,
+    resume,
+    sanitizedEnglish,
+    sanitizedHebrew,
+    speechify,
+    stop,
+  ]);
 
   // Функция для переключения между переводом и оригиналом
   // Получаем текст для озвучки
@@ -695,10 +757,10 @@ const WorkbenchPanelInline = memo(({
         onToggleTranslate={handleTranslateToggle}
         isTranslating={isTranslating}
         translationActive={showTranslation}
-        onToggleAudio={audioText ? handleAudioToggle : undefined}
+        onToggleAudio={hasHebrew || hasEnglish ? handleAudioToggle : undefined}
         isAudioActive={isAudioActive}
         isAudioPlaying={isAudioPlaying}
-        audioDisabled={!audioText}
+        audioDisabled={!(hasHebrew || hasEnglish)}
         audioLoading={ttsLoading}
         onClear={onClear ? handlePanelClear : undefined}
       />

@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 
 import type { TanakhBookEntry } from '../types';
+import { getWorkRuTitle } from '../utils/catalogWork';
 import { ITEM_VARIANTS } from '../variants';
 
 interface BookListProps {
@@ -20,7 +21,9 @@ function BookList({
   return (
     <div className="flex flex-col gap-2">
       {books.map((entry, index) => {
-        const transliterated = entry.seed.title_ru ?? entry.seed.indexTitle ?? entry.work.title;
+        // Используем русские названия из каталога
+        const russianTitle = getWorkRuTitle(entry.work);
+        const transliterated = russianTitle ?? entry.seed.title_ru ?? entry.seed.indexTitle ?? entry.work.title;
         const hebrew = entry.seed.title_he ?? entry.work.primaryTitles?.he;
         const english = entry.seed.indexTitle ?? entry.work.title;
 

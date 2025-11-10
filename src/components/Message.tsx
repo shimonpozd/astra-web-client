@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Message as MessageType } from '../types/index';
 import { MessageRenderer } from './MessageRenderer';
 import { Doc, DocV1 } from '../types/text';
@@ -10,7 +10,6 @@ interface MessageProps {
 
 export default function Message({ message }: MessageProps) {
   const isUser = message.role === 'user';
-  const [showThinking, setShowThinking] = useState(false);
 
   // Handle both old Message format and new ChatMessage format
   const isChatMessage = 'content_type' in message;
@@ -130,23 +129,13 @@ export default function Message({ message }: MessageProps) {
         {/* Мысли ассистента */}
         {message.thinking && (
           <div className="mt-4">
-            <button
-              onClick={() => setShowThinking(!showThinking)}
-              className="text-xs text-primary hover:text-primary/80 underline transition-colors"
-            >
-              {showThinking ? 'Скрыть мысли' : 'Показать мысли ассистента'}
-            </button>
-            {showThinking && (
-              <div className="mt-3 p-4 note-block">
-                <div className="flex items-center gap-2 text-warning mb-2">
-                  <span>💭</span>
-                  <span className="font-medium text-sm">Ход мыслей</span>
-                </div>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {message.thinking}
-                </p>
-              </div>
-            )}
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground/70 flex items-center gap-2">
+              <span className="text-warning">💭</span>
+              <span>Ход мыслей</span>
+            </div>
+            <pre className="mt-2 rounded-lg border border-border/40 bg-muted/30 p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+              {message.thinking}
+            </pre>
           </div>
         )}
 

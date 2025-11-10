@@ -188,12 +188,12 @@ export default function useTanakhCollections(
 
     const mishnahCollections: MishnahCollections | null = catalog
       ? {
-          zeraim: toEntries(catalog, 'Mishnah', 'Zeraim'),
-          moed: toEntries(catalog, 'Mishnah', 'Moed'),
-          nashim: toEntries(catalog, 'Mishnah', 'Nashim'),
-          nezikin: toEntries(catalog, 'Mishnah', 'Nezikin'),
-          kodashim: toEntries(catalog, 'Mishnah', 'Kodashim'),
-          taharot: toEntries(catalog, 'Mishnah', 'Taharot'),
+          zeraim: toEntries(catalog, 'Mishnah', 'Seder Zeraim'),
+          moed: toEntries(catalog, 'Mishnah', 'Seder Moed'),
+          nashim: toEntries(catalog, 'Mishnah', 'Seder Nashim'),
+          nezikin: toEntries(catalog, 'Mishnah', 'Seder Nezikin'),
+          kodashim: toEntries(catalog, 'Mishnah', 'Seder Kodashim'),
+          taharot: toEntries(catalog, 'Mishnah', 'Seder Tahorot'),
         }
       : null;
 

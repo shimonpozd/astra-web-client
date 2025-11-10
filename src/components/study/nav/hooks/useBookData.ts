@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { loadParasha, loadShape } from '../../../../lib/sefariaCatalog';
 import type { WorkShape, ParashaData, ParashaAliyah } from '../../../../lib/sefariaCatalog';
+import { getParashaRussianName } from '../../../../data/parasha-russian-names';
 import type {
   BookAliyah,
   BookParasha,
@@ -10,7 +11,11 @@ import type {
   TanakhBookEntry,
 } from '../types';
 
-function buildParshiot(parashaData: ParashaData | null, chapterSizes: number[]): BookParasha[] {
+function buildParshiot(
+  parashaData: ParashaData | null,
+  chapterSizes: number[],
+  bookTitle?: string,
+): BookParasha[] {
   if (!parashaData) {
     return [];
   }
@@ -29,9 +34,15 @@ function buildParshiot(parashaData: ParashaData | null, chapterSizes: number[]):
       return acc;
     }, []);
 
+    // Получаем русское название параши
+    const russianTitle = bookTitle
+      ? getParashaRussianName(bookTitle, parasha.slug, parasha.sharedTitle)
+      : null;
+
     return {
       slug: parasha.slug,
       sharedTitle: parasha.sharedTitle,
+      russianTitle: russianTitle || undefined,
       wholeRef: parasha.wholeRef,
       aliyot,
     };
@@ -210,7 +221,8 @@ export default function useBookData(book: TanakhBookEntry | null) {
         .then(([shapeData, parashaData]) => {
           if (cancelled) return;
           const chapterSizes = extractChapters(shapeData);
-          const parshiot = buildParshiot(parashaData, chapterSizes);
+          const bookTitle = book.work.title || book.seed.indexTitle;
+          const parshiot = buildParshiot(parashaData, chapterSizes, bookTitle);
           setData({ chapterSizes, parshiot });
         })
         .catch((err: unknown) => {
