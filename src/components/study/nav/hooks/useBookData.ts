@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { loadParasha, loadShape } from '../../../../lib/sefariaCatalog';
 import type { WorkShape, ParashaData, ParashaAliyah } from '../../../../lib/sefariaCatalog';
-import { getParashaRussianName } from '@/data/parasha-russian-names';
+import { getParashaRussianName } from '../../../../data/parasha-russian-names';
 import type {
   BookAliyah,
   BookParasha,
