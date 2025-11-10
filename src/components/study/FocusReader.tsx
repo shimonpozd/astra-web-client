@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Compass, Move, Settings } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Compass, Settings } from 'lucide-react';
 
 import { FocusReaderProps, TextSegment } from '../../types/text';
 import { normalizeRefForAPI, parseRefSmart } from '../../utils/refUtils';
+import { TANAKH_BOOKS } from '../../data/tanakh';
 import ContinuousTextFlow from './ContinuousTextFlow';
 import FocusNavOverlay from './nav/FocusNavOverlay';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -152,10 +153,11 @@ const FocusReader = memo(({
   const isCurrentSegmentPlaying = isActiveTTS && ttsIsPlaying;
   const leftPanelIsVisible = showLeftPanel !== false;
   const rightPanelIsVisible = showRightPanel !== false;
-  const [navControlsExpanded, setNavControlsExpanded] = useState(false);
 
-  const navButtonClass =
-    'flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/80 text-foreground/80 backdrop-blur-sm shadow-sm transition-colors hover:bg-accent/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50';
+  const inlineChapterButtonClass =
+    'inline-flex items-center justify-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70';
+  const inlineChapterGroupClass =
+    'inline-flex overflow-hidden rounded-full border border-border/60 bg-background/70 text-foreground/80 shadow-sm';
 
   const getChapterIdentifier = useCallback((segment?: TextSegment | null) => {
     if (!segment) return null;
@@ -219,6 +221,14 @@ const FocusReader = memo(({
           }
         }
       }
+
+      const fallbackRef =
+        direction === 'prev'
+          ? continuousText.chapterNavigation?.prev
+          : continuousText.chapterNavigation?.next;
+      if (fallbackRef) {
+        onNavigateToRef(fallbackRef);
+      }
     },
     [continuousText, onNavigateToRef, activeSegment, getChapterIdentifier]
   );
@@ -272,7 +282,7 @@ const FocusReader = memo(({
         return true;
       }
     }
-    return false;
+    return Boolean(continuousText.chapterNavigation?.prev);
   }, [continuousText, activeSegment, getChapterIdentifier]);
 
   const canNavigateToNextChapter = useMemo(() => {
@@ -298,7 +308,7 @@ const FocusReader = memo(({
         return true;
       }
     }
-    return false;
+    return Boolean(continuousText.chapterNavigation?.next);
   }, [continuousText, activeSegment, getChapterIdentifier]);
 
   useEffect(() => {
@@ -501,6 +511,16 @@ const FocusReader = memo(({
     );
   }
 
+  const resolvedRefForDisplay = currentRef || activeSegment?.ref || '';
+  const formattedDisplayRef = formatDisplayRef(resolvedRefForDisplay);
+  const isTanakhPrimaryRef = useMemo(() => {
+    if (!resolvedRefForDisplay) {
+      return false;
+    }
+    const parsed = parseRefSmart(resolvedRefForDisplay);
+    return parsed?.type === 'tanakh';
+  }, [resolvedRefForDisplay]);
+
   return (
     <div className="relative h-full flex flex-col bg-background">
       <div className="flex-shrink-0 border-b panel-outer">
@@ -529,10 +549,48 @@ const FocusReader = memo(({
           </div>
           
           <div className="flex-1 px-1">
-            <div className="fr-badge w-full justify-center gap-1">
-              <span className="font-mono truncate">
-                {formatDisplayRef(currentRef || activeSegment?.ref)}
+            <div className="fr-badge w-full flex-wrap justify-center gap-2">
+              <span className="font-mono truncate" dir="ltr">
+                {formattedDisplayRef}
               </span>
+              {isTanakhPrimaryRef && (
+                <div
+                  className={inlineChapterGroupClass}
+                  dir="ltr"
+                  role="group"
+                  aria-label="Quick chapter navigation"
+                >
+                  <button
+                    type="button"
+                    onClick={handleNavigatePrevChapter}
+                    disabled={!canNavigateToPreviousChapter}
+                    className={`${inlineChapterButtonClass} ${
+                      canNavigateToPreviousChapter
+                        ? 'text-foreground hover:bg-accent/10'
+                        : 'cursor-not-allowed text-muted-foreground opacity-50'
+                    }`}
+                    aria-label="Previous chapter"
+                    title="Previous chapter"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                  <div className="h-full w-px bg-border/60" aria-hidden="true" />
+                  <button
+                    type="button"
+                    onClick={handleNavigateNextChapter}
+                    disabled={!canNavigateToNextChapter}
+                    className={`${inlineChapterButtonClass} ${
+                      canNavigateToNextChapter
+                        ? 'text-foreground hover:bg-accent/10'
+                        : 'cursor-not-allowed text-muted-foreground opacity-50'
+                    }`}
+                    aria-label="Next chapter"
+                    title="Next chapter"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           
@@ -585,74 +643,6 @@ const FocusReader = memo(({
             ttsIsPlaying={isCurrentSegmentPlaying}
           handlePlayClick={handlePlayClick}
         />
-        <div className="pointer-events-none absolute bottom-4 right-4 md:bottom-6 md:right-6">
-          <div className="pointer-events-auto relative">
-            <div
-              className={`absolute left-1/2 top-1/2 grid grid-cols-3 grid-rows-3 gap-1 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${
-                navControlsExpanded ? 'pointer-events-auto opacity-100 scale-100' : 'pointer-events-none opacity-0 scale-90'
-              }`}
-            >
-              <div />
-              <button
-                type="button"
-                onClick={handleNavigateBack}
-                className={navButtonClass}
-                disabled={!onBack || isLoading || !canBack}
-                aria-label="Previous segment"
-                title="Previous segment"
-              >
-                <ChevronUp className="h-4 w-4" />
-              </button>
-              <div />
-
-              <button
-                type="button"
-                onClick={handleNavigatePrevChapter}
-                className={navButtonClass}
-                disabled={!canNavigateToPreviousChapter}
-                aria-label="Previous chapter"
-                title="Previous chapter"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <div className="h-9 w-9" />
-              <button
-                type="button"
-                onClick={handleNavigateNextChapter}
-                className={navButtonClass}
-                disabled={!canNavigateToNextChapter}
-                aria-label="Next chapter"
-                title="Next chapter"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-
-              <div />
-              <button
-                type="button"
-                onClick={handleNavigateForward}
-                className={navButtonClass}
-                disabled={!onForward || isLoading || !canForward}
-                aria-label="Next segment"
-                title="Next segment"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              <div />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setNavControlsExpanded((prev) => !prev)}
-              className={`${navButtonClass} relative z-10`}
-              aria-pressed={navControlsExpanded}
-              aria-label={navControlsExpanded ? 'Скрыть навигацию' : 'Показать навигацию'}
-              title={navControlsExpanded ? 'Скрыть навигацию' : 'Показать навигацию'}
-            >
-              <Move className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
           </div>
         
         {showSettings && (
@@ -749,4 +739,3 @@ const FocusReader = memo(({
 FocusReader.displayName = 'FocusReader';
 
 export default FocusReader;
-

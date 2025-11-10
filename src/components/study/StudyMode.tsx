@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { StudySnapshot } from '../../types/study';
-import { ContinuousText, TextSegment } from '../../types/text';
+import { ContinuousText, TextSegment, ChapterNavigation } from '../../types/text';
 import FocusReader from './FocusReader';
 import ChatViewport from '../chat/ChatViewport';
 import MessageComposer from '../chat/MessageComposer';
@@ -9,6 +9,9 @@ import { api } from '../../services/api';
 import { useLexiconStore } from '../../store/lexiconStore';
 import { Message } from '../../services/api';
 import { debugLog } from '../../utils/debugLogger';
+import { parseRefSmart } from '../../utils/refUtils';
+import { TANAKH_BOOKS } from '../../data/tanakh';
+import { getChapterSizesForWork } from '../../lib/sefariaShapeCache';
 
 interface StudyModeProps {
   snapshot: StudySnapshot | null;
@@ -178,12 +181,83 @@ export default function StudyMode({
     };
   }, [setSelection, fetchExplanation]);
   // Конвертация snapshot в continuousText для нового FocusReader
+  const [chapterNavigation, setChapterNavigation] = useState<ChapterNavigation | null>(null);
+
+  useEffect(() => {
+    if (!snapshot?.ref) {
+      setChapterNavigation(null);
+      return;
+    }
+    const parsed = parseRefSmart(snapshot.ref);
+    if (!parsed || parsed.type !== 'tanakh' || parsed.chapter == null) {
+      setChapterNavigation(null);
+      return;
+    }
+    const bookInfo = TANAKH_BOOKS[parsed.book];
+    if (!bookInfo) {
+      setChapterNavigation(null);
+      return;
+    }
+
+    const formatChapterRef = (chapter: number) => `${parsed.book} ${chapter}:1`;
+
+    const buildNavigation = (totalChapters: number) => {
+      const prevChapter = parsed.chapter > 1 ? parsed.chapter - 1 : undefined;
+      const nextChapter = parsed.chapter < totalChapters ? parsed.chapter + 1 : undefined;
+      if (!prevChapter && !nextChapter) {
+        return null;
+      }
+      return {
+        prev: prevChapter ? formatChapterRef(prevChapter) : undefined,
+        next: nextChapter ? formatChapterRef(nextChapter) : undefined,
+      };
+    };
+
+    setChapterNavigation(buildNavigation(bookInfo.chapters));
+
+    const sectionMap: Record<string, string> = {
+      Torah: 'Torah',
+      "Nevi'im": 'Prophets',
+      Ketuvim: 'Writings',
+    };
+    const sectionFolder = sectionMap[bookInfo.section];
+    if (!sectionFolder) {
+      return;
+    }
+
+    const bookSlug = parsed.book
+      .trim()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, '_');
+    const workPath = `works/Tanakh/${sectionFolder}/${bookSlug}/`;
+
+    let cancelled = false;
+    getChapterSizesForWork(workPath)
+      .then((sizes) => {
+        if (cancelled) {
+          return;
+        }
+        const totalChapters = sizes && sizes.length ? sizes.length : bookInfo.chapters;
+        setChapterNavigation(buildNavigation(totalChapters));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setChapterNavigation(buildNavigation(bookInfo.chapters));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [snapshot?.ref]);
+
   const continuousText: ContinuousText | null = snapshot ? {
     segments: snapshot.segments || [],
     focusIndex: snapshot.focusIndex ?? 0,
     totalLength: snapshot.segments?.length || 0,
     title: snapshot.ref || '',
-    collection: '' // This field is not critical for the reader component
+    collection: '', // This field is not critical for the reader component
+    chapterNavigation,
   } : null;
 
   // Debug logging for segments

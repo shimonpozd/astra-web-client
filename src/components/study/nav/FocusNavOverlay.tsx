@@ -5,7 +5,6 @@ import clsx from 'clsx';
 import { X } from 'lucide-react';
 
 import { useTheme } from '../../theme-provider';
-import StarfieldBackground from './StarfieldBackground';
 import CategorySidebar from './components/CategorySidebar';
 import CurrentLocationPanel from './components/CurrentLocationPanel';
 import GlobalSearchBar from './components/GlobalSearchBar';
@@ -25,6 +24,7 @@ import useFocusNavShortcuts from './hooks/useFocusNavShortcuts';
 import { buildTanakhBreadcrumbs, resolveTanakhSection } from './utils/tanakh';
 import { findTanakhEntry, parseTanakhReference } from './utils/tanakhReference';
 import { SECTION_VARIANTS, ITEM_VARIANTS } from './variants';
+import { getChapterSizesForWork } from '../../../lib/sefariaShapeCache';
 import type { CatalogWork } from '../../../lib/sefariaCatalog';
 import { getWorkDisplayTitle } from './utils/catalogWork';
 import type {
@@ -193,6 +193,7 @@ function FocusNavOverlay({
   const [didInitFromRef, setDidInitFromRef] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
   const [locationNav, setLocationNav] = useState<{ prev?: string; next?: string } | null>(null);
+  const [locationChapterSizes, setLocationChapterSizes] = useState<number[] | null>(null);
   const [rootSection, setRootSection] = useState<RootSection | null>(null);
   const [tanakhSection, setTanakhSection] = useState<TanakhSection | null>(null);
   const [mishnahSection, setMishnahSection] = useState<MishnahSection | null>(null);
@@ -547,24 +548,53 @@ function FocusNavOverlay({
   }, [onSelectRef, onClose]);
 
   useEffect(() => {
-    if (!currentLocation) {
+    if (!currentLocation || currentLocation.type !== 'tanakh') {
+      setLocationChapterSizes(null);
+      return;
+    }
+    const path = currentLocation.book.work.path;
+    if (!path) {
+      setLocationChapterSizes(null);
+      return;
+    }
+
+    let cancelled = false;
+    getChapterSizesForWork(path)
+      .then((sizes) => {
+        if (!cancelled) {
+          setLocationChapterSizes(sizes);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLocationChapterSizes(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentLocation]);
+
+  useEffect(() => {
+    if (!currentLocation || currentLocation.type !== 'tanakh') {
       setLocationNav(null);
       return;
     }
-    if (currentLocation.type !== 'tanakh') {
+    const chapterSizes =
+      bookData?.chapterSizes?.length ? bookData.chapterSizes : locationChapterSizes;
+    if (!chapterSizes?.length) {
       setLocationNav(null);
       return;
     }
-    if (!bookData?.chapterSizes?.length) {
-      return;
-    }
+
     const chapter = currentLocation.chapter;
-    const total = bookData.chapterSizes.length;
+    const total = chapterSizes.length;
     const bookTitle = currentLocation.book.work.title;
     const prev = chapter > 1 ? `${bookTitle} ${chapter - 1}` : undefined;
     const next = chapter < total ? `${bookTitle} ${chapter + 1}` : undefined;
     setLocationNav(prev || next ? { prev, next } : null);
-  }, [currentLocation, bookData]);
+  }, [currentLocation, bookData, locationChapterSizes]);
 
   useEffect(() => {
     if (!selectedBook) {
@@ -695,7 +725,12 @@ function FocusNavOverlay({
                 theme === 'dark' ? 'bg-black/70' : 'bg-black/50',
               )}
             />
-            <StarfieldBackground />
+            <div
+              className={clsx(
+                'pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-800/20 via-transparent to-amber-500/25',
+                theme === 'dark' ? 'opacity-90' : 'opacity-70',
+              )}
+            />
 
             <div className="relative mx-auto flex h-full max-w-none w-full flex-col px-6 py-8">
               <div className="mb-4 flex justify-end">
@@ -759,7 +794,12 @@ function FocusNavOverlay({
                 theme === 'dark' ? 'bg-black/70' : 'bg-black/50',
               )}
             />
-            <StarfieldBackground />
+          <div
+            className={clsx(
+              'pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-800/20 via-transparent to-amber-500/25',
+              theme === 'dark' ? 'opacity-90' : 'opacity-70',
+            )}
+          />
 
             <div className="relative mx-auto flex h-full max-w-none w-full flex-col px-6 py-8">
               <div className="mb-4 flex justify-end">
@@ -818,7 +858,12 @@ function FocusNavOverlay({
               theme === 'dark' ? 'bg-black/70' : 'bg-black/50',
             )}
           />
-          <StarfieldBackground />
+          <div
+            className={clsx(
+              'pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-800/20 via-transparent to-amber-500/25',
+              theme === 'dark' ? 'opacity-90' : 'opacity-70',
+            )}
+          />
 
           <div className="relative mx-auto flex h-full max-w-none w-full flex-col px-6 py-8">
             <div className="mb-4 flex items-center justify-between gap-4">
@@ -1139,9 +1184,3 @@ function getMishnahSectionLabel(section: MishnahSection): string {
 }
 
 export default FocusNavOverlay;
-
-
-
-
-
-

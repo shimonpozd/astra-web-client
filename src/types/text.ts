@@ -15,6 +15,11 @@ export interface TextSegment {
   };
 }
 
+export interface ChapterNavigation {
+  prev?: string;
+  next?: string;
+}
+
 export interface ContinuousText {
   segments: TextSegment[];
   focusIndex: number;
@@ -22,6 +27,7 @@ export interface ContinuousText {
   title: string;
   heTitle?: string;
   collection: string;
+  chapterNavigation?: ChapterNavigation | null;
 }
 
 export interface FocusReaderProps {
