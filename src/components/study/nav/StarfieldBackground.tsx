@@ -64,7 +64,7 @@ function makeRng(seed = 1337) {
 
 const StarfieldBackground: React.FC<StarfieldProps> = ({
   className = "",
-  density = 80.0,
+  density = 5.0,
   drift = { near: -10, mid: -5, far: -2 },
   twinkleAmplitude = 0.35,
   twinkleFreq = { near: 2.0, mid: 4.0, far: 7.0 },
