@@ -18,7 +18,6 @@ import ParashaList from './components/ParashaList';
 import TanakhSectionPanel from './components/TanakhSectionPanel';
 import ComingSoonPanel from './components/ComingSoonPanel';
 import TalmudSectionPanel from './components/TalmudSectionPanel';
-import type { DafSelection } from './components/TalmudDafGrid';
 import useFocusNavData from './hooks/useFocusNavData';
 import useTanakhCollections from './hooks/useTanakhCollections';
 import useBookData from './hooks/useBookData';
@@ -442,27 +441,7 @@ function FocusNavOverlay({
     },
     [talmudEdition],
   );
-  const activeTalmudDaf = useMemo<DafSelection | null>(() => {
-    if (
-      !selectedTractate ||
-      !currentLocation ||
-      currentLocation.type !== 'talmud' ||
-      currentLocation.edition !== talmudEdition ||
-      currentLocation.tractate !== selectedTractate.title
-    ) {
-      return null;
-    }
-    const match = currentLocation.daf.match(/(\d+)\s*([ab])/i);
-    if (!match) {
-      return null;
-    }
-    const number = Number.parseInt(match[1] ?? '', 10);
-    const side = (match[2] ?? 'a').toLowerCase() === 'b' ? 'b' : 'a';
-    if (!Number.isFinite(number)) {
-      return null;
-    }
-    return { number, side: side as 'a' | 'b' };
-  }, [currentLocation, selectedTractate, talmudEdition]);
+  // removed activeTalmudDaf (no longer used)
 
   const handleTalmudDafSelect = useCallback((daf: string) => {
     if (!selectedTractate) {
