@@ -894,7 +894,6 @@ function FocusNavOverlay({
                         theme={theme}
                         variants={SECTION_VARIANTS}
                         className="w-full"
-                        activeDaf={activeTalmudDaf}
                       />
                     )}
                   </AnimatePresence>

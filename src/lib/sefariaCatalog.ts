@@ -315,16 +315,13 @@ interface IndexJson {
   title?: string;
 }
 
-function convertIndexJsonToParashaData(
-  indexData: IndexJson,
-  workTitle: string,
-): ParashaData | null {
+function convertIndexJsonToParashaData(indexData: IndexJson): ParashaData | null {
   const parashaStruct = indexData.alt_structs?.Parasha;
   if (!parashaStruct || !parashaStruct.nodes || parashaStruct.nodes.length === 0) {
     return null;
   }
 
-  const parshiot: ParashaRecord[] = parashaStruct.nodes.map((node, index) => {
+  const parshiot: ParashaRecord[] = parashaStruct.nodes.map((node) => {
     // Извлекаем slug из match_templates или создаем из sharedTitle
     let slug = '';
     if (node.match_templates && node.match_templates.length > 0) {
@@ -396,8 +393,7 @@ export async function loadParasha(
   const indexUrl = joinUrl(normalizedBase, `${normalizedWork}/index.json`);
   try {
     const indexData = await fetchJson<IndexJson>(indexUrl);
-    const workTitle = indexData.title || normalizedWork.split('/').pop() || '';
-    return convertIndexJsonToParashaData(indexData, workTitle);
+    return convertIndexJsonToParashaData(indexData);
   } catch (error) {
     if (!isNotFoundError(error)) {
       throw error;

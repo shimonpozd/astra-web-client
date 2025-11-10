@@ -1,4 +1,4 @@
-import type { CatalogWork } from '../../../../../lib/sefariaCatalog';
+import type { CatalogWork } from '../../../../lib/sefariaCatalog';
 
 function selectFirstNonEmpty(values: Array<string | null | undefined>): string | null {
   for (const value of values) {
