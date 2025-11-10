@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 
 import { loadParasha, loadShape } from '../../../../lib/sefariaCatalog';
 import type { WorkShape, ParashaData, ParashaAliyah } from '../../../../lib/sefariaCatalog';
-import { getParashaRussianName } from '../../../../data/parasha-russian-names';
 import type {
   BookAliyah,
   BookParasha,
@@ -34,15 +33,11 @@ function buildParshiot(
       return acc;
     }, []);
 
-    // Получаем русское название параши
-    const russianTitle = bookTitle
-      ? getParashaRussianName(bookTitle, parasha.slug, parasha.sharedTitle)
-      : null;
-
     return {
       slug: parasha.slug,
       sharedTitle: parasha.sharedTitle,
-      russianTitle: russianTitle || undefined,
+      // Временная деградация: если функция перевода недоступна, оставляем без русского названия
+      russianTitle: undefined,
       wholeRef: parasha.wholeRef,
       aliyot,
     };
