@@ -5,6 +5,8 @@
 **/env/
 **/venv39/ 
 
+
+
 /node_modules
 /public/sefaria-cache
 dist/
@@ -62,3 +64,6 @@ checkpoints/
 .DS_Store
 Thumbs.db
 "@ | Out-File -Encoding utf8 .gitignore
+
+
+!astra-web-client/src/data/
