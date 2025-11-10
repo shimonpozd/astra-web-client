@@ -13,7 +13,6 @@ import type {
 function buildParshiot(
   parashaData: ParashaData | null,
   chapterSizes: number[],
-  bookTitle?: string,
 ): BookParasha[] {
   if (!parashaData) {
     return [];
@@ -216,8 +215,7 @@ export default function useBookData(book: TanakhBookEntry | null) {
         .then(([shapeData, parashaData]) => {
           if (cancelled) return;
           const chapterSizes = extractChapters(shapeData);
-          const bookTitle = book.work.title || book.seed.indexTitle;
-          const parshiot = buildParshiot(parashaData, chapterSizes, bookTitle);
+          const parshiot = buildParshiot(parashaData, chapterSizes);
           setData({ chapterSizes, parshiot });
         })
         .catch((err: unknown) => {
