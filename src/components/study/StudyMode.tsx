@@ -189,7 +189,12 @@ export default function StudyMode({
       return;
     }
     const parsed = parseRefSmart(snapshot.ref);
-    if (!parsed || parsed.type !== 'tanakh' || parsed.chapter == null) {
+    if (!parsed || parsed.type !== 'tanakh') {
+      setChapterNavigation(null);
+      return;
+    }
+    const chapter = parsed.chapter;
+    if (chapter == null) {
       setChapterNavigation(null);
       return;
     }
@@ -202,8 +207,8 @@ export default function StudyMode({
     const formatChapterRef = (chapter: number) => `${parsed.book} ${chapter}:1`;
 
     const buildNavigation = (totalChapters: number) => {
-      const prevChapter = parsed.chapter > 1 ? parsed.chapter - 1 : undefined;
-      const nextChapter = parsed.chapter < totalChapters ? parsed.chapter + 1 : undefined;
+      const prevChapter = chapter > 1 ? chapter - 1 : undefined;
+      const nextChapter = chapter < totalChapters ? chapter + 1 : undefined;
       if (!prevChapter && !nextChapter) {
         return null;
       }

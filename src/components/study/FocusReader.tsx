@@ -1,9 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Compass, Settings } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Compass, Settings } from 'lucide-react';
 
 import { FocusReaderProps, TextSegment } from '../../types/text';
 import { normalizeRefForAPI, parseRefSmart } from '../../utils/refUtils';
-import { TANAKH_BOOKS } from '../../data/tanakh';
 import ContinuousTextFlow from './ContinuousTextFlow';
 import FocusNavOverlay from './nav/FocusNavOverlay';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -66,16 +65,11 @@ function readInitialFontSettings() {
 
 const FocusReader = memo(({
   continuousText,
-  isLoading,
   error,
   onSegmentClick,
   onNavigateToRef,
   onLexiconDoubleClick,
-  onBack,
-  onForward,
   currentRef,
-  canBack = false,
-  canForward = false,
   onToggleLeftPanel,
   onToggleRightPanel,
   showLeftPanel,
@@ -232,22 +226,6 @@ const FocusReader = memo(({
     },
     [continuousText, onNavigateToRef, activeSegment, getChapterIdentifier]
   );
-
-  const handleNavigateBack = useCallback(() => {
-    if (!onBack || isLoading || !canBack) {
-      return;
-    }
-    navOriginRef.current = 'user';
-    onBack();
-  }, [onBack, isLoading, canBack]);
-
-  const handleNavigateForward = useCallback(() => {
-    if (!onForward || isLoading || !canForward) {
-      return;
-    }
-    navOriginRef.current = 'user';
-    onForward();
-  }, [onForward, isLoading, canForward]);
 
   const handleNavigatePrevChapter = useCallback(() => {
     navOriginRef.current = 'user';
