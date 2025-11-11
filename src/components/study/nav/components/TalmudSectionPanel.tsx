@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { Suspense, lazy, useMemo } from 'react';
 
 import clsx from 'clsx';
 import { motion, type Variants } from 'framer-motion';
@@ -8,7 +8,8 @@ import type { TalmudEdition, TalmudSeder } from '../types';
 import { TALMUD_SEDER_LABELS } from '../constants';
 import TalmudEditionSelector from './TalmudEditionSelector';
 import TractateList from './TractateList';
-import TalmudDafGrid, { type DafSelection } from './TalmudDafGrid';
+const TalmudDafGrid = lazy(() => import('./TalmudDafGrid'));
+import type { DafSelection } from './TalmudDafGrid';
 
 interface TalmudSectionPanelProps {
   edition: TalmudEdition;
@@ -165,7 +166,9 @@ function TalmudSectionPanel({
           )}
 
           {activeTractate ? (
-            <TalmudDafGrid tractate={activeTractate} onSelect={onSelectDaf} theme={theme} value={activeDaf} />
+            <Suspense fallback={null}>
+              <TalmudDafGrid tractate={activeTractate} onSelect={onSelectDaf} theme={theme} value={activeDaf} />
+            </Suspense>
           ) : (
             <div
               className={clsx(

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { VscLayoutPanelJustify, VscLayoutPanel, VscLayoutPanelOff, VscLayoutPanelRight } from 'react-icons/vsc';
+import { LayoutDashboard, PanelLeft, PanelTop, PanelRight } from 'lucide-react';
 
 import PersonaSelector from '../PersonaSelector';
 import { ThemeToggle } from '../ThemeToggle';
@@ -34,7 +34,7 @@ const TopBar: React.FC<TopBarProps> = ({ agentId, setAgentId, onOpenStudy }) => 
             title="Талмуд: две панели"
             aria-label="Талмуд"
           >
-            <VscLayoutPanelJustify size={16} />
+            <LayoutDashboard size={16} />
           </button>
           <button
             onClick={() => setMode('focus_only')}
@@ -44,7 +44,7 @@ const TopBar: React.FC<TopBarProps> = ({ agentId, setAgentId, onOpenStudy }) => 
             title="Только фокус"
             aria-label="Фокус"
           >
-            <VscLayoutPanel size={16} />
+            <PanelLeft size={16} />
           </button>
           <button
             onClick={() => setMode('focus_with_bottom_commentary')}
@@ -54,7 +54,7 @@ const TopBar: React.FC<TopBarProps> = ({ agentId, setAgentId, onOpenStudy }) => 
             title="Фокус с нижним комментарием"
             aria-label="Фокус + комментарий"
           >
-            <VscLayoutPanelOff size={16} />
+            <PanelTop size={16} />
           </button>
           <button
             onClick={() => setMode('vertical_three')}
@@ -64,7 +64,7 @@ const TopBar: React.FC<TopBarProps> = ({ agentId, setAgentId, onOpenStudy }) => 
             title="Три вертикальные панели"
             aria-label="Три панели"
           >
-            <VscLayoutPanelRight size={16} />
+            <PanelRight size={16} />
           </button>
         </div>
         {onOpenStudy && (

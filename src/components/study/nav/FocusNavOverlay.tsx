@@ -1,22 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
 import { X } from 'lucide-react';
 
 import { useTheme } from '../../theme-provider';
-import CategorySidebar from './components/CategorySidebar';
-import CurrentLocationPanel from './components/CurrentLocationPanel';
-import GlobalSearchBar from './components/GlobalSearchBar';
-import BreadcrumbTrail from './components/BreadcrumbTrail';
-import MishnahSectionSelector from './components/MishnahSectionSelector';
-import BookList from './components/BookList';
-import BookHeader from './components/BookHeader';
-import ChapterGrid from './components/ChapterGrid';
-import ParashaList from './components/ParashaList';
-import TanakhSectionPanel from './components/TanakhSectionPanel';
-import ComingSoonPanel from './components/ComingSoonPanel';
-import TalmudSectionPanel from './components/TalmudSectionPanel';
+const CategorySidebar = lazy(() => import('./components/CategorySidebar'));
+const CurrentLocationPanel = lazy(() => import('./components/CurrentLocationPanel'));
+const GlobalSearchBar = lazy(() => import('./components/GlobalSearchBar'));
+const BreadcrumbTrail = lazy(() => import('./components/BreadcrumbTrail'));
+const MishnahSectionSelector = lazy(() => import('./components/MishnahSectionSelector'));
+const BookList = lazy(() => import('./components/BookList'));
+const BookHeader = lazy(() => import('./components/BookHeader'));
+const ChapterGrid = lazy(() => import('./components/ChapterGrid'));
+const ParashaList = lazy(() => import('./components/ParashaList'));
+const TanakhSectionPanel = lazy(() => import('./components/TanakhSectionPanel'));
+const ComingSoonPanel = lazy(() => import('./components/ComingSoonPanel'));
+const TalmudSectionPanel = lazy(() => import('./components/TalmudSectionPanel'));
 import useFocusNavData from './hooks/useFocusNavData';
 import useTanakhCollections from './hooks/useTanakhCollections';
 import useBookData from './hooks/useBookData';
@@ -867,32 +867,40 @@ function FocusNavOverlay({
 
           <div className="relative mx-auto flex h-full max-w-none w-full flex-col px-6 py-8">
             <div className="mb-4 flex items-center justify-between gap-4">
-              <BreadcrumbTrail items={breadcrumbs} theme={theme} variants={ITEM_VARIANTS} />
+              <Suspense fallback={null}>
+                <BreadcrumbTrail items={breadcrumbs} theme={theme} variants={ITEM_VARIANTS} />
+              </Suspense>
               <div className="flex items-center gap-3">
-                <GlobalSearchBar query={searchQuery} onQueryChange={setSearchQuery} theme={theme} />
+                <Suspense fallback={null}>
+                  <GlobalSearchBar query={searchQuery} onQueryChange={setSearchQuery} theme={theme} />
+                </Suspense>
                 <OverlayCloseButton onClose={onClose} theme={theme} />
               </div>
             </div>
 
             <div className="flex min-h-0 flex-1 gap-6 overflow-hidden">
-              <CategorySidebar
-                categories={CATEGORY_STRUCTURE}
-                activeCorpus={activeCorpus}
-                activeTanakhSection={tanakhSection}
-                onSelectCorpus={handleSelectCorpus}
-                loadingExtra={loadingExtraCategory}
-                theme={theme}
-              />
+              <Suspense fallback={null}>
+                <CategorySidebar
+                  categories={CATEGORY_STRUCTURE}
+                  activeCorpus={activeCorpus}
+                  activeTanakhSection={tanakhSection}
+                  onSelectCorpus={handleSelectCorpus}
+                  loadingExtra={loadingExtraCategory}
+                  theme={theme}
+                />
+              </Suspense>
 
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-                  <CurrentLocationPanel
-                    location={currentLocation}
-                    nav={locationNav ?? undefined}
-                    onNavigate={handleLocationNavigate}
-                    theme={theme}
-                    variants={SECTION_VARIANTS}
-                  />
+                  <Suspense fallback={null}>
+                    <CurrentLocationPanel
+                      location={currentLocation}
+                      nav={locationNav ?? undefined}
+                      onNavigate={handleLocationNavigate}
+                      theme={theme}
+                      variants={SECTION_VARIANTS}
+                    />
+                  </Suspense>
 
                   {manifestError && (
                     <div
@@ -909,16 +917,18 @@ function FocusNavOverlay({
 
                   <AnimatePresence initial={false}>
                     {rootSection === 'Tanakh' && (
-                      <TanakhSectionPanel
-                        collections={tanakhCollections}
-                        section={tanakhSection}
-                        onSelectBook={handleBookSelect}
-                        activeBookTitle={selectedBook?.work.title}
-                        loadingSeed={loadingTanakhSeed}
-                        theme={theme}
-                        variants={SECTION_VARIANTS}
-                        className="w-full"
-                      />
+                      <Suspense fallback={null}>
+                        <TanakhSectionPanel
+                          collections={tanakhCollections}
+                          section={tanakhSection}
+                          onSelectBook={handleBookSelect}
+                          activeBookTitle={selectedBook?.work.title}
+                          loadingSeed={loadingTanakhSeed}
+                          theme={theme}
+                          variants={SECTION_VARIANTS}
+                          className="w-full"
+                        />
+                      </Suspense>
                     )}
                   </AnimatePresence>
 
@@ -937,16 +947,18 @@ function FocusNavOverlay({
                             : 'border-gray-200 bg-white/20 shadow-gray-200/25',
                         )}
                       >
-                        <BookHeader
-                          book={selectedBook}
-                          activeTab={bookTab}
-                          onTabChange={setBookTab}
-                          loading={loadingBook}
-                          error={bookError}
-                          isMishnah={selectedBook.work.categories.includes('Mishnah')}
-                          hasParasha={hasParasha}
-                          theme={theme}
-                        />
+                        <Suspense fallback={null}>
+                          <BookHeader
+                            book={selectedBook}
+                            activeTab={bookTab}
+                            onTabChange={setBookTab}
+                            loading={loadingBook}
+                            error={bookError}
+                            isMishnah={selectedBook.work.categories.includes('Mishnah')}
+                            hasParasha={hasParasha}
+                            theme={theme}
+                          />
+                        </Suspense>
 
                         {loadingBook && (
                           <div
@@ -977,23 +989,27 @@ function FocusNavOverlay({
                         {!loadingBook && !bookError && bookData && (
                           <>
                             {bookTab === 'chapters' && 'chapterSizes' in bookData && (
-                              <ChapterGrid
-                                chapterSizes={bookData.chapterSizes}
-                                onSelect={handleChapterSelect}
-                                isLoading={loadingBook}
-                                activeChapter={activeChapter}
-                                theme={theme}
-                              />
+                              <Suspense fallback={null}>
+                                <ChapterGrid
+                                  chapterSizes={bookData.chapterSizes}
+                                  onSelect={handleChapterSelect}
+                                  isLoading={loadingBook}
+                                  activeChapter={activeChapter}
+                                  theme={theme}
+                                />
+                              </Suspense>
                             )}
 
                             {bookTab === 'parasha' && 'parshiot' in bookData && bookData.parshiot.length > 0 && (
-                              <ParashaList
-                                parshiot={bookData.parshiot}
-                                onSelectParasha={handleParashaSelect}
-                                onSelectAliyah={handleAliyahSelect}
-                                isLoading={loadingBook}
-                                theme={theme}
-                              />
+                              <Suspense fallback={null}>
+                                <ParashaList
+                                  parshiot={bookData.parshiot}
+                                  onSelectParasha={handleParashaSelect}
+                                  onSelectAliyah={handleAliyahSelect}
+                                  isLoading={loadingBook}
+                                  theme={theme}
+                                />
+                              </Suspense>
                             )}
 
                             {bookTab === 'parasha' && 'parshiot' in bookData && bookData.parshiot.length === 0 && (
@@ -1037,60 +1053,74 @@ function FocusNavOverlay({
                         >
                           Разделы Мишны
                         </h3>
-                        <MishnahSectionSelector
-                          active={mishnahSection}
-                          onSelect={handleMishnahSectionChange}
-                          theme={theme}
-                          variants={ITEM_VARIANTS}
-                        />
+                        <Suspense fallback={null}>
+                          <MishnahSectionSelector
+                            active={mishnahSection}
+                            onSelect={handleMishnahSectionChange}
+                            theme={theme}
+                            variants={ITEM_VARIANTS}
+                          />
+                        </Suspense>
                         <div className="mt-4 space-y-4">
                           {mishnahSection === 'Zeraim' && (
-                            <BookList
-                              books={mishnahCollections.zeraim}
-                              onSelect={handleBookSelect}
-                              activeTitle={selectedBook?.work.title}
-                              theme={theme}
-                            />
+                            <Suspense fallback={null}>
+                              <BookList
+                                books={mishnahCollections.zeraim}
+                                onSelect={handleBookSelect}
+                                activeTitle={selectedBook?.work.title}
+                                theme={theme}
+                              />
+                            </Suspense>
                           )}
                           {mishnahSection === 'Moed' && (
-                            <BookList
-                              books={mishnahCollections.moed}
-                              onSelect={handleBookSelect}
-                              activeTitle={selectedBook?.work.title}
-                              theme={theme}
-                            />
+                            <Suspense fallback={null}>
+                              <BookList
+                                books={mishnahCollections.moed}
+                                onSelect={handleBookSelect}
+                                activeTitle={selectedBook?.work.title}
+                                theme={theme}
+                              />
+                            </Suspense>
                           )}
                           {mishnahSection === 'Nashim' && (
-                            <BookList
-                              books={mishnahCollections.nashim}
-                              onSelect={handleBookSelect}
-                              activeTitle={selectedBook?.work.title}
-                              theme={theme}
-                            />
+                            <Suspense fallback={null}>
+                              <BookList
+                                books={mishnahCollections.nashim}
+                                onSelect={handleBookSelect}
+                                activeTitle={selectedBook?.work.title}
+                                theme={theme}
+                              />
+                            </Suspense>
                           )}
                           {mishnahSection === 'Nezikin' && (
-                            <BookList
-                              books={mishnahCollections.nezikin}
-                              onSelect={handleBookSelect}
-                              activeTitle={selectedBook?.work.title}
-                              theme={theme}
-                            />
+                            <Suspense fallback={null}>
+                              <BookList
+                                books={mishnahCollections.nezikin}
+                                onSelect={handleBookSelect}
+                                activeTitle={selectedBook?.work.title}
+                                theme={theme}
+                              />
+                            </Suspense>
                           )}
                           {mishnahSection === 'Kodashim' && (
-                            <BookList
-                              books={mishnahCollections.kodashim}
-                              onSelect={handleBookSelect}
-                              activeTitle={selectedBook?.work.title}
-                              theme={theme}
-                            />
+                            <Suspense fallback={null}>
+                              <BookList
+                                books={mishnahCollections.kodashim}
+                                onSelect={handleBookSelect}
+                                activeTitle={selectedBook?.work.title}
+                                theme={theme}
+                              />
+                            </Suspense>
                           )}
                           {mishnahSection === 'Taharot' && (
-                            <BookList
-                              books={mishnahCollections.taharot}
-                              onSelect={handleBookSelect}
-                              activeTitle={selectedBook?.work.title}
-                              theme={theme}
-                            />
+                            <Suspense fallback={null}>
+                              <BookList
+                                books={mishnahCollections.taharot}
+                                onSelect={handleBookSelect}
+                                activeTitle={selectedBook?.work.title}
+                                theme={theme}
+                              />
+                            </Suspense>
                           )}
                         </div>
                       </motion.section>
@@ -1099,25 +1129,29 @@ function FocusNavOverlay({
 
                   <AnimatePresence initial={false}>
                     {rootSection === 'Talmud' && (
-                      <TalmudSectionPanel
-                        edition={talmudEdition}
-                        sedarim={talmudStructure.map}
-                        sederOrder={talmudStructure.order}
-                        selectedSeder={talmudSeder}
-                        selectedTractate={selectedTractate}
-                        onEditionChange={handleTalmudEditionChange}
-                        onSelectSeder={handleTalmudSederSelect}
-                        onSelectTractate={handleTalmudTractateSelect}
-                        onSelectDaf={handleTalmudDafSelect}
-                        theme={theme}
-                        variants={SECTION_VARIANTS}
-                        className="w-full"
-                      />
+                      <Suspense fallback={null}>
+                        <TalmudSectionPanel
+                          edition={talmudEdition}
+                          sedarim={talmudStructure.map}
+                          sederOrder={talmudStructure.order}
+                          selectedSeder={talmudSeder}
+                          selectedTractate={selectedTractate}
+                          onEditionChange={handleTalmudEditionChange}
+                          onSelectSeder={handleTalmudSederSelect}
+                          onSelectTractate={handleTalmudTractateSelect}
+                          onSelectDaf={handleTalmudDafSelect}
+                          theme={theme}
+                          variants={SECTION_VARIANTS}
+                          className="w-full"
+                        />
+                      </Suspense>
                     )}
                   </AnimatePresence>
 
                   {rootSection && rootSection !== 'Tanakh' && rootSection !== 'Talmud' && rootSection !== 'Mishnah' && (
-                    <ComingSoonPanel sectionName={rootSection} theme={theme} variants={SECTION_VARIANTS} className="w-full" />
+                    <Suspense fallback={null}>
+                      <ComingSoonPanel sectionName={rootSection} theme={theme} variants={SECTION_VARIANTS} className="w-full" />
+                    </Suspense>
                   )}
                 </div>
               </div>

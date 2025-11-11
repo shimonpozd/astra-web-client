@@ -1,26 +1,29 @@
-import { ChatLayout } from './components/chat/ChatLayout';
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import StudyLanding from './pages/StudyLanding';
-import AdminLayout from './pages/AdminLayout';
-import GeneralSettings from './pages/admin/GeneralSettings';
-import PersonalityList from './pages/admin/PersonalityList';
-import PersonalityCreate from './pages/admin/PersonalityCreate';
-import PersonalityEdit from './pages/admin/PersonalityEdit';
-import PromptEditor from './pages/admin/PromptEditor';
-import UserManagementPage from './pages/admin/UserManagement';
+const ChatLayout = lazy(() => import('./components/chat/ChatLayout').then(m => ({ default: m.ChatLayout })));
+const StudyLanding = lazy(() => import('./pages/StudyLanding'));
+const AdminLayout = lazy(() => import('./pages/AdminLayout'));
+const GeneralSettings = lazy(() => import('./pages/admin/GeneralSettings'));
+const PersonalityList = lazy(() => import('./pages/admin/PersonalityList'));
+const PersonalityCreate = lazy(() => import('./pages/admin/PersonalityCreate'));
+const PersonalityEdit = lazy(() => import('./pages/admin/PersonalityEdit'));
+const PromptEditor = lazy(() => import('./pages/admin/PromptEditor'));
+const UserManagementPage = lazy(() => import('./pages/admin/UserManagement'));
 import { useTextSelectionListener } from './hooks/useTextSelectionListener';
 import { LexiconPanel } from './components/LexiconPanel';
 import { ThemeProvider } from './components/theme-provider';
 import { FontSettingsProvider } from './contexts/FontSettingsContext';
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
-import LoginPage from './pages/Login';
+const LoginPage = lazy(() => import('./pages/Login'));
 import { RequireAuth } from './components/auth/RequireAuth';
-import FocusNavOverlay from './components/study/nav/FocusNavOverlay';
+const FocusNavOverlay = lazy(() => import('./components/study/nav/FocusNavOverlay'));
 
 function AuthenticatedShell() {
   return (
     <div className="h-screen w-full bg-background">
-      <Outlet />
+      <Suspense fallback={null}>
+        <Outlet />
+      </Suspense>
       <LexiconPanel />
     </div>
   );
@@ -35,24 +38,115 @@ function App() {
         <NavigationProvider>
           <BrowserRouter>
             <Routes>
-              <Route path="/login" element={<LoginPage />} />
+              <Route
+                path="/login"
+                element={
+                  <Suspense fallback={null}>
+                    <LoginPage />
+                  </Suspense>
+                }
+              />
               <Route element={<RequireAuth />}>
                 <Route element={<AuthenticatedShell />}>
-                  <Route path="/" element={<ChatLayout />} />
+                  <Route
+                    path="/"
+                    element={
+                      <Suspense fallback={null}>
+                        <ChatLayout />
+                      </Suspense>
+                    }
+                  />
                   <Route path="/chat" element={<Navigate to="/" replace />} />
-                  <Route path="/chat/:sessionId" element={<ChatLayout />} />
-                  <Route path="/study" element={<StudyLanding />} />
-                  <Route path="/study/:sessionId" element={<ChatLayout />} />
-                  <Route path="/daily/:sessionId" element={<ChatLayout />} />
+                  <Route
+                    path="/chat/:sessionId"
+                    element={
+                      <Suspense fallback={null}>
+                        <ChatLayout />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/study"
+                    element={
+                      <Suspense fallback={null}>
+                        <StudyLanding />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/study/:sessionId"
+                    element={
+                      <Suspense fallback={null}>
+                        <ChatLayout />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/daily/:sessionId"
+                    element={
+                      <Suspense fallback={null}>
+                        <ChatLayout />
+                      </Suspense>
+                    }
+                  />
                   <Route element={<RequireAuth admin />}>
-                    <Route path="/admin" element={<AdminLayout />}>
+                    <Route
+                      path="/admin"
+                      element={
+                        <Suspense fallback={null}>
+                          <AdminLayout />
+                        </Suspense>
+                      }
+                    >
                       <Route index element={<Navigate to="/admin/settings" replace />} />
-                      <Route path="settings" element={<GeneralSettings />} />
-                      <Route path="personalities" element={<PersonalityList />} />
-                      <Route path="personalities/new" element={<PersonalityCreate />} />
-                      <Route path="personalities/edit/:id" element={<PersonalityEdit />} />
-                      <Route path="prompts" element={<PromptEditor />} />
-                      <Route path="users" element={<UserManagementPage />} />
+                      <Route
+                        path="settings"
+                        element={
+                          <Suspense fallback={null}>
+                            <GeneralSettings />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="personalities"
+                        element={
+                          <Suspense fallback={null}>
+                            <PersonalityList />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="personalities/new"
+                        element={
+                          <Suspense fallback={null}>
+                            <PersonalityCreate />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="personalities/edit/:id"
+                        element={
+                          <Suspense fallback={null}>
+                            <PersonalityEdit />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="prompts"
+                        element={
+                          <Suspense fallback={null}>
+                            <PromptEditor />
+                          </Suspense>
+                        }
+                      />
+                      <Route
+                        path="users"
+                        element={
+                          <Suspense fallback={null}>
+                            <UserManagementPage />
+                          </Suspense>
+                        }
+                      />
                     </Route>
                   </Route>
                   <Route path="*" element={<Navigate to="/" replace />} />
@@ -70,12 +164,18 @@ function App() {
 function GlobalNavigationModal() {
   const { isNavOpen, closeNav, onSelectRef, currentRef } = useNavigation();
   return (
-    <FocusNavOverlay
-      open={isNavOpen}
-      onClose={closeNav}
-      onSelectRef={onSelectRef}
-      currentRef={currentRef}
-    />
+    <>
+      {isNavOpen ? (
+        <Suspense fallback={null}>
+          <FocusNavOverlay
+            open={isNavOpen}
+            onClose={closeNav}
+            onSelectRef={onSelectRef}
+            currentRef={currentRef}
+          />
+        </Suspense>
+      ) : null}
+    </>
   );
 }
 

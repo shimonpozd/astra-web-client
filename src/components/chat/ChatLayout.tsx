@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
+import { Suspense, lazy, useState, useEffect } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useChat } from "../../hooks/useChat";
 import { useStudyMode } from "../../hooks/useStudyMode";
 import { useTextSelectionListener } from "../../hooks/useTextSelectionListener";
-import BookshelfPanel from "../study/BookshelfPanel";
-import StudyMode from "../study/StudyMode";
-import StudySetupBar from "../study/StudySetupBar";
-import ChatSidebar from "./ChatSidebar";
-import ChatViewport from "./ChatViewport";
-import MessageComposer from "./MessageComposer";
+const BookshelfPanel = lazy(() => import("../study/BookshelfPanel"));
+const StudyMode = lazy(() => import("../study/StudyMode"));
+const StudySetupBar = lazy(() => import("../study/StudySetupBar"));
+const ChatSidebar = lazy(() => import("./ChatSidebar"));
+const ChatViewport = lazy(() => import("./ChatViewport"));
+const MessageComposer = lazy(() => import("./MessageComposer"));
 import TopBar from "../layout/TopBar"; // Import the new TopBar
 import { api } from "../../services/api"; // Import api for daily session creation
 import { useLayout } from "../../contexts/LayoutContext";
@@ -276,6 +276,44 @@ export function ChatLayout() {
           // Left half: chat list + chat panel
           <div className="min-h-0 grid border-r border-border/20" style={{ gridTemplateColumns: `${sidebarColumnWidth} 1fr` }}>
             <div className="min-h-0 overflow-hidden">
+              <Suspense fallback={null}>
+                <ChatSidebar
+                  chats={chats}
+                  isLoading={isLoadingChats}
+                  error={chatsError}
+                  selectedChatId={selectedChatId}
+                  onSelectChat={handleSelectSession}
+                  onCreateChat={createChat}
+                  onCreateStudy={handleCreateStudyGenesis}
+                  onDeleteSession={deleteSession}
+                  onModeChange={setSidebarMode}
+                />
+              </Suspense>
+            </div>
+            <div className="min-h-0 flex flex-col">
+              <div className="flex-1 min-h-0 overflow-y-auto panel-padding-sm">
+                <Suspense fallback={null}>
+                  <ChatViewport
+                    messages={messages.map(m => ({ ...m, id: String(m.id) }))}
+                    isLoading={isLoadingMessages}
+                  />
+                </Suspense>
+              </div>
+              <div className="flex-shrink-0 panel-padding">
+                <Suspense fallback={null}>
+                  <MessageComposer 
+                    onSendMessage={sendMessage} 
+                    disabled={isSending} 
+                    studyMode={studyUiMode}
+                    selectedPanelId={selectedPanelId}
+                  />
+                </Suspense>
+              </div>
+            </div>
+          </div>
+        ) : (
+          isSidebarVisible && (
+            <Suspense fallback={null}>
               <ChatSidebar
                 chats={chats}
                 isLoading={isLoadingChats}
@@ -287,37 +325,7 @@ export function ChatLayout() {
                 onDeleteSession={deleteSession}
                 onModeChange={setSidebarMode}
               />
-            </div>
-            <div className="min-h-0 flex flex-col">
-              <div className="flex-1 min-h-0 overflow-y-auto panel-padding-sm">
-                <ChatViewport
-                  messages={messages.map(m => ({ ...m, id: String(m.id) }))}
-                  isLoading={isLoadingMessages}
-                />
-              </div>
-              <div className="flex-shrink-0 panel-padding">
-                <MessageComposer 
-                  onSendMessage={sendMessage} 
-                  disabled={isSending} 
-                  studyMode={studyUiMode}
-                  selectedPanelId={selectedPanelId}
-                />
-              </div>
-            </div>
-          </div>
-        ) : (
-          isSidebarVisible && (
-            <ChatSidebar
-              chats={chats}
-              isLoading={isLoadingChats}
-              error={chatsError}
-              selectedChatId={selectedChatId}
-              onSelectChat={handleSelectSession}
-              onCreateChat={createChat}
-              onCreateStudy={handleCreateStudyGenesis}
-              onDeleteSession={deleteSession}
-              onModeChange={setSidebarMode}
-            />
+            </Suspense>
           )
         )}
 
@@ -334,6 +342,7 @@ export function ChatLayout() {
 
               <div className={mode === 'vertical_three' ? "min-h-0 grid grid-rows-[auto_1fr] col-start-1 col-end-2 h-full" : "flex-1 min-h-0"}>
                 {isStudyActive ? (
+                  <Suspense fallback={null}>
                   <StudyMode
                     snapshot={studySnapshot}
                     onExit={exitStudy}
@@ -360,16 +369,21 @@ export function ChatLayout() {
                     onSelectedPanelChange={() => {}}
                     isBackgroundLoading={isBackgroundLoading}
                   />
+                  </Suspense>
                 ) : (
                   <div className="h-full flex flex-col min-h-0">
                     <div className="flex-1 min-h-0">
-                      <ChatViewport
-                        messages={messages.map(m => ({ ...m, id: String(m.id) }))}
-                        isLoading={isLoadingMessages}
-                      />
+                      <Suspense fallback={null}>
+                        <ChatViewport
+                          messages={messages.map(m => ({ ...m, id: String(m.id) }))}
+                          isLoading={isLoadingMessages}
+                        />
+                      </Suspense>
                     </div>
                     <div className="flex-shrink-0">
-                      <MessageComposer onSendMessage={sendMessage} disabled={isSending} />
+                      <Suspense fallback={null}>
+                        <MessageComposer onSendMessage={sendMessage} disabled={isSending} />
+                      </Suspense>
                     </div>
                   </div>
                 )}
@@ -389,12 +403,14 @@ export function ChatLayout() {
           )}
           {isStudyActive && mode !== 'vertical_three' && isChatAreaVisible && (
             <div className="min-h-0 overflow-hidden">
-              <BookshelfPanel
-                sessionId={studySessionId || undefined}
-                currentRef={getCurrentRefForBookshelf()}
-                onDragStart={(ref) => debugLog('Dragging from bookshelf:', ref)}
-                onItemClick={(item) => debugLog('Clicked bookshelf item:', item)}
-              />
+              <Suspense fallback={null}>
+                <BookshelfPanel
+                  sessionId={studySessionId || undefined}
+                  currentRef={getCurrentRefForBookshelf()}
+                  onDragStart={(ref) => debugLog('Dragging from bookshelf:', ref)}
+                  onItemClick={(item) => debugLog('Clicked bookshelf item:', item)}
+                />
+              </Suspense>
             </div>
           )}
         </>

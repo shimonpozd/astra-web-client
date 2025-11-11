@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { StudySnapshot } from '../../types/study';
 import { ContinuousText, TextSegment, ChapterNavigation } from '../../types/text';
-import FocusReader from './FocusReader';
+const FocusReader = lazy(() => import('./FocusReader'));
 import ChatViewport from '../chat/ChatViewport';
 import MessageComposer from '../chat/MessageComposer';
 import WorkbenchPanelInline from './WorkbenchPanelInline';
@@ -333,6 +333,7 @@ export default function StudyMode({
                   }
                 }}
               >
+                <Suspense fallback={null}>
                 <FocusReader
                   continuousText={continuousText}
                   isLoading={isLoading}
@@ -359,6 +360,7 @@ export default function StudyMode({
                   showLeftPanel={leftPanelVisibility}
                   showRightPanel={rightPanelVisibility}
                 />
+                </Suspense>
               </div>
   
               {/* Right Workbench */}

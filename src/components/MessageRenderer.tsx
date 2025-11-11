@@ -654,7 +654,7 @@ export function MessageRenderer({ doc }: MessageRendererProps) {
           case "image":
             return (
               <figure key={index}>
-                <img src={block.url} alt={block.alt || ""} />
+                <img src={block.url} alt={block.alt || ""} loading="lazy" decoding="async" />
                 {block.caption && <figcaption>{renderMdLite(block.caption)}</figcaption>}
               </figure>
             );

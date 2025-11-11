@@ -1,3 +1,4 @@
+import React, { useMemo } from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 
@@ -18,9 +19,10 @@ function BookList({
   activeTitle,
   theme,
 }: BookListProps) {
+  const items = useMemo(() => books, [books]);
   return (
     <div className="flex flex-col gap-2">
-      {books.map((entry, index) => {
+      {items.map((entry, index) => {
         // Используем русские названия из каталога
         const russianTitle = getWorkRuTitle(entry.work);
         const transliterated = russianTitle ?? entry.seed.title_ru ?? entry.seed.indexTitle ?? entry.work.title;
@@ -82,4 +84,4 @@ function BookList({
   );
 }
 
-export default BookList;
+export default React.memo(BookList);

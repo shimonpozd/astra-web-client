@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, Suspense, lazy } from 'react';
 import type { Message as ApiMessage } from '../../services/api';
-import UnifiedMessageRenderer from '../UnifiedMessageRenderer';
-import { AudioMessageRenderer } from '../AudioMessageRenderer';
+const UnifiedMessageRenderer = lazy(() => import('../UnifiedMessageRenderer'));
+const AudioMessageRenderer = lazy(() => import('../AudioMessageRenderer').then(m => ({ default: m.AudioMessageRenderer })));
 import type { ChatMessage, AudioMessage } from '../../types/text';
 import { safeScrollToBottom } from '../../utils/scrollUtils';
 import { debugWarn } from '../../utils/debugLogger';
@@ -168,13 +168,19 @@ export default function ChatViewport({ messages, isLoading }: ChatViewportProps)
             const renderAssistantDoc = () => {
               // Handle audio messages
               if (message.content_type === 'audio.v1') {
-                return <AudioMessageRenderer message={message as AudioMessage} />;
+                return (
+                  <Suspense fallback={null}>
+                    <AudioMessageRenderer message={message as AudioMessage} />
+                  </Suspense>
+                );
               }
               
               // Default doc rendering
               return (
                 <article className="doc" dir="auto">
-                  <UnifiedMessageRenderer input={message.content} />
+                  <Suspense fallback={null}>
+                    <UnifiedMessageRenderer input={message.content} />
+                  </Suspense>
                 </article>
               );
             };
