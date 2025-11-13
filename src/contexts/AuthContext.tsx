@@ -9,7 +9,11 @@ import {
 } from 'react';
 
 import { authStorage, StoredUser } from '../lib/authStorage';
-import { login as loginRequest } from '../services/auth';
+import {
+  login as loginRequest,
+  logout as logoutRequest,
+  refreshSession,
+} from '../services/auth';
 import { debugLog } from '../utils/debugLogger';
 
 interface AuthContextValue {
@@ -46,18 +50,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(null);
       setUser(null);
     }
-    setIsLoading(false);
   }, []);
 
   useEffect(() => {
     initializeFromStorage();
+    let isCancelled = false;
+
+    const refresh = async () => {
+      try {
+        const data = await refreshSession();
+        if (isCancelled) return;
+        authStorage.setToken(data.access_token);
+        authStorage.setUser(data.user);
+        setToken(data.access_token);
+        setUser(data.user);
+      } catch (error) {
+        if (isCancelled) return;
+        debugLog('[Auth] Refresh failed, clearing auth state', error);
+        authStorage.clear();
+        setToken(null);
+        setUser(null);
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void refresh();
+
     const unsubscribe = authStorage.onUnauthorized(() => {
       debugLog('[Auth] Unauthorized received, logging out');
       authStorage.clear();
       setToken(null);
       setUser(null);
     });
-    return unsubscribe;
+    return () => {
+      isCancelled = true;
+      unsubscribe();
+    };
   }, [initializeFromStorage]);
 
   const login = useCallback(async (username: string, password: string) => {
@@ -69,6 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    void logoutRequest().catch(() => {
+      /* ignore */
+    });
     authStorage.clear();
     setToken(null);
     setUser(null);

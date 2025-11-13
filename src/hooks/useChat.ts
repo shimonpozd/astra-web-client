@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, Chat, Message, ChatRequest } from '../services/api';
+import { api, Chat, Message, ChatRequest, VirtualDailyChat } from '../services/api';
 
 import { debugLog } from '../utils/debugLogger';
 function generateId(): string {
@@ -29,6 +29,28 @@ function generateId(): string {
 
   const randomSuffix = Math.random().toString(16).slice(2);
   return `fallback-${Date.now().toString(16)}-${randomSuffix}`;
+}
+
+function mapVirtualDailyChat(item: VirtualDailyChat): Chat {
+  const displayValue = item.display_value || '';
+  return {
+    session_id: item.session_id,
+    name: item.title_ru || item.title,
+    last_modified: item.date,
+    type: 'daily',
+    completed: item.exists ?? false,
+    display_value: displayValue,
+    display_value_he: item.he_display_value,
+    display_value_ru: item.display_value_ru || displayValue,
+    daily_category: item.category,
+    daily_stream: item.stream
+      ? {
+          stream_id: item.stream.stream_id,
+          units_total: item.stream.units_total,
+          unit_index_today: item.stream.unit_index_today,
+        }
+      : undefined,
+  };
 }
 
 export function useChat(agentId: string = 'default', initialChatId?: string | null) {
@@ -64,13 +86,7 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
         // Convert daily calendar to Chat format
         const dailyChats: Chat[] = dailyCalendar
           .filter(item => !existingIds.has(item.session_id))
-          .map(item => ({
-            session_id: item.session_id,
-            name: item.title, // Just the title: "Daf Yomi", "Parashat Hashavua", etc.
-            last_modified: item.date, // Use date as last_modified for sorting
-            type: 'daily' as const,
-            completed: false // Will be updated when we check if session exists
-          }));
+          .map(mapVirtualDailyChat);
         
         debugLog('Daily chats created:', dailyChats);
         
@@ -173,13 +189,7 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
       const existingIds = new Set(sessionList.map((item) => item.session_id));
       const dailyChats: Chat[] = dailyCalendar
         .filter((item) => !existingIds.has(item.session_id))
-        .map((item) => ({
-          session_id: item.session_id,
-          name: item.title,
-          last_modified: item.date,
-          type: 'daily' as const,
-          completed: false,
-        }));
+        .map(mapVirtualDailyChat);
       const allChats = [...dailyChats, ...sessionList].sort((a, b) => {
         if (a.type === 'daily' && b.type !== 'daily') return -1;
         if (a.type !== 'daily' && b.type === 'daily') return 1;

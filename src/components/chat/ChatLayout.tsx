@@ -10,22 +10,22 @@ const StudyMode = lazy(() =>
 const StudyChatPanel = lazy(() =>
   import("../study/StudyMode").then((m) => ({ default: m.StudyChatPanel }))
 );
-const StudySetupBar = lazy(() => import("../study/StudySetupBar"));
 const ChatSidebar = lazy(() => import("./ChatSidebar"));
 const ChatViewport = lazy(() => import("./ChatViewport"));
 const MessageComposer = lazy(() => import("./MessageComposer"));
+const StudyNavigator = lazy(() => import("../study/nav/FocusNavOverlay"));
 import TopBar from "../layout/TopBar"; // Import the new TopBar
 import { api } from "../../services/api"; // Import api for daily session creation
 import { useLayout } from "../../contexts/LayoutContext";
 import { debugLog } from '../../utils/debugLogger';
 import { authorizedFetch } from '../../lib/authorizedFetch';
 import { buildStudyQuickActions } from '../../utils/studyQuickActions';
+import { normalizeRefForAPI } from "../../utils/refUtils";
 
 export function ChatLayout() {
   const navigate = useNavigate();
   const { sessionId: urlChatId } = useParams<{ sessionId: string }>();
   const location = useLocation();
-  const [isStudySetupOpen, setIsStudySetupOpen] = useState(false);
   const [isSidebarVisible] = useState(true);
   const [isChatAreaVisible] = useState(true);
   const [agentId, setAgentId] = useState<string>(() => {
@@ -111,6 +111,7 @@ export function ChatLayout() {
     sendMessage,
     isSending,
     deleteSession,
+    reloadChats,
   } = useChat(agentId, urlChatId);
   const { mode } = useLayout();
   // Force GIRSA mode (temporarily disable IYUN)
@@ -191,20 +192,43 @@ export function ChatLayout() {
     }
   }, [studySnapshot, studyMessages]);
 
-  const handleStartStudy = (textRef: string) => {
-    startStudy(textRef).then((newSessionId) => {
+  const [isStudyNavigatorOpen, setIsStudyNavigatorOpen] = useState(false);
+  const [studyNavigatorRef, setStudyNavigatorRef] = useState<string | undefined>(undefined);
+
+  const handleStartStudy = useCallback(async (textRef: string) => {
+    const normalizedRef = normalizeRefForAPI(textRef);
+    if (!normalizedRef) {
+      console.error('Cannot start study without a valid reference');
+      return;
+    }
+    try {
+      const newSessionId = await startStudy(normalizedRef);
       if (newSessionId) {
         navigate(`/study/${newSessionId}`);
+        void reloadChats();
       }
-      setIsStudySetupOpen(false);
-    }).catch((error) => {
+    } catch (error) {
       console.error('Failed to create study session:', error);
-    });
-  };
+    }
+  }, [startStudy, navigate, reloadChats]);
 
-  const handleOpenStudySetup = () => {
-    setIsStudySetupOpen(true);
-  };
+  const handleOpenStudyNavigator = useCallback(() => {
+    const preferredRef = studySnapshot?.discussion_focus_ref || studySnapshot?.ref;
+    setStudyNavigatorRef(preferredRef ?? undefined);
+    setIsStudyNavigatorOpen(true);
+  }, [studySnapshot]);
+
+  const handleCloseStudyNavigator = useCallback(() => {
+    setIsStudyNavigatorOpen(false);
+  }, []);
+
+  const handleNavigateFromNavigator = useCallback(
+    (ref: string) => {
+      handleCloseStudyNavigator();
+      void handleStartStudy(ref);
+    },
+    [handleCloseStudyNavigator, handleStartStudy]
+  );
 
   const handleSelectSession = async (sessionId: string, type: 'chat' | 'study' | 'daily') => {
     debugLog('Chat clicked:', { sessionId, type });
@@ -323,7 +347,7 @@ export function ChatLayout() {
                   selectedChatId={selectedChatId}
                   onSelectChat={handleSelectSession}
                   onCreateChat={createChat}
-                  onCreateStudy={handleOpenStudySetup}
+                  onCreateStudy={handleOpenStudyNavigator}
                   onDeleteSession={deleteSession}
                   onModeChange={setSidebarMode}
                 />
@@ -442,7 +466,7 @@ export function ChatLayout() {
                   selectedChatId={selectedChatId}
                   onSelectChat={handleSelectSession}
                   onCreateChat={createChat}
-                  onCreateStudy={handleOpenStudySetup}
+                  onCreateStudy={handleOpenStudyNavigator}
                   onDeleteSession={deleteSession}
                   onModeChange={setSidebarMode}
                 />
@@ -452,14 +476,6 @@ export function ChatLayout() {
 
           {isChatAreaVisible && (
             <main className="flex flex-col min-h-0 bg-background">
-              {isStudySetupOpen && !isStudyActive && (
-                <StudySetupBar
-                  onStartStudy={handleStartStudy}
-                  onCancel={() => setIsStudySetupOpen(false)}
-                  isLoading={isLoadingStudy}
-                />
-              )}
-
               <div className="flex-1 min-h-0">
                 {isStudyActive ? (
                   <Suspense fallback={null}>
@@ -535,6 +551,16 @@ export function ChatLayout() {
             </div>
           )}
         </div>
+      )}
+      {isStudyNavigatorOpen && (
+        <Suspense fallback={null}>
+          <StudyNavigator
+            open={isStudyNavigatorOpen}
+            onClose={handleCloseStudyNavigator}
+            onSelectRef={handleNavigateFromNavigator}
+            currentRef={studyNavigatorRef}
+          />
+        </Suspense>
       )}
     </div>
   );

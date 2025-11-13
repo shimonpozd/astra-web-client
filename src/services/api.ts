@@ -8,6 +8,15 @@ export interface Chat {
   last_modified: string;
   type: 'chat' | 'study' | 'daily';
   completed?: boolean; // For daily chats
+  display_value?: string;
+  display_value_he?: string;
+  display_value_ru?: string;
+  daily_category?: string;
+  daily_stream?: {
+    stream_id: string;
+    units_total: number;
+    unit_index_today: number;
+  };
 }
 
 export interface Message {
@@ -29,7 +38,7 @@ interface AdminUserApiKey {
   created_at: string;
 }
 
-interface AdminUserSummary {
+export interface AdminUserSummary {
   id: string;
   username: string;
   role: 'admin' | 'member';
@@ -39,6 +48,9 @@ interface AdminUserSummary {
   updated_at: string;
   last_login_at: string | null;
   api_keys: AdminUserApiKey[];
+  phone_number: string | null;
+  active_session_count: number;
+  total_session_count: number;
 }
 
 interface CreateAdminUserPayload {
@@ -63,6 +75,27 @@ interface CreateApiKeyPayload {
 interface UpdateApiKeyPayload {
   daily_limit?: number | null;
   is_active?: boolean;
+}
+
+export interface AdminUserSession {
+  id: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  last_used_at: string | null;
+  expires_at: string;
+}
+
+export interface AdminUserLoginEvent {
+  id: string;
+  username: string | null;
+  success: boolean;
+  reason: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
 }
 
 interface ChatHistoryResponse {
@@ -111,17 +144,28 @@ async function getChatList(): Promise<Chat[]> {
   }
 }
 
-interface VirtualDailyChat {
+export interface VirtualDailyChat {
   session_id: string;
   title: string;
   he_title: string;
+  title_ru?: string;
   display_value: string;
   he_display_value: string;
+  display_value_ru?: string;
   ref: string;
   category: string;
   order: number;
   date: string;
   exists: boolean;
+  stream: {
+    stream_id: string;
+    title: {
+      en?: string;
+      he?: string;
+    };
+    units_total: number;
+    unit_index_today: number;
+  };
 }
 
 async function getDailyCalendar(): Promise<VirtualDailyChat[]> {
@@ -330,6 +374,34 @@ async function adminListUsers(): Promise<AdminUserSummary[]> {
   const response = await authorizedFetch(`${API_BASE}/users`);
   if (!response.ok) {
     throw new Error('Failed to fetch users');
+  }
+  return response.json();
+}
+
+async function adminListUserSessions(userId: string): Promise<AdminUserSession[]> {
+  const response = await authorizedFetch(`${API_BASE}/users/${userId}/sessions`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch user sessions');
+  }
+  return response.json();
+}
+
+async function adminRevokeSession(userId: string, sessionId: string): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/users/${userId}/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to revoke session');
+  }
+}
+
+async function adminListUserLoginEvents(
+  userId: string,
+  limit: number = 20,
+): Promise<AdminUserLoginEvent[]> {
+  const response = await authorizedFetch(`${API_BASE}/users/${userId}/login-events?limit=${limit}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch login events');
   }
   return response.json();
 }
@@ -1034,7 +1106,12 @@ export const api = {
   adminCreateUserApiKey,
   adminUpdateUserApiKey,
   adminDeleteUserApiKey,
+  adminListUserSessions,
+  adminRevokeSession,
+  adminListUserLoginEvents,
 };
+
+export type { AdminUserSummary, AdminUserSession, AdminUserLoginEvent };
 
 
 

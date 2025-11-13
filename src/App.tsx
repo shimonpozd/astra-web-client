@@ -15,6 +15,7 @@ import { ThemeProvider } from './components/theme-provider';
 import { FontSettingsProvider } from './contexts/FontSettingsContext';
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
 const LoginPage = lazy(() => import('./pages/Login'));
+const RegisterPage = lazy(() => import('./pages/Register'));
 import { RequireAuth } from './components/auth/RequireAuth';
 const FocusNavOverlay = lazy(() => import('./components/study/nav/FocusNavOverlay'));
 
@@ -43,6 +44,14 @@ function App() {
                 element={
                   <Suspense fallback={null}>
                     <LoginPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/register"
+                element={
+                  <Suspense fallback={null}>
+                    <RegisterPage />
                   </Suspense>
                 }
               />

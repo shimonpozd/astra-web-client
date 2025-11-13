@@ -6,12 +6,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { register as registerRequest } from '../services/auth';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const { login, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,18 +29,27 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!username.trim() || !password.trim()) {
-      setError('Введите логин и пароль');
+    const identifier = username.trim() || phone.trim();
+    if (!identifier) {
+      setError('Введите имя или телефон');
       return;
     }
-
+    if (!password.trim()) {
+      setError('Введите пароль');
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
     try {
-      await login(username.trim(), password.trim());
+      await registerRequest({
+        username: identifier,
+        password: password.trim(),
+        phone_number: phone.trim() || undefined,
+      });
+      await login(identifier, password.trim());
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Не удалось войти';
+      const message = err instanceof Error ? err.message : 'Регистрация не удалась';
       setError(message);
     } finally {
       setIsSubmitting(false);
@@ -49,20 +60,30 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="w-full max-w-sm space-y-6 rounded-md border border-border bg-card p-6 shadow-sm">
         <div className="space-y-1 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Вход в Astra</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Новый аккаунт</h1>
           <p className="text-sm text-muted-foreground">
-            Используйте логин (имя или телефон) и пароль, чтобы продолжить.
+            Имя или телефон, пароль — ничего лишнего. Можно начать сразу.
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="username">Логин</Label>
+            <Label htmlFor="username">Имя (если есть)</Label>
             <Input
               id="username"
-              autoComplete="username"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               disabled={isSubmitting}
+              placeholder="Например astra_user"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Телефон (опционально)</Label>
+            <Input
+              id="phone"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              disabled={isSubmitting}
+              placeholder="+7XXXXXXXXXX"
             />
           </div>
           <div className="space-y-2">
@@ -70,7 +91,7 @@ export default function LoginPage() {
             <Input
               id="password"
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               disabled={isSubmitting}
@@ -82,13 +103,13 @@ export default function LoginPage() {
             </p>
           ) : null}
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? 'Входим...' : 'Войти'}
+            {isSubmitting ? 'Создание...' : 'Зарегистрироваться'}
           </Button>
         </form>
         <p className="text-center text-sm text-muted-foreground">
-          Нет аккаунта?{' '}
-          <Link to="/register" className="font-medium text-primary underline-offset-4 hover:underline">
-            Зарегистрируйтесь
+          Уже есть аккаунт?{' '}
+          <Link to="/login" className="font-medium text-primary underline-offset-4 hover:underline">
+            Войти
           </Link>
         </p>
       </div>

@@ -1,7 +1,8 @@
 import { Plus, X, Calendar, BookOpen, MessageSquare, ChevronLeft, ChevronRight as ChevronRightIcon, Bookmark } from 'lucide-react';
 import { Chat } from '../../services/api';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTheme } from '../theme-provider';
+import { useLocation } from 'react-router-dom';
 
 interface ChatSidebarProps {
   chats: Chat[];
@@ -34,8 +35,46 @@ export default function ChatSidebar({
     try { return (localStorage.getItem('astra_active_category') as 'daily'|'study'|'chat') || 'study'; } catch { return 'study'; }
   });
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const [isFading, setIsFading] = useState(false);
   const { theme } = useTheme();
-  
+  const location = useLocation();
+  const routeMatch = location.pathname.match(/^\/(chat|study|daily)\/([^\/?#]+)/);
+  const activeRouteType = routeMatch ? (routeMatch[1] as 'chat' | 'study' | 'daily') : null;
+  const activeRouteId = routeMatch ? decodeURIComponent(routeMatch[2]) : null;
+
+  const resolveCategoryFromType = (type: 'chat' | 'study' | 'daily'): 'chat' | 'study' | 'daily' => {
+    return type === 'chat' ? 'chat' : type;
+  };
+
+  const handleSelectCategory = useCallback((cat: 'daily'|'study'|'chat') => {
+    setIsFading(true);
+    window.setTimeout(() => {
+      setActiveCategory(cat);
+      setFocusedIndex(-1);
+      setIsFading(false);
+      try { localStorage.setItem('astra_active_category', cat); } catch {}
+    }, 150);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedChatId) return;
+    const activeChat = chats.find((chat) => chat.session_id === selectedChatId);
+    if (!activeChat) return;
+    const nextCategory = activeChat.type === 'chat' ? 'chat' : activeChat.type;
+    if (nextCategory !== activeCategory) {
+      setActiveCategory(nextCategory);
+      setFocusedIndex(-1);
+    }
+  }, [selectedChatId, chats, activeCategory]);
+
+  useEffect(() => {
+    if (!activeRouteType) return;
+    if (activeRouteType !== activeCategory) {
+      setActiveCategory(activeRouteType);
+      setFocusedIndex(-1);
+    }
+  }, [activeRouteType, activeCategory]);
+
   // Separate by category
   const dailyChats = chats.filter(chat => chat.type === 'daily');
   const studyChats = chats.filter(chat => chat.type === 'study');
@@ -67,23 +106,10 @@ export default function ChatSidebar({
     }
   }, [activeCategory]);
 
-  // Subtle fade on category change
-  const [isFading, setIsFading] = useState(false);
-
   const handleToggleMode = () => {
     const next = mode === 'split' ? 'compact' : 'split';
     setMode(next);
     try { localStorage.setItem('astra_sidebar_mode', next); } catch {}
-  };
-
-  const handleSelectCategory = (cat: 'daily'|'study'|'chat') => {
-    setIsFading(true);
-    window.setTimeout(() => {
-      setActiveCategory(cat);
-      setFocusedIndex(-1);
-      setIsFading(false);
-      try { localStorage.setItem('astra_active_category', cat); } catch {}
-    }, 150);
   };
 
   const handleKeyDownList = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -227,7 +253,8 @@ export default function ChatSidebar({
               </div>
             ) : (
               visibleChats.map((chat, idx) => {
-                const selected = selectedChatId === chat.session_id;
+                const isRouteActive = Boolean(activeRouteId && activeRouteType === chat.type && activeRouteId === chat.session_id);
+                const selected = isRouteActive || (!activeRouteId && selectedChatId === chat.session_id);
                 return (
                   <div
                     key={chat.session_id}
@@ -240,22 +267,41 @@ export default function ChatSidebar({
                       background: selected ? (isDark ? 'rgba(184,157,99,0.12)' : 'rgba(194,169,112,0.10)') : 'transparent',
                       transition: 'all 200ms cubic-bezier(0.25,1,0.5,1)'
                     }}
-                    onClick={() => onSelectChat(chat.session_id, chat.type)}
+                    onClick={() => {
+                      handleSelectCategory(resolveCategoryFromType(chat.type));
+                      onSelectChat(chat.session_id, chat.type);
+                    }}
                   >
                     {selected && (
                       <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded"
                             style={{ background: `linear-gradient(180deg, ${colorAccent} 0%, transparent 100%)` }} />
                     )}
-                    <div className="flex items-center gap-3 min-w-0">
-                      {/* Secondary badges */}
-                      {chat.type === 'daily' ? (
-                        <span className="w-2 h-2 rounded-full" style={{ background: chat.completed ? colorAccent : colorSeparator }} />
-                      ) : chat.type === 'study' ? (
-                        <Bookmark className="w-3.5 h-3.5" style={{ color: colorFgMuted }} />
-                      ) : null}
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Secondary badges */}
+                        {chat.type === 'daily' ? (
+                          <span className="w-2 h-2 rounded-full" style={{ background: chat.completed ? colorAccent : colorSeparator }} />
+                        ) : chat.type === 'study' ? (
+                          <Bookmark className="w-3.5 h-3.5" style={{ color: colorFgMuted }} />
+                        ) : null}
 
-                      <span className="truncate text-[14.5px] font-[500] tracking-[-0.01em]" title={chat.name}>{chat.name}</span>
-                    </div>
+                        <div className="min-w-0">
+                          <span className="truncate text-[14.5px] font-[500] tracking-[-0.01em]" title={chat.name}>{chat.name}</span>
+                          {chat.type === 'daily' && (chat.display_value_ru || chat.display_value || chat.daily_stream?.units_total > 1) && (
+                            <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[11px]" style={{ color: colorFgMuted }}>
+                              {(chat.display_value_ru || chat.display_value) && (
+                                <span className="truncate" style={{ maxWidth: '160px' }}>
+                                  {chat.display_value_ru || chat.display_value}
+                                </span>
+                              )}
+                              {chat.daily_stream && chat.daily_stream.units_total > 1 && (
+                                <span className="font-semibold" style={{ color: colorAccent }}>
+                                  {chat.daily_stream.unit_index_today + 1}/{chat.daily_stream.units_total}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
 
                     <button
                       className="p-1 rounded opacity-40 hover:opacity-100 transition-opacity"

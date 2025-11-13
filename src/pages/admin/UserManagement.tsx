@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { api } from '../../services/api';
+import { api, AdminUserLoginEvent, AdminUserSession } from '../../services/api';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -13,6 +13,7 @@ type UserFormState = {
   password: string;
   role: 'admin' | 'member';
   is_active: boolean;
+  phone: string;
 };
 
 type ApiKeyFormState = {
@@ -21,11 +22,20 @@ type ApiKeyFormState = {
   daily_limit: string;
 };
 
+type ActivityCache = Record<
+  string,
+  {
+    sessions: AdminUserSession[];
+    events: AdminUserLoginEvent[];
+  }
+>;
+
 const defaultUserPayload: UserFormState = {
   username: '',
   password: '',
   role: 'member',
   is_active: true,
+  phone: '',
 };
 
 const defaultKeyPayload: ApiKeyFormState = {
@@ -45,6 +55,9 @@ export default function UserManagementPage() {
   const [activeKeyUser, setActiveKeyUser] = useState<string | null>(null);
   const [keyForm, setKeyForm] = useState<ApiKeyFormState>(defaultKeyPayload);
   const [isSavingKey, setIsSavingKey] = useState(false);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [activityCache, setActivityCache] = useState<ActivityCache>({});
+  const [activityLoading, setActivityLoading] = useState<Record<string, boolean>>({});
 
   const loadUsers = async () => {
     try {
@@ -79,6 +92,7 @@ export default function UserManagementPage() {
         password: createForm.password.trim(),
         role: createForm.role,
         is_active: createForm.is_active,
+        phone_number: createForm.phone.trim() || undefined,
       };
       const created = await api.adminCreateUser(payload);
       setUsers((prev) => [created, ...prev]);
@@ -162,6 +176,65 @@ export default function UserManagementPage() {
     }
   };
 
+  const loadUserActivity = async (userId: string) => {
+    if (activityCache[userId]) {
+      return;
+    }
+    try {
+      setActivityLoading((prev) => ({ ...prev, [userId]: true }));
+      const [sessions, events] = await Promise.all([
+        api.adminListUserSessions(userId),
+        api.adminListUserLoginEvents(userId, 5),
+      ]);
+      setActivityCache((prev) => ({ ...prev, [userId]: { sessions, events } }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load activity';
+      setError(message);
+    } finally {
+      setActivityLoading((prev) => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleToggleActivity = (userId: string) => {
+    const next = expandedUserId === userId ? null : userId;
+    setExpandedUserId(next);
+    if (next) {
+      void loadUserActivity(userId);
+    }
+  };
+
+  const handleRevokeSession = async (userId: string, sessionId: string) => {
+    if (!window.confirm('Revoke this session?')) {
+      return;
+    }
+    try {
+      await api.adminRevokeSession(userId, sessionId);
+      setActivityCache((prev) => {
+        const entry = prev[userId];
+        if (!entry) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [userId]: {
+            ...entry,
+            sessions: entry.sessions.filter((session) => session.id !== sessionId),
+          },
+        };
+      });
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === userId
+            ? { ...user, active_session_count: Math.max(user.active_session_count - 1, 0) }
+            : user,
+        ),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to revoke session';
+      setError(message);
+    }
+  };
+
   const sortedUsers = useMemo(() => {
     return [...users].sort((a, b) => a.username.localeCompare(b.username));
   }, [users]);
@@ -192,6 +265,15 @@ export default function UserManagementPage() {
                 type="password"
                 value={createForm.password}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, password: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone (optional)</Label>
+              <Input
+                id="phone"
+                value={createForm.phone}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, phone: event.target.value }))}
+                placeholder="+1234567890"
               />
             </div>
             <div className="space-y-2">
@@ -255,9 +337,13 @@ export default function UserManagementPage() {
                 <div className="grid gap-2 text-sm text-muted-foreground md:grid-cols-3">
                   <span>Created: {new Date(user.created_at).toLocaleString()}</span>
                   <span>Updated: {new Date(user.updated_at).toLocaleString()}</span>
-                  <span>Last login: {user.last_login_at ? new Date(user.last_login_at).toLocaleString() : '—'}</span>
+                  <span>Last login: {user.last_login_at ? new Date(user.last_login_at).toLocaleString() : '-'}</span>
                   <span>Manual: {user.created_manually ? 'Yes' : 'No'}</span>
                   <span>API keys: {user.api_keys.length}</span>
+                  <span>Телефон: {user.phone_number ?? '-'}</span>
+                  <span>
+                    Sessions: {user.active_session_count}/{user.total_session_count}
+                  </span>
                 </div>
 
                 <div className="space-y-2">
@@ -378,6 +464,80 @@ export default function UserManagementPage() {
                     <p className="text-xs text-muted-foreground">No API keys assigned.</p>
                   )}
                 </div>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Activity</h3>
+                  <Button variant="ghost" size="sm" onClick={() => handleToggleActivity(user.id)}>
+                    {expandedUserId === user.id ? 'Hide activity' : 'View activity'}
+                  </Button>
+                </div>
+                {expandedUserId === user.id ? (
+                  <div className="rounded-md border px-4 py-3 space-y-4">
+                    {activityLoading[user.id] ? (
+                      <p className="text-sm text-muted-foreground">Loading activity…</p>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Sessions</p>
+                          {activityCache[user.id]?.sessions?.length ? (
+                            activityCache[user.id].sessions.map((session) => (
+                              <div key={session.id} className="flex items-center justify-between gap-2 text-sm">
+                                <div>
+                                  <p className="font-medium">
+                                    {session.is_active ? 'Active session' : 'Inactive session'}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Expires {new Date(session.expires_at).toLocaleString()}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Last used{' '}
+                                    {session.last_used_at
+                                      ? new Date(session.last_used_at).toLocaleString()
+                                      : 'never'}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    IP {session.ip_address ?? 'unknown'}
+                                  </p>
+                                </div>
+                                {session.is_active ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => void handleRevokeSession(user.id, session.id)}
+                                  >
+                                    Revoke
+                                  </Button>
+                                ) : null}
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-muted-foreground">No recorded sessions.</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Recent logins
+                          </p>
+                          {activityCache[user.id]?.events?.length ? (
+                            activityCache[user.id].events.map((event) => (
+                              <div key={event.id} className="text-sm">
+                                <p className="font-medium">{event.success ? 'Success' : 'Failure'}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {(event.username || 'Unknown user')} · {event.reason ?? 'No reason'} ·{' '}
+                                  {new Date(event.created_at).toLocaleString()}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  IP {event.ip_address ?? 'unknown'}
+                                </p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-muted-foreground">No recent login events.</p>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ))}
