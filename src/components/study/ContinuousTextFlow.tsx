@@ -15,7 +15,6 @@ type ContinuousTextFlowProps = {
   showTranslation?: boolean;
   translatedText?: string;
   isTranslating?: boolean;
-  navOriginRef: React.MutableRefObject<'user' | 'data'>;
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   fontSizeValues: Record<string, string>;
   readerFontSize: string;
@@ -45,7 +44,6 @@ export const ContinuousTextFlow = memo(({
   showTranslation = false,
   translatedText = '',
   isTranslating = false,
-  navOriginRef,
   scrollContainerRef,
   fontSizeValues,
   readerFontSize,
@@ -106,10 +104,9 @@ export const ContinuousTextFlow = memo(({
               <React.Fragment key={segment.ref}>
                 <div
                   className="relative group"
-                   onClick={() => {
-                     navOriginRef.current = 'user';
-                     onNavigateToRef?.(normalizedRef, segment);
-                   }}
+                  onClick={() => {
+                    onNavigateToRef?.(normalizedRef, segment);
+                  }}
                 >
                   {/* Left rail: buttons outside, vertically centered */}
                   <div
@@ -125,7 +122,6 @@ export const ContinuousTextFlow = memo(({
                         title={translationVisible ? 'Скрыть перевод' : 'Показать перевод'}
                         onClick={async (e) => {
                           e.stopPropagation();
-                          navOriginRef.current = 'user';
                           if (!translationVisible) { await translate(); setShowTranslation(true); }
                           else { setShowTranslation(false); }
                         }}
@@ -142,7 +138,7 @@ export const ContinuousTextFlow = memo(({
                         className={`fr-btn ${isActive ? 'is-active' : ''}`}
                         title={isActive ? (ttsIsPlaying ? 'Пауза' : 'Продолжить') : 'Прослушать отрывок'}
                         aria-pressed={isActive}
-                        onClick={async (e) => { e.stopPropagation(); navOriginRef.current = 'user'; await handlePlayClick(); }}
+                        onClick={async (e) => { e.stopPropagation(); await handlePlayClick(); }}
                       >
                         {ttsIsPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                       </button>

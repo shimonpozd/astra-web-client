@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { memo, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Search, BookOpen, Loader2, ArrowDownWideNarrow, ArrowDownNarrowWide } from 'lucide-react';
+import { Search, BookOpen, Loader2, ArrowDownWideNarrow, ArrowDownNarrowWide, Plus } from 'lucide-react';
 import { BookshelfPanelProps } from '../../types/bookshelf';
 import { api } from '../../services/api';
 
@@ -307,7 +307,9 @@ const CATEGORY_LOCALE: Record<string, string> = {
 const BookshelfPanel = memo(({
   sessionId,
   currentRef,
-  onDragStart
+  onDragStart,
+  onAddToWorkbench,
+  studySnapshot
 }: BookshelfPanelProps & {
   sessionId?: string;
   currentRef?: string;
@@ -350,6 +352,32 @@ const BookshelfPanel = memo(({
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [density, setDensity] = useState<'compact'|'normal'>('compact');
+
+  // Функция для определения, какую панель использовать
+  const getTargetPanel = useCallback((): 'left' | 'right' => {
+    if (!studySnapshot?.workbench) return 'left';
+    
+    const leftOccupied = !!studySnapshot.workbench.left;
+    const rightOccupied = !!studySnapshot.workbench.right;
+    
+    // Если левая свободна - используем её
+    if (!leftOccupied) return 'left';
+    // Если правая свободна - используем её
+    if (!rightOccupied) return 'right';
+    // Если обе заняты - заменяем левую (считаем её "самой старой")
+    return 'left';
+  }, [studySnapshot]);
+
+  // Обработчик добавления в workbench
+  const handleAddToWorkbench = useCallback((ref: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    e?.preventDefault();
+    
+    if (!onAddToWorkbench) return;
+    
+    const targetSide = getTargetPanel();
+    onAddToWorkbench(ref, targetSide);
+  }, [onAddToWorkbench, getTargetPanel]);
 
   // Load categories on mount
   useEffect(() => {
@@ -476,7 +504,6 @@ const BookshelfPanel = memo(({
   const renderSinglePartGroup = useCallback((group: GroupNode) => {
     const item = group.items[0];
     const parsed = parseRefStrict(item.ref); // может вернуть null, проверим
-    const part = parsed?.part;
 
     const langBadge = getLangBadge(item);
 
@@ -504,11 +531,6 @@ const BookshelfPanel = memo(({
               <div className="font-semibold text-sm truncate">
                 {group.parsed.commentator} on {group.parsed.tractate} {group.parsed.page}:{group.parsed.section}
               </div>
-              {part && (
-                <span className="text-[10px] uppercase tracking-wide bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded whitespace-nowrap">
-                  Часть {part}
-                </span>
-              )}
               {hasEnglish(item) && (
                 <span className="bookshelf-en-badge ml-2">
                   EN
@@ -558,10 +580,21 @@ const BookshelfPanel = memo(({
               );
             })()}
           </div>
+          {onAddToWorkbench && (
+            <button
+              type="button"
+              onClick={(e) => handleAddToWorkbench(item.ref, e)}
+              className="flex-shrink-0 w-6 h-6 rounded-md border border-border/40 bg-background hover:bg-accent hover:border-accent-foreground/20 flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
+              title="Добавить в панель"
+              aria-label="Добавить в панель"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
     );
-  }, [onDragStart, density]);
+  }, [onDragStart, density, onAddToWorkbench, handleAddToWorkbench]);
 
   // Render multi-part group
   const renderMultiPartGroup = useCallback((group: GroupNode) => {
@@ -597,7 +630,7 @@ const BookshelfPanel = memo(({
             onDragStart?.(groupRef);
           }}
         >
-          <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-muted-foreground">≡</span>
               <div
@@ -613,9 +646,20 @@ const BookshelfPanel = memo(({
                 {group.parsed.commentator} on {group.parsed.tractate} {group.parsed.page}:{group.parsed.section}
               </div>
             </div>
-            <div className="text-xs text-muted-foreground whitespace-nowrap">
-              {group.items.length} частей
-            </div>
+            {onAddToWorkbench && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  const groupRef = `${group.parsed.commentator} on ${group.parsed.tractate} ${group.parsed.page}:${group.parsed.section}`;
+                  handleAddToWorkbench(groupRef, e);
+                }}
+                className="flex-shrink-0 w-6 h-6 rounded-md border border-border/40 bg-background hover:bg-accent hover:border-accent-foreground/20 flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
+                title="Добавить группу в панель"
+                aria-label="Добавить группу в панель"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -673,13 +717,24 @@ const BookshelfPanel = memo(({
                   })()}
                 </div>
                 {langBadge && <span className={langBadge.className} aria-label={`Язык: ${langBadge.text}`}>{langBadge.text}</span>}
+                {onAddToWorkbench && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleAddToWorkbench(item.ref, e)}
+                    className="flex-shrink-0 w-6 h-6 rounded-md border border-border/40 bg-background hover:bg-accent hover:border-accent-foreground/20 flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
+                    title="Добавить в панель"
+                    aria-label="Добавить в панель"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       </div>
     );
-  }, [onDragStart, density]);
+  }, [onDragStart, density, onAddToWorkbench, handleAddToWorkbench]);
 
   // Main render group function
   const renderGroup = useCallback((group: GroupNode) => {
@@ -729,9 +784,20 @@ const BookshelfPanel = memo(({
             );
           })()}
         </div>
+        {onAddToWorkbench && (
+          <button
+            type="button"
+            onClick={(e) => handleAddToWorkbench(item.ref, e)}
+            className="flex-shrink-0 w-6 h-6 rounded-md border border-border/40 bg-background hover:bg-accent hover:border-accent-foreground/20 flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
+            title="Добавить в панель"
+            aria-label="Добавить в панель"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     );
-  }, [onDragStart, density]);
+  }, [onDragStart, density, onAddToWorkbench, handleAddToWorkbench]);
 
   if (error) {
     return <ErrorState error={error} />;

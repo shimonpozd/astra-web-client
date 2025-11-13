@@ -45,4 +45,6 @@ export interface BookshelfPanelProps {
   currentRef?: string;
   onDragStart?: (ref: string) => void;
   onItemClick?: (item: CommentaryItem) => void;
+  onAddToWorkbench?: (ref: string, side?: 'left' | 'right') => void;
+  studySnapshot?: any; // StudySnapshot - для проверки занятости панелей
 }

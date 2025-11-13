@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Play, Pause, Download, Volume2, Loader2 } from 'lucide-react';
 import type { AudioMessage } from '../types/text';
 import { authorizedFetch } from '../lib/authorizedFetch';
+import { buildStreamingMimeCandidates } from '../lib/streamingMime';
 
 interface StreamingAudioMessageProps {
   text: string;
@@ -63,7 +64,6 @@ export function StreamingAudioMessage({
       setIsLoading(true);
       setError(null);
 
-      // Start streaming from TTS service
       const response = await authorizedFetch('/api/tts/stream', {
         method: 'POST',
         headers: {
@@ -81,39 +81,48 @@ export function StreamingAudioMessage({
         throw new Error(`TTS streaming failed: ${response.statusText}`);
       }
 
-      // Create MediaSource for streaming
-      if (!MediaSource.isTypeSupported('audio/mpeg')) {
-        throw new Error('MediaSource not supported for audio streaming');
+      const contentType = response.headers.get('content-type');
+      const mimeCandidates = buildStreamingMimeCandidates(contentType);
+      const mediaSourceSupported = typeof MediaSource !== 'undefined';
+      const streamingMime = mediaSourceSupported
+        ? mimeCandidates.find((mime) => mime && MediaSource.isTypeSupported(mime)) ?? null
+        : null;
+
+      if (!mediaSourceSupported || !streamingMime) {
+        const fallbackBlob = await response.blob();
+        const fallbackUrl = URL.createObjectURL(fallbackBlob);
+        setAudioUrl(fallbackUrl);
+        setIsLoading(false);
+        mediaSourceRef.current = null;
+        sourceBufferRef.current = null;
+        return;
       }
 
       const mediaSource = new MediaSource();
       mediaSourceRef.current = mediaSource;
-      
+
       const audioUrl = URL.createObjectURL(mediaSource);
       setAudioUrl(audioUrl);
 
-      // Set up MediaSource
       mediaSource.addEventListener('sourceopen', () => {
         try {
-          const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+          const sourceBuffer = mediaSource.addSourceBuffer(streamingMime);
           sourceBufferRef.current = sourceBuffer;
-          
-          // Start reading the stream
           readStream(response, sourceBuffer);
         } catch (err) {
           console.error('Error setting up source buffer:', err);
-          setError('Ошибка настройки аудио потока');
+          setError('?????? ????????? ????? ??????');
         }
       });
 
       mediaSource.addEventListener('error', (e) => {
         console.error('MediaSource error:', e);
-        setError('Ошибка медиа потока');
+        setError('?????? ????? ??????');
       });
 
     } catch (error) {
       console.error('Streaming error:', error);
-      setError(error instanceof Error ? error.message : 'Ошибка стриминга');
+      setError(error instanceof Error ? error.message : '?????? ?????????');
     } finally {
       setIsLoading(false);
     }

@@ -3,10 +3,17 @@ import { Send, Paperclip, Keyboard, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 
+export interface ComposerQuickAction {
+  id: string;
+  label: string;
+  message: string;
+}
+
 interface MessageComposerProps {
   onSendMessage: (message: string) => Promise<void> | void;
   disabled?: boolean;
   discussionFocusRef?: string;
+  quickActions?: ComposerQuickAction[];
 
   // new (optional)
   onAttachFiles?: (files: File[]) => void;
@@ -30,6 +37,7 @@ export default function MessageComposer({
   draftKey = 'composer:draft',
   studyMode,
   selectedPanelId,
+  quickActions = [],
 }: MessageComposerProps) {
   const [text, setText] = useState('');
   const [isComposing, setIsComposing] = useState(false);
@@ -76,22 +84,33 @@ export default function MessageComposer({
     textarea.style.height = `${newHeight}px`;
   }, [text, maxRows]);
 
-  const send = useCallback(async () => {
-    if (!text.trim() || pending || disabled) return;
-    
-    const message = text.trim();
-    setText('');
+  const submitMessage = useCallback(async (rawMessage: string, options: { preserveInput?: boolean } = {}) => {
+    const { preserveInput = false } = options;
+    const trimmed = rawMessage.trim();
+    if (!trimmed || pending || disabled) return;
+
+    if (!preserveInput) {
+      setText('');
+    }
+
     setPending(true);
-    
+
     try {
-      await onSendMessage(message);
+      await onSendMessage(trimmed);
     } catch (error) {
       console.error('Failed to send message:', error);
-      setText(message); // Restore message on error
+      if (!preserveInput) {
+        setText(trimmed); // Restore message on error
+      }
     } finally {
       setPending(false);
     }
-  }, [text, pending, disabled, onSendMessage]);
+  }, [pending, disabled, onSendMessage]);
+
+  const send = useCallback(() => {
+    if (!text.trim()) return;
+    void submitMessage(text);
+  }, [submitMessage, text]);
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
@@ -162,6 +181,10 @@ export default function MessageComposer({
     if (files.length) onAttachFiles(files);
   };
 
+  const handleQuickAction = useCallback((actionMessage: string) => {
+    void submitMessage(actionMessage, { preserveInput: true });
+  }, [submitMessage]);
+
   return (
     <div className="panel-padding-lg panel-inner">
       <div className="max-w-2xl mx-auto w-full">
@@ -190,8 +213,8 @@ export default function MessageComposer({
             style={{ lineHeight: '1.5' }}
           />
 
-          <div className="px-4 pb-3 flex items-center justify-between">
-            <div className="flex gap-compact">
+          <div className="px-4 pb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-compact">
               <Button
                 size="icon"
                 variant="ghost"
@@ -216,7 +239,25 @@ export default function MessageComposer({
                 <Keyboard className="h-4 w-4" />
               </Button>
             </div>
-            
+
+            {quickActions.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                {quickActions.map((action) => (
+                  <Button
+                    key={action.id}
+                    size="sm"
+                    variant="secondary"
+                    disabled={disabled || pending}
+                    onClick={() => handleQuickAction(action.message)}
+                    className="rounded-lg"
+                    title={action.label}
+                  >
+                    {action.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+
             {/* Study Mode Indicator - positioned to avoid send button */}
             {studyMode && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground mr-12">

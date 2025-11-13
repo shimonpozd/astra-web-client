@@ -77,7 +77,6 @@ const FocusReader = memo(({
 }: FocusReaderProps) => {
   const focusRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const navOriginRef = useRef<'user' | 'data'>('data');
   const scrollLockRef = useRef(false);
   const scrollLockTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -228,12 +227,10 @@ const FocusReader = memo(({
   );
 
   const handleNavigatePrevChapter = useCallback(() => {
-    navOriginRef.current = 'user';
     handleChapterNavigation('prev');
   }, [handleChapterNavigation]);
 
   const handleNavigateNextChapter = useCallback(() => {
-    navOriginRef.current = 'user';
     handleChapterNavigation('next');
   }, [handleChapterNavigation]);
 
@@ -438,7 +435,6 @@ const FocusReader = memo(({
 
   const handleOverlayNavigate = useCallback(
     (ref: string) => {
-      navOriginRef.current = 'data';
       onNavigateToRef?.(normalizeRefForAPI(ref));
     },
     [onNavigateToRef],
@@ -446,11 +442,9 @@ const FocusReader = memo(({
 
   const handleSegmentNavigation = useCallback(
     (ref: string, segment: TextSegment) => {
-      onSegmentClick?.(segment);
-      if (navOriginRef.current === 'data') {
-        onNavigateToRef?.(ref, segment);
-      } else {
-        navOriginRef.current = 'data';
+      onNavigateToRef?.(ref, segment);
+      if (segment) {
+        onSegmentClick?.(segment);
       }
     },
     [onNavigateToRef, onSegmentClick],
@@ -598,29 +592,28 @@ const FocusReader = memo(({
 
         <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 relative overflow-hidden">
-        <ContinuousTextFlow
-          segments={continuousText.segments}
+          <ContinuousTextFlow
+            segments={continuousText.segments}
             focusIndex={continuousText.focusIndex}
             onNavigateToRef={(ref, segment) => handleSegmentNavigation(ref, segment || continuousText.segments[continuousText.focusIndex])}
             onLexiconDoubleClick={onLexiconDoubleClick}
-          focusRef={focusRef}
-          showTranslation={showTranslation}
+            focusRef={focusRef}
+            showTranslation={showTranslation}
             translatedText={stableTranslatedText}
-          isTranslating={isTranslating}
-          navOriginRef={navOriginRef}
-          scrollContainerRef={scrollContainerRef}
-          fontSizeValues={fontSizeValues}
-          readerFontSize={readerFontSize}
-          hebrewScale={hebrewScale}
-          translationScale={translationScale}
+            isTranslating={isTranslating}
+            scrollContainerRef={scrollContainerRef}
+            fontSizeValues={fontSizeValues}
+            readerFontSize={readerFontSize}
+            hebrewScale={hebrewScale}
+            translationScale={translationScale}
             translationRef={activeSegment?.ref || ''}
-          setShowTranslation={setShowTranslation}
-          translate={translate}
+            setShowTranslation={setShowTranslation}
+            translate={translate}
             currentTranslatedText={stableTranslatedText}
             isActive={isActiveTTS}
             ttsIsPlaying={isCurrentSegmentPlaying}
-          handlePlayClick={handlePlayClick}
-        />
+            handlePlayClick={handlePlayClick}
+          />
           </div>
         
         {showSettings && (

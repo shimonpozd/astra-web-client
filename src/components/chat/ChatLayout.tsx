@@ -1,10 +1,15 @@
-import { Suspense, lazy, useState, useEffect } from "react";
+import { Suspense, lazy, useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useChat } from "../../hooks/useChat";
 import { useStudyMode } from "../../hooks/useStudyMode";
 import { useTextSelectionListener } from "../../hooks/useTextSelectionListener";
 const BookshelfPanel = lazy(() => import("../study/BookshelfPanel"));
-const StudyMode = lazy(() => import("../study/StudyMode"));
+const StudyMode = lazy(() =>
+  import("../study/StudyMode").then((m) => ({ default: m.default }))
+);
+const StudyChatPanel = lazy(() =>
+  import("../study/StudyMode").then((m) => ({ default: m.StudyChatPanel }))
+);
 const StudySetupBar = lazy(() => import("../study/StudySetupBar"));
 const ChatSidebar = lazy(() => import("./ChatSidebar"));
 const ChatViewport = lazy(() => import("./ChatViewport"));
@@ -14,6 +19,7 @@ import { api } from "../../services/api"; // Import api for daily session creati
 import { useLayout } from "../../contexts/LayoutContext";
 import { debugLog } from '../../utils/debugLogger';
 import { authorizedFetch } from '../../lib/authorizedFetch';
+import { buildStudyQuickActions } from '../../utils/studyQuickActions';
 
 export function ChatLayout() {
   const navigate = useNavigate();
@@ -42,6 +48,9 @@ export function ChatLayout() {
   const [studyIsSending, setStudyIsSending] = useState(false);
   
   const selectedPanelId: string | null = null;
+
+  const [leftWorkbenchVisible, setLeftWorkbenchVisible] = useState(true);
+  const [rightWorkbenchVisible, setRightWorkbenchVisible] = useState(true);
 
   // Calculate current ref for bookshelf based on selected panel
   const getCurrentRefForBookshelf = () => {
@@ -102,11 +111,20 @@ export function ChatLayout() {
     sendMessage,
     isSending,
     deleteSession,
-    reloadChats,
   } = useChat(agentId, urlChatId);
   const { mode } = useLayout();
   // Force GIRSA mode (temporarily disable IYUN)
   const studyUiMode: 'iyun' | 'girsa' = 'girsa';
+
+  const studyQuickActions = useMemo(
+    () =>
+      buildStudyQuickActions({
+        snapshot: studySnapshot,
+        leftPanelVisible: leftWorkbenchVisible,
+        rightPanelVisible: rightWorkbenchVisible,
+      }),
+    [studySnapshot, leftWorkbenchVisible, rightWorkbenchVisible]
+  );
 
 
 
@@ -184,19 +202,8 @@ export function ChatLayout() {
     });
   };
 
-  const handleCreateStudyGenesis = async () => {
-    // Default study session for plus button in Study category
-    try {
-      const newSessionId = await startStudy('Genesis 1:1');
-      // Refresh chat list so the new study appears immediately
-      try { (reloadChats && (await reloadChats())); } catch {}
-      if (newSessionId) {
-        navigate(`/study/${newSessionId}`);
-      }
-      setIsStudySetupOpen(false);
-    } catch (error) {
-      console.error('Failed to create default study session (Genesis 1:1):', error);
-    }
+  const handleOpenStudySetup = () => {
+    setIsStudySetupOpen(true);
   };
 
   const handleSelectSession = async (sessionId: string, type: 'chat' | 'study' | 'daily') => {
@@ -249,33 +256,65 @@ export function ChatLayout() {
     }
   };
 
+  const handleToggleLeftWorkbench = useCallback(() => {
+    setLeftWorkbenchVisible((visible) => {
+      const next = !visible;
+      if (!next && workbenchClear) {
+        Promise.resolve(workbenchClear('left')).catch((error) => {
+          console.error('Failed to clear left workbench when hiding:', error);
+        });
+      }
+      return next;
+    });
+  }, [workbenchClear]);
+
+  const handleToggleRightWorkbench = useCallback(() => {
+    setRightWorkbenchVisible((visible) => {
+      const next = !visible;
+      if (!next && workbenchClear) {
+        Promise.resolve(workbenchClear('right')).catch((error) => {
+          console.error('Failed to clear right workbench when hiding:', error);
+        });
+      }
+      return next;
+    });
+  }, [workbenchClear]);
+
+  useEffect(() => {
+    if (!isStudyActive) {
+      setLeftWorkbenchVisible(true);
+      setRightWorkbenchVisible(true);
+    }
+  }, [isStudyActive]);
 
   const sidebarColumnWidth = sidebarMode === 'compact' ? '64px' : '320px';
-  const cols = [] as string[];
-  if (mode === 'vertical_three') {
-    cols.push('1fr'); // Chat (left half)
-    cols.push('1fr'); // Study (right half)
-  } else {
+  const isVerticalLayout = mode === 'vertical_three' && isStudyActive;
+  const cols: string[] = [];
+  if (!isVerticalLayout) {
     if (isSidebarVisible) cols.push(sidebarColumnWidth);
     if (isChatAreaVisible) cols.push('1fr');
     if (isStudyActive && isChatAreaVisible) cols.push('400px');
   }
   const gridCols = cols.join(' ') || '1fr';
+  const verticalColumns: string[] = [];
+  if (isSidebarVisible) {
+    verticalColumns.push(sidebarColumnWidth);
+  }
+  if (isChatAreaVisible) {
+    verticalColumns.push('minmax(360px, 1fr)');
+  }
+  verticalColumns.push('minmax(560px, 1.25fr)');
+  verticalColumns.push('400px');
+  const verticalGridTemplate = verticalColumns.join(' ');
 
   return (
     <div className="h-screen w-full flex flex-col">
-      <TopBar
-        agentId={agentId}
-        setAgentId={setAgentId}
-        onOpenStudy={() => setIsStudySetupOpen(true)}
-      />
+      <TopBar agentId={agentId} setAgentId={setAgentId} />
 
-      {/* Main Content Grid */}
-      <div className="flex-1 min-h-0 grid" style={{ gridTemplateColumns: gridCols }}>
-        {mode === 'vertical_three' ? (
-          // Left half: chat list + chat panel
-          <div className="min-h-0 grid border-r border-border/20" style={{ gridTemplateColumns: `${sidebarColumnWidth} 1fr` }}>
-            <div className="min-h-0 overflow-hidden">
+      {isVerticalLayout ? (
+        <div className="flex-1 min-h-0 grid" style={{ gridTemplateColumns: verticalGridTemplate }}>
+          {isSidebarVisible && (
+            <div className="min-h-0 bg-background overflow-hidden h-full">
               <Suspense fallback={null}>
                 <ChatSidebar
                   chats={chats}
@@ -284,54 +323,135 @@ export function ChatLayout() {
                   selectedChatId={selectedChatId}
                   onSelectChat={handleSelectSession}
                   onCreateChat={createChat}
-                  onCreateStudy={handleCreateStudyGenesis}
+                  onCreateStudy={handleOpenStudySetup}
                   onDeleteSession={deleteSession}
                   onModeChange={setSidebarMode}
                 />
               </Suspense>
             </div>
-            <div className="min-h-0 flex flex-col">
-              <div className="flex-1 min-h-0 overflow-y-auto panel-padding-sm">
+          )}
+
+          {isChatAreaVisible && (
+            <div className="min-h-0 flex flex-col border-r border-border/20 bg-background">
+              {isStudyActive ? (
                 <Suspense fallback={null}>
-                  <ChatViewport
-                    messages={messages.map(m => ({ ...m, id: String(m.id) }))}
-                    isLoading={isLoadingMessages}
-                  />
-                </Suspense>
-              </div>
-              <div className="flex-shrink-0 panel-padding">
-                <Suspense fallback={null}>
-                  <MessageComposer 
-                    onSendMessage={sendMessage} 
-                    disabled={isSending} 
-                    studyMode={studyUiMode}
+                  <StudyChatPanel
+                    className="flex-1"
+                    studySessionId={studySessionId}
+                    messages={studyMessages}
+                    isLoadingMessages={false}
+                    isSending={studyIsSending}
+                    setIsSending={setStudyIsSending}
+                    setMessages={setStudyMessages}
+                    refreshStudySnapshot={refreshStudySnapshot}
+                    agentId={agentId}
                     selectedPanelId={selectedPanelId}
+                    discussionFocusRef={studySnapshot?.discussion_focus_ref}
+                    studyMode={studyUiMode}
+                    quickActions={studyQuickActions}
                   />
                 </Suspense>
-              </div>
+              ) : (
+                <>
+                  <div className="flex-1 min-h-0 overflow-y-auto panel-padding-sm">
+                    <Suspense fallback={null}>
+                      <ChatViewport
+                        messages={messages.map((m) => ({ ...m, id: String(m.id) }))}
+                        isLoading={isLoadingMessages}
+                      />
+                    </Suspense>
+                  </div>
+                  <div className="flex-shrink-0 panel-padding border-t border-border/20">
+                    <Suspense fallback={null}>
+                      <MessageComposer
+                        onSendMessage={sendMessage}
+                        disabled={isSending}
+                        studyMode={studyUiMode}
+                        selectedPanelId={selectedPanelId}
+                      />
+                    </Suspense>
+                  </div>
+                </>
+              )}
             </div>
-          </div>
-        ) : (
-          isSidebarVisible && (
+          )}
+
+          <div className="min-h-0 flex flex-col bg-background border-r border-border/20">
             <Suspense fallback={null}>
-              <ChatSidebar
-                chats={chats}
-                isLoading={isLoadingChats}
-                error={chatsError}
-                selectedChatId={selectedChatId}
-                onSelectChat={handleSelectSession}
-                onCreateChat={createChat}
-                onCreateStudy={handleCreateStudyGenesis}
-                onDeleteSession={deleteSession}
-                onModeChange={setSidebarMode}
+              <StudyMode
+                snapshot={studySnapshot}
+                onExit={exitStudy}
+                onNavigateBack={navigateBack}
+                onNavigateForward={navigateForward}
+                isLoading={isLoadingStudy}
+                canNavigateBack={canNavigateBack}
+                canNavigateForward={canNavigateForward}
+                messages={studyMessages}
+                isLoadingMessages={false}
+                isSending={studyIsSending}
+                studySessionId={studySessionId}
+                setIsSending={setStudyIsSending}
+                setMessages={setStudyMessages}
+                agentId={agentId}
+                onWorkbenchSet={workbenchSet}
+                onWorkbenchClear={workbenchClear}
+                onWorkbenchFocus={workbenchFocus}
+                onWorkbenchDrop={handleWorkbenchDrop}
+                onFocusClick={focusMainText}
+                onNavigateToRef={navigateToRef}
+                refreshStudySnapshot={refreshStudySnapshot}
+                selectedPanelId={selectedPanelId}
+                onSelectedPanelChange={() => {}}
+                isBackgroundLoading={isBackgroundLoading}
+                layoutVariant="stacked"
+                showChatPanel={false}
+                showLeftPanel={leftWorkbenchVisible}
+                showRightPanel={rightWorkbenchVisible}
+                onToggleLeftPanel={handleToggleLeftWorkbench}
+                onToggleRightPanel={handleToggleRightWorkbench}
               />
             </Suspense>
-          )
-        )}
+          </div>
 
-        <>
-          {(mode !== 'vertical_three' ? isChatAreaVisible : true) && (
-            <main className={mode === 'vertical_three' ? "min-h-0 bg-background grid grid-cols-[1fr_360px] grid-rows-1 h-full" : "flex flex-col min-h-0 bg-background"}>
+          <div className="min-h-0 overflow-hidden bg-background">
+            <Suspense fallback={null}>
+              <BookshelfPanel
+                sessionId={studySessionId || undefined}
+                currentRef={getCurrentRefForBookshelf()}
+                onDragStart={(ref) => debugLog('Dragging from bookshelf:', ref)}
+                onItemClick={(item) => debugLog('Clicked bookshelf item:', item)}
+                onAddToWorkbench={async (ref, side) => {
+                  if (side) {
+                    await workbenchSet(side, ref);
+                  }
+                }}
+                studySnapshot={studySnapshot}
+              />
+            </Suspense>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 grid" style={{ gridTemplateColumns: gridCols }}>
+          {isSidebarVisible && (
+            <Suspense fallback={null}>
+              <div className="h-full">
+                <ChatSidebar
+                  chats={chats}
+                  isLoading={isLoadingChats}
+                  error={chatsError}
+                  selectedChatId={selectedChatId}
+                  onSelectChat={handleSelectSession}
+                  onCreateChat={createChat}
+                  onCreateStudy={handleOpenStudySetup}
+                  onDeleteSession={deleteSession}
+                  onModeChange={setSidebarMode}
+                />
+              </div>
+            </Suspense>
+          )}
+
+          {isChatAreaVisible && (
+            <main className="flex flex-col min-h-0 bg-background">
               {isStudySetupOpen && !isStudyActive && (
                 <StudySetupBar
                   onStartStudy={handleStartStudy}
@@ -340,47 +460,52 @@ export function ChatLayout() {
                 />
               )}
 
-              <div className={mode === 'vertical_three' ? "min-h-0 grid grid-rows-[auto_1fr] col-start-1 col-end-2 h-full" : "flex-1 min-h-0"}>
+              <div className="flex-1 min-h-0">
                 {isStudyActive ? (
                   <Suspense fallback={null}>
-                  <StudyMode
-                    snapshot={studySnapshot}
-                    onExit={exitStudy}
-                    onNavigateBack={navigateBack}
-                    onNavigateForward={navigateForward}
-                    isLoading={isLoadingStudy}
-                    canNavigateBack={canNavigateBack}
-                    canNavigateForward={canNavigateForward}
-                    messages={studyMessages}
-                    isLoadingMessages={false}
-                    isSending={studyIsSending}
-                    studySessionId={studySessionId}
-                    setIsSending={setStudyIsSending}
-                    setMessages={setStudyMessages}
-                    agentId={agentId}
-                    onWorkbenchSet={workbenchSet}
-                    onWorkbenchClear={workbenchClear}
-                    onWorkbenchFocus={workbenchFocus}
-                    onWorkbenchDrop={handleWorkbenchDrop}
-                    onFocusClick={focusMainText}
-                    onNavigateToRef={navigateToRef}
-                    refreshStudySnapshot={refreshStudySnapshot}
-                    selectedPanelId={selectedPanelId}
-                    onSelectedPanelChange={() => {}}
-                    isBackgroundLoading={isBackgroundLoading}
-                  />
+                    <StudyMode
+                      snapshot={studySnapshot}
+                      onExit={exitStudy}
+                      onNavigateBack={navigateBack}
+                      onNavigateForward={navigateForward}
+                      isLoading={isLoadingStudy}
+                      canNavigateBack={canNavigateBack}
+                      canNavigateForward={canNavigateForward}
+                      messages={studyMessages}
+                      isLoadingMessages={false}
+                      isSending={studyIsSending}
+                      studySessionId={studySessionId}
+                      setIsSending={setStudyIsSending}
+                      setMessages={setStudyMessages}
+                      agentId={agentId}
+                      onWorkbenchSet={workbenchSet}
+                      onWorkbenchClear={workbenchClear}
+                      onWorkbenchFocus={workbenchFocus}
+                      onWorkbenchDrop={handleWorkbenchDrop}
+                      onFocusClick={focusMainText}
+                      onNavigateToRef={navigateToRef}
+                      refreshStudySnapshot={refreshStudySnapshot}
+                      selectedPanelId={selectedPanelId}
+                      onSelectedPanelChange={() => {}}
+                      isBackgroundLoading={isBackgroundLoading}
+                      layoutVariant="classic"
+                      showLeftPanel={leftWorkbenchVisible}
+                      showRightPanel={rightWorkbenchVisible}
+                      onToggleLeftPanel={handleToggleLeftWorkbench}
+                      onToggleRightPanel={handleToggleRightWorkbench}
+                    />
                   </Suspense>
                 ) : (
                   <div className="h-full flex flex-col min-h-0">
                     <div className="flex-1 min-h-0">
                       <Suspense fallback={null}>
                         <ChatViewport
-                          messages={messages.map(m => ({ ...m, id: String(m.id) }))}
+                          messages={messages.map((m) => ({ ...m, id: String(m.id) }))}
                           isLoading={isLoadingMessages}
                         />
                       </Suspense>
                     </div>
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 panel-padding">
                       <Suspense fallback={null}>
                         <MessageComposer onSendMessage={sendMessage} disabled={isSending} />
                       </Suspense>
@@ -388,20 +513,10 @@ export function ChatLayout() {
                   </div>
                 )}
               </div>
-
-              {mode === 'vertical_three' && isStudyActive && (
-                <div className="min-h-0 overflow-auto col-start-2 col-end-3 border-l border-border/20 h-full">
-                  <BookshelfPanel
-                    sessionId={studySessionId || undefined}
-                    currentRef={getCurrentRefForBookshelf()}
-                    onDragStart={(ref) => debugLog('Dragging from bookshelf:', ref)}
-                    onItemClick={(item) => debugLog('Clicked bookshelf item:', item)}
-                  />
-                </div>
-              )}
             </main>
           )}
-          {isStudyActive && mode !== 'vertical_three' && isChatAreaVisible && (
+
+          {isStudyActive && isChatAreaVisible && (
             <div className="min-h-0 overflow-hidden">
               <Suspense fallback={null}>
                 <BookshelfPanel
@@ -409,12 +524,18 @@ export function ChatLayout() {
                   currentRef={getCurrentRefForBookshelf()}
                   onDragStart={(ref) => debugLog('Dragging from bookshelf:', ref)}
                   onItemClick={(item) => debugLog('Clicked bookshelf item:', item)}
+                  onAddToWorkbench={async (ref, side) => {
+                    if (side) {
+                      await workbenchSet(side, ref);
+                    }
+                  }}
+                  studySnapshot={studySnapshot}
                 />
               </Suspense>
             </div>
           )}
-        </>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

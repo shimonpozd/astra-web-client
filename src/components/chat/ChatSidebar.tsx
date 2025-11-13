@@ -119,7 +119,7 @@ export default function ChatSidebar({
   const listBoxShadow = isDark ? '-1px 0 0 rgba(255,255,255,0.05)' : '-1px 0 0 rgba(0,0,0,0.05)';
   
   return (
-    <aside className="border-r panel-outer flex flex-row min-h-0" style={{ color: colorFg }}>
+    <aside className="border-r panel-outer flex flex-row min-h-0 h-full" style={{ color: colorFg }}>
       {/* Left Category Rail */}
       <div
         className={`flex flex-col border-r border-border/50 w-14 flex-none`}

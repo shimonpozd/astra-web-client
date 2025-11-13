@@ -2,8 +2,6 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 
 export type StudyLayoutMode =
   | 'talmud_default'                 // left workbench + focus + right workbench (current)
-  | 'focus_only'                     // focus only (hide both workbenches)
-  | 'focus_with_bottom_commentary'   // focus top, single commentary bottom (no side workbenches)
   | 'vertical_three'; // chat left, focus+commentary center, bookshelf right
 
 interface LayoutContextValue {
@@ -15,8 +13,15 @@ const LayoutContext = createContext<LayoutContextValue | undefined>(undefined);
 
 export function LayoutProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<StudyLayoutMode>(() => {
-    const saved = localStorage.getItem('astra_layout_mode') as StudyLayoutMode | null;
-    return saved || 'talmud_default';
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = window.localStorage.getItem('astra_layout_mode');
+        if (saved === 'vertical_three') {
+          return 'vertical_three';
+        }
+      } catch {}
+    }
+    return 'talmud_default';
   });
 
   useEffect(() => {

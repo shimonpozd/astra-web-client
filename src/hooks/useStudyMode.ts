@@ -264,41 +264,46 @@ export function useStudyMode() {
       .toLowerCase();
   }, []);
 
-  const setLocalFocus = useCallback(
-    (ref: string, segment?: TextSegment) => {
-      setStudySnapshot((prev) => {
-        if (!prev?.segments?.length) {
-          return prev;
-        }
+  const applyLocalFocus = useCallback(
+    (state: StudySnapshot | null | undefined, ref: string, segment?: TextSegment) => {
+      if (!state?.segments?.length) {
+        return state;
+      }
 
-        const targetNormalized = normalizeRef(ref);
-        const index = prev.segments.findIndex(
-          (item) => normalizeRef(item.ref) === targetNormalized,
-        );
+      const targetNormalized = normalizeRef(ref);
+      const index = state.segments.findIndex(
+        (item) => normalizeRef(item.ref) === targetNormalized,
+      );
 
-        if (index === -1) {
-          return prev;
-        }
+      if (index === -1) {
+        return state;
+      }
 
-        const nextSegment = segment ?? prev.segments[index];
+      const nextSegment = segment ?? state.segments[index];
 
-        if (
-          prev.focusIndex === index &&
-          prev.ref === nextSegment.ref &&
-          prev.discussion_focus_ref === nextSegment.ref
-        ) {
-          return prev;
-        }
+      if (
+        state.focusIndex === index &&
+        state.ref === nextSegment.ref &&
+        state.discussion_focus_ref === nextSegment.ref
+      ) {
+        return state;
+      }
 
-        return {
-          ...prev,
-          focusIndex: index,
-          ref: nextSegment.ref,
-          discussion_focus_ref: nextSegment.ref,
-        };
-      });
+      return {
+        ...state,
+        focusIndex: index,
+        ref: nextSegment.ref,
+        discussion_focus_ref: nextSegment.ref,
+      };
     },
     [normalizeRef],
+  );
+
+  const setLocalFocus = useCallback(
+    (ref: string, segment?: TextSegment) => {
+      setStudySnapshot((prev) => applyLocalFocus(prev, ref, segment));
+    },
+    [applyLocalFocus],
   );
 
   const navigateToRef = useCallback(async (ref: string, segment?: TextSegment) => {
@@ -309,9 +314,10 @@ export function useStudyMode() {
     const existingIndex = segments.findIndex(item => normalizeRef(item.ref) === targetRefNormalized);
     const isLocalNavigation = existingIndex !== -1;
     const fallbackSegment = segment ?? (isLocalNavigation ? segments[existingIndex] : undefined);
+    const pendingRef = fallbackSegment?.ref || ref;
 
     if (fallbackSegment) {
-      setLocalFocus(fallbackSegment.ref, fallbackSegment);
+      setLocalFocus(pendingRef, fallbackSegment);
     }
 
     try {
@@ -340,7 +346,8 @@ export function useStudyMode() {
       }
       const result = await response.json();
       if (result.ok && result.state) {
-        setStudySnapshot(result.state);
+        const baseState = { ...result.state };
+        setStudySnapshot(applyLocalFocus(baseState, pendingRef, fallbackSegment));
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to navigate';
@@ -350,7 +357,7 @@ export function useStudyMode() {
         setIsLoading(false);
       }
     }
-  }, [studySessionId, studySnapshot, normalizeRef, setLocalFocus]);
+  }, [studySessionId, studySnapshot, normalizeRef, setLocalFocus, applyLocalFocus]);
 
   const loadStudySession = useCallback(async (sessionId: string) => {
     try {
