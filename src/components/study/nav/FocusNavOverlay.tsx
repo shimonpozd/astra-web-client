@@ -381,11 +381,25 @@ function FocusNavOverlay({
     const isMishnahBook = selectedBook.work.categories.includes('Mishnah');
     let ref: string;
 
+    const lastVerse = bookData?.chapterSizes?.[chapter - 1] ?? 1;
+
     if (isMishnahBook) {
-      ref = `${selectedBook.seed.indexTitle} ${chapter}`;
-      setCurrentLocation(null);
+      const rangeRef = `${selectedBook.seed.indexTitle} ${chapter}:1-${chapter}:${lastVerse}`;
+      ref = rangeRef;
+      const startRef = `${selectedBook.seed.indexTitle} ${chapter}:1`;
+      setCurrentLocation({
+        type: 'tanakh',
+        book: selectedBook,
+        chapter,
+        verse: 1,
+        ref: startRef,
+      });
+      const crumbs = ['?????', selectedBook.work.title ?? selectedBook.seed.indexTitle];
+      if (mishnahSection) {
+        crumbs.splice(1, 0, getMishnahSectionLabel(mishnahSection));
+      }
+      setBreadcrumbs(crumbs);
     } else {
-      const lastVerse = bookData?.chapterSizes?.[chapter - 1] ?? 1;
       ref = `${selectedBook.seed.indexTitle} ${chapter}:1-${chapter}:${lastVerse}`;
       const section = tanakhSection ?? resolveTanakhSection(selectedBook);
       setBreadcrumbs(buildTanakhBreadcrumbs(section, selectedBook, chapter));
@@ -400,7 +414,7 @@ function FocusNavOverlay({
 
     onSelectRef(ref);
     onClose();
-  }, [selectedBook, bookData, tanakhSection, onSelectRef, onClose]);
+  }, [selectedBook, bookData, tanakhSection, mishnahSection, onSelectRef, onClose]);
 
   const handleAliyahSelect = useCallback((aliyah: BookAliyah) => {
     onSelectRef(aliyah.ref);
