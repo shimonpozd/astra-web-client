@@ -5,11 +5,13 @@
 **/env/
 **/venv39/ 
 
-
+!
 
 /node_modules
 /public/sefaria-cache
 dist/
+
+!astra-web-client\public\sefaria-cache\catalog.json
 
 # --- Python caches
 **/__pycache__/
