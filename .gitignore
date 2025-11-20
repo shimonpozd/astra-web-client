@@ -12,7 +12,7 @@
 dist/
 
 !astra-web-client\public\sefaria-cache\catalog.json
-
+!astra-web-client\public\sefaria-cache
 # --- Python caches
 **/__pycache__/
 **/*.py[cod]
