@@ -56,24 +56,25 @@ export default function ChatSidebar({
     }, 150);
   }, []);
 
+  const syncActiveCategory = useCallback((nextCategory: 'daily' | 'study' | 'chat') => {
+    setActiveCategory(prev => {
+      if (prev === nextCategory) return prev;
+      setFocusedIndex(-1);
+      return nextCategory;
+    });
+  }, []);
+
   useEffect(() => {
     if (!selectedChatId) return;
     const activeChat = chats.find((chat) => chat.session_id === selectedChatId);
     if (!activeChat) return;
-    const nextCategory = activeChat.type === 'chat' ? 'chat' : activeChat.type;
-    if (nextCategory !== activeCategory) {
-      setActiveCategory(nextCategory);
-      setFocusedIndex(-1);
-    }
-  }, [selectedChatId, chats, activeCategory]);
+    syncActiveCategory(resolveCategoryFromType(activeChat.type));
+  }, [selectedChatId, chats, syncActiveCategory]);
 
   useEffect(() => {
     if (!activeRouteType) return;
-    if (activeRouteType !== activeCategory) {
-      setActiveCategory(activeRouteType);
-      setFocusedIndex(-1);
-    }
-  }, [activeRouteType, activeCategory]);
+    syncActiveCategory(activeRouteType);
+  }, [activeRouteType, syncActiveCategory]);
 
   // Separate by category
   const dailyChats = chats.filter(chat => chat.type === 'daily');

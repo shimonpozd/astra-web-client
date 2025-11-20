@@ -1,22 +1,24 @@
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
 import { X } from 'lucide-react';
 
 import { useTheme } from '../../theme-provider';
-const CategorySidebar = lazy(() => import('./components/CategorySidebar'));
-const CurrentLocationPanel = lazy(() => import('./components/CurrentLocationPanel'));
-const GlobalSearchBar = lazy(() => import('./components/GlobalSearchBar'));
-const BreadcrumbTrail = lazy(() => import('./components/BreadcrumbTrail'));
-const MishnahSectionSelector = lazy(() => import('./components/MishnahSectionSelector'));
-const BookList = lazy(() => import('./components/BookList'));
-const BookHeader = lazy(() => import('./components/BookHeader'));
-const ChapterGrid = lazy(() => import('./components/ChapterGrid'));
-const ParashaList = lazy(() => import('./components/ParashaList'));
-const TanakhSectionPanel = lazy(() => import('./components/TanakhSectionPanel'));
-const ComingSoonPanel = lazy(() => import('./components/ComingSoonPanel'));
-const TalmudSectionPanel = lazy(() => import('./components/TalmudSectionPanel'));
+import CategorySidebar from './components/CategorySidebar';
+import CurrentLocationPanel from './components/CurrentLocationPanel';
+import GlobalSearchBar from './components/GlobalSearchBar';
+import BreadcrumbTrail from './components/BreadcrumbTrail';
+import MishnahSectionSelector from './components/MishnahSectionSelector';
+import HalakhahSectionSelector from './components/HalakhahSectionSelector';
+import HalakhahVerseGrid from './components/HalakhahVerseGrid';
+import BookList from './components/BookList';
+import BookHeader from './components/BookHeader';
+import ChapterGrid from './components/ChapterGrid';
+import ParashaList from './components/ParashaList';
+import TanakhSectionPanel from './components/TanakhSectionPanel';
+import ComingSoonPanel from './components/ComingSoonPanel';
+import TalmudSectionPanel from './components/TalmudSectionPanel';
 import useFocusNavData from './hooks/useFocusNavData';
 import useTanakhCollections from './hooks/useTanakhCollections';
 import useBookData from './hooks/useBookData';
@@ -25,7 +27,7 @@ import { buildTanakhBreadcrumbs, resolveTanakhSection } from './utils/tanakh';
 import { findTanakhEntry, parseTanakhReference } from './utils/tanakhReference';
 import { SECTION_VARIANTS, ITEM_VARIANTS } from './variants';
 import { getChapterSizesForWork } from '../../../lib/sefariaShapeCache';
-import type { CatalogWork } from '../../../lib/sefariaCatalog';
+import type { Catalog, CatalogWork } from '../../../lib/sefariaCatalog';
 import { getWorkDisplayTitle } from './utils/catalogWork';
 import type {
   BookAliyah,
@@ -141,6 +143,180 @@ const TALMUD_SEDARIM_SET = new Set<TalmudSeder>([
   ...TALMUD_SEDER_ORDER_YERUSHALMI,
 ]);
 
+const HALAKHAH_ROOT_LABEL = 'Галаха';
+const HALAKHAH_SECTION_ORDER = ['Mishneh Torah', 'Shulchan Arukh', 'Kitzur Shulchan Arukh'];
+const HALAKHAH_SUBSECTION_ORDER: Record<string, string[]> = {
+  'Mishneh Torah': [
+    'Introduction',
+    'Sefer Madda',
+    'Sefer Ahavah',
+    'Sefer Zemanim',
+    'Sefer Nashim',
+    'Sefer Kedushah',
+    'Sefer Haflaah',
+    'Sefer Zeraim',
+    'Sefer Avodah',
+    'Sefer Korbanot',
+    'Sefer Taharah',
+    'Sefer Nezikim',
+    'Sefer Kinyan',
+    'Sefer Mishpatim',
+    'Sefer Shoftim',
+  ],
+  'Shulchan Arukh': [
+    'Shulchan_Arukh_Orach_Chayim',
+    'Shulchan_Arukh_Yoreh_Deah',
+    'Shulchan_Arukh_Choshen_Mishpat',
+  ],
+  'Kitzur Shulchan Arukh': ['Kitzur_Shulchan_Arukh'],
+};
+const HALAKHAH_SUBSECTION_LABEL_OVERRIDES: Record<string, Record<string, string>> = {
+  'Shulchan Arukh': {
+    Shulchan_Arukh_Orach_Chayim: 'Orach Chayim',
+    Shulchan_Arukh_Yoreh_Deah: 'Yoreh Deah',
+    Shulchan_Arukh_Choshen_Mishpat: 'Choshen Mishpat',
+  },
+  'Kitzur Shulchan Arukh': {
+    Kitzur_Shulchan_Arukh: 'Kitzur Shulchan Arukh',
+  },
+};
+
+interface HalakhahSubsection {
+  id: string;
+  label: string;
+  works: CatalogWork[];
+}
+
+interface HalakhahSectionData {
+  id: string;
+  label: string;
+  subsections: HalakhahSubsection[];
+}
+
+function formatSegmentLabel(value: string): string {
+  return value.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function slugFromWork(work: CatalogWork): string | null {
+  if (!work.path) {
+    return null;
+  }
+  const segments = work.path.split('/').filter(Boolean);
+  if (!segments.length) {
+    return null;
+  }
+  return segments[segments.length - 1].toLowerCase().replace(/_/g, '-');
+}
+
+function createHalakhahEntry(work: CatalogWork): TanakhBookEntry {
+  const slug = slugFromWork(work) ?? work.title.toLowerCase().replace(/\s+/g, '-');
+  return {
+    seed: {
+      slug,
+      indexTitle: work.title,
+      short_en: work.seedShorts?.short_en,
+      short_ru: work.seedShorts?.short_ru,
+      title_he: work.primaryTitles?.he,
+      title_ru: work.primaryTitles?.ru,
+    },
+    work,
+  };
+}
+
+function getHalakhahSubsectionLabel(sectionId: string, subsectionId: string): string {
+  const sectionOverrides = HALAKHAH_SUBSECTION_LABEL_OVERRIDES[sectionId];
+  if (sectionOverrides && subsectionId in sectionOverrides) {
+    return sectionOverrides[subsectionId];
+  }
+
+  if (!subsectionId || subsectionId === sectionId) {
+    return formatSegmentLabel(sectionId);
+  }
+
+  const normalizedSection = sectionId.replace(/\s+/g, '_');
+  const prefixPattern = new RegExp(`^${normalizedSection}[_-]?`, 'i');
+  const trimmed = subsectionId.replace(prefixPattern, '');
+  if (trimmed && trimmed !== subsectionId) {
+    return formatSegmentLabel(trimmed);
+  }
+
+  return formatSegmentLabel(subsectionId);
+}
+
+function sortHalakhahSubsections(sectionId: string, subsections: HalakhahSubsection[]): HalakhahSubsection[] {
+  const order = HALAKHAH_SUBSECTION_ORDER[sectionId] ?? [];
+  return [...subsections].sort((a, b) => {
+    const indexA = order.indexOf(a.id);
+    const indexB = order.indexOf(b.id);
+    if (indexA !== -1 || indexB !== -1) {
+      if (indexA === -1) {
+        return 1;
+      }
+      if (indexB === -1) {
+        return -1;
+      }
+      return indexA - indexB;
+    }
+    return a.label.localeCompare(b.label, 'ru');
+  });
+}
+
+function buildHalakhahSections(catalog: Catalog | null): HalakhahSectionData[] {
+  if (!catalog) {
+    return [];
+  }
+
+  const sections = new Map<string, Map<string, CatalogWork[]>>();
+
+  catalog.works.forEach((work) => {
+    if (!work.categories.includes('Halakhah')) {
+      return;
+    }
+    if (!work.path) {
+      return;
+    }
+    const segments = work.path.split('/').filter(Boolean);
+    if (segments.length < 3) {
+      return;
+    }
+    const sectionId = segments[2];
+    const subsectionId = segments[3] ?? sectionId;
+    const sectionMap = sections.get(sectionId) ?? new Map<string, CatalogWork[]>();
+    sections.set(sectionId, sectionMap);
+    const works = sectionMap.get(subsectionId) ?? [];
+    works.push(work);
+    sectionMap.set(subsectionId, works);
+  });
+
+  const sectionData = Array.from(sections.entries()).map(([sectionId, subsectionMap]) => {
+    const subsections = Array.from(subsectionMap.entries()).map(([subId, works]) => ({
+      id: subId,
+      label: getHalakhahSubsectionLabel(sectionId, subId),
+      works: works.slice().sort((a, b) => a.title.localeCompare(b.title, 'ru')),
+    }));
+    return {
+      id: sectionId,
+      label: formatSegmentLabel(sectionId),
+      subsections: sortHalakhahSubsections(sectionId, subsections),
+    };
+  });
+
+  return sectionData.sort((a, b) => {
+    const indexA = HALAKHAH_SECTION_ORDER.indexOf(a.id);
+    const indexB = HALAKHAH_SECTION_ORDER.indexOf(b.id);
+    if (indexA !== -1 || indexB !== -1) {
+      if (indexA === -1) {
+        return 1;
+      }
+      if (indexB === -1) {
+        return -1;
+      }
+      return indexA - indexB;
+    }
+    return a.label.localeCompare(b.label, 'ru');
+  });
+}
+
 function extractTalmudSeder(work: CatalogWork): TalmudSeder | null {
   const sederCategory = work.categories.find((category) => category.startsWith('Seder '));
   if (!sederCategory) {
@@ -197,10 +373,32 @@ function FocusNavOverlay({
   const [rootSection, setRootSection] = useState<RootSection | null>(null);
   const [tanakhSection, setTanakhSection] = useState<TanakhSection | null>(null);
   const [mishnahSection, setMishnahSection] = useState<MishnahSection | null>(null);
+  const [halakhahSection, setHalakhahSection] = useState<string | null>(null);
+  const [halakhahSubsection, setHalakhahSubsection] = useState<string | null>(null);
+  const [expandedHalakhahSubsections, setExpandedHalakhahSubsections] = useState<string[]>([]);
   const [selectedBook, setSelectedBook] = useState<TanakhBookEntry | null>(null);
   const [bookTab, setBookTab] = useState<BookTab>('chapters');
   const [activeChapter, setActiveChapter] = useState<number | null>(null);
   const [selectedTractate, setSelectedTractate] = useState<CatalogWork | null>(null);
+  const [selectedHalakhahContext, setSelectedHalakhahContext] = useState<{
+    sectionLabel: string;
+    subsectionLabel?: string;
+  } | null>(null);
+  const [halakhahVerse, setHalakhahVerse] = useState<number | null>(null);
+  const halakhahBreadcrumbBase = useMemo(() => {
+    if (!selectedBook || !selectedBook.work.categories.includes('Halakhah')) {
+      return null;
+    }
+    const crumbs = [HALAKHAH_ROOT_LABEL];
+    if (selectedHalakhahContext?.sectionLabel) {
+      crumbs.push(selectedHalakhahContext.sectionLabel);
+    }
+    if (selectedHalakhahContext?.subsectionLabel) {
+      crumbs.push(selectedHalakhahContext.subsectionLabel);
+    }
+    crumbs.push(getWorkDisplayTitle(selectedBook.work));
+    return crumbs;
+  }, [selectedBook, selectedHalakhahContext]);
 
   const {
     data: bookData,
@@ -208,6 +406,12 @@ function FocusNavOverlay({
     error: bookError,
   } = useBookData(selectedBook);
   const hasParasha = !!(bookData && 'parshiot' in bookData && bookData.parshiot.length > 0);
+  const isHalakhahSelectedBook =
+    !!selectedBook && selectedBook.work.categories.includes('Halakhah');
+  const halakhahVerseCount =
+    isHalakhahSelectedBook && activeChapter && bookData?.chapterSizes
+      ? bookData.chapterSizes[activeChapter - 1] ?? 0
+      : 0;
 
   const talmudStructure = useMemo(() => {
     const empty = {
@@ -255,6 +459,10 @@ function FocusNavOverlay({
       setTanakhSection(null);
       setMishnahSection(null);
       setSelectedBook(null);
+      setHalakhahSection(null);
+      setHalakhahSubsection(null);
+      setSelectedHalakhahContext(null);
+      setHalakhahVerse(null);
       setBookTab('chapters');
       setSelectedTractate(null);
       setTalmudEdition('Bavli');
@@ -356,15 +564,43 @@ function FocusNavOverlay({
     }
   }, [activeCorpus, rootSection]);
 
-  const handleBookSelect = useCallback((book: TanakhBookEntry) => {
+  const prepareForBook = useCallback((book: TanakhBookEntry) => {
     setSelectedBook(book);
     setBookTab('chapters');
     setActiveChapter(null);
+    setHalakhahVerse(null);
     setCurrentLocation(null);
     setLocationNav(null);
-    const section = tanakhSection ?? resolveTanakhSection(book);
-    setBreadcrumbs(buildTanakhBreadcrumbs(section, book, undefined));
-  }, [tanakhSection]);
+    if (!book.work.categories.includes('Halakhah')) {
+      setSelectedHalakhahContext(null);
+    }
+  }, []);
+
+  const handleBookSelect = useCallback(
+    (book: TanakhBookEntry) => {
+      prepareForBook(book);
+      const section = tanakhSection ?? resolveTanakhSection(book);
+      setBreadcrumbs(buildTanakhBreadcrumbs(section, book, undefined));
+    },
+    [prepareForBook, tanakhSection],
+  );
+
+  const handleHalakhahWorkSelect = useCallback(
+    (book: TanakhBookEntry, sectionLabel: string, subsectionLabel: string | null) => {
+      prepareForBook(book);
+      setSelectedHalakhahContext({
+        sectionLabel,
+        subsectionLabel: subsectionLabel ?? undefined,
+      });
+      const crumbs = [HALAKHAH_ROOT_LABEL, sectionLabel];
+      if (subsectionLabel) {
+        crumbs.push(subsectionLabel);
+      }
+      crumbs.push(getWorkDisplayTitle(book.work));
+      setBreadcrumbs(crumbs);
+    },
+    [prepareForBook],
+  );
 
   useEffect(() => {
     if (bookTab === 'parasha' && !hasParasha) {
@@ -379,9 +615,30 @@ function FocusNavOverlay({
     setActiveChapter(chapter);
 
     const isMishnahBook = selectedBook.work.categories.includes('Mishnah');
+    const isHalakhahBook = selectedBook.work.categories.includes('Halakhah');
     let ref: string;
 
     const lastVerse = bookData?.chapterSizes?.[chapter - 1] ?? 1;
+
+    if (isHalakhahBook) {
+      setHalakhahVerse(null);
+      const crumbsBase =
+        halakhahBreadcrumbBase ??
+        [HALAKHAH_ROOT_LABEL, getWorkDisplayTitle(selectedBook.work)];
+      const chapterRef = `${selectedBook.seed.indexTitle} ${chapter}`;
+      const startRef = `${chapterRef}:1`;
+      setBreadcrumbs([...crumbsBase, `Симан ${chapter}`]);
+      setCurrentLocation({
+        type: 'tanakh',
+        book: selectedBook,
+        chapter,
+        verse: 1,
+        ref: startRef,
+      });
+      onSelectRef(chapterRef);
+      onClose();
+      return;
+    }
 
     if (isMishnahBook) {
       const rangeRef = `${selectedBook.seed.indexTitle} ${chapter}:1-${chapter}:${lastVerse}`;
@@ -414,7 +671,7 @@ function FocusNavOverlay({
 
     onSelectRef(ref);
     onClose();
-  }, [selectedBook, bookData, tanakhSection, mishnahSection, onSelectRef, onClose]);
+  }, [selectedBook, bookData, tanakhSection, mishnahSection, halakhahBreadcrumbBase, onSelectRef, onClose]);
 
   const handleAliyahSelect = useCallback((aliyah: BookAliyah) => {
     onSelectRef(aliyah.ref);
@@ -425,6 +682,136 @@ function FocusNavOverlay({
     onSelectRef(parasha.wholeRef);
     onClose();
   }, [onSelectRef, onClose]);
+
+  const handleHalakhahVerseSelect = useCallback(
+    (verse: number) => {
+      if (!selectedBook || !activeChapter) {
+        return;
+      }
+      const ref = `${selectedBook.seed.indexTitle} ${activeChapter}:${verse}`;
+      setHalakhahVerse(verse);
+      const crumbsBase =
+        halakhahBreadcrumbBase ??
+        [HALAKHAH_ROOT_LABEL, getWorkDisplayTitle(selectedBook.work)];
+      setBreadcrumbs([...crumbsBase, `Симан ${activeChapter}`, `Сеф ${verse}`]);
+      setCurrentLocation({
+        type: 'tanakh',
+        book: selectedBook,
+        chapter: activeChapter,
+        verse,
+        ref,
+      });
+      onSelectRef(ref);
+      onClose();
+    },
+    [selectedBook, activeChapter, halakhahBreadcrumbBase, onSelectRef, onClose],
+  );
+
+  const shouldRenderBookPanel =
+    !!selectedBook && (Boolean(bookData) || loadingBook || Boolean(bookError));
+  const shouldInlineHalakhahPanel =
+    shouldRenderBookPanel && rootSection === 'Halakha' && isHalakhahSelectedBook;
+  const bookPanelClassName = clsx(
+    'rounded-2xl border p-5 shadow-lg backdrop-blur-xl w-full',
+    theme === 'dark'
+      ? 'border-white/10 bg-white/10 shadow-black/25'
+      : 'border-gray-200 bg-white/20 shadow-gray-200/25',
+  );
+  const bookDetailContent = shouldRenderBookPanel ? (
+    <>
+      <Suspense fallback={null}>
+        <BookHeader
+          book={selectedBook as TanakhBookEntry}
+          activeTab={bookTab}
+          onTabChange={setBookTab}
+          loading={loadingBook}
+          error={bookError}
+          isMishnah={selectedBook?.work.categories.includes('Mishnah')}
+          hasParasha={hasParasha}
+          theme={theme}
+        />
+      </Suspense>
+
+      {loadingBook && (
+        <div
+          className={clsx(
+            'rounded-xl border px-4 py-6 text-sm text-center',
+            theme === 'dark'
+              ? 'border-white/10 bg-white/5 text-white/80'
+              : 'border-gray-200 bg-white text-gray-700',
+          )}
+        >
+          Загружаем структуру книги…
+        </div>
+      )}
+
+      {!loadingBook && bookError && (
+        <div
+          className={clsx(
+            'rounded-xl border px-4 py-6 text-sm text-center',
+            theme === 'dark'
+              ? 'border-red-400/60 bg-red-500/10 text-red-200'
+              : 'border-red-300 bg-red-50 text-red-700',
+          )}
+        >
+          {bookError}
+        </div>
+      )}
+
+      {!loadingBook && !bookError && bookData && (
+        <>
+          {bookTab === 'chapters' && 'chapterSizes' in bookData && (
+            <Suspense fallback={null}>
+              <ChapterGrid
+                chapterSizes={bookData.chapterSizes}
+                onSelect={handleChapterSelect}
+                isLoading={loadingBook}
+                activeChapter={activeChapter}
+                theme={theme}
+              />
+            </Suspense>
+          )}
+          {bookTab === 'chapters' &&
+            isHalakhahSelectedBook &&
+            activeChapter &&
+            halakhahVerseCount > 0 && (
+              <HalakhahVerseGrid
+                chapter={activeChapter}
+                verseCount={halakhahVerseCount}
+                onSelect={handleHalakhahVerseSelect}
+                activeVerse={halakhahVerse}
+                theme={theme}
+              />
+            )}
+
+          {bookTab === 'parasha' && 'parshiot' in bookData && bookData.parshiot.length > 0 && (
+            <Suspense fallback={null}>
+              <ParashaList
+                parshiot={bookData.parshiot}
+                onSelectParasha={handleParashaSelect}
+                onSelectAliyah={handleAliyahSelect}
+                isLoading={loadingBook}
+                theme={theme}
+              />
+            </Suspense>
+          )}
+
+          {bookTab === 'parasha' && 'parshiot' in bookData && bookData.parshiot.length === 0 && (
+            <div
+              className={clsx(
+                'rounded-xl border px-4 py-4 text-sm text-center',
+                theme === 'dark'
+                  ? 'border-white/10 bg-white/5 text-white/70'
+                  : 'border-gray-200 bg-gray-50 text-gray-600',
+              )}
+            >
+              Для этой книги нет структурированных данных по парашам.
+            </div>
+          )}
+        </>
+      )}
+    </>
+  ) : null;
 
   const handleTalmudEditionChange = useCallback((edition: TalmudEdition) => {
     setTalmudEdition(edition);
@@ -507,18 +894,24 @@ function FocusNavOverlay({
       } else if (corpusId === 'Talmud') {
         handleTalmudEditionChange('Bavli');
       } else if (corpusId === 'Mishnah') {
-        setBreadcrumbs(['Мишна']);
+        setBreadcrumbs(['?????']);
+      } else if (corpusId === 'Halakhah') {
+        setBreadcrumbs([HALAKHAH_ROOT_LABEL]);
       } else {
         setBreadcrumbs([getCorpusLabel(corpusId)]);
       }
 
       if (corpusId !== 'Talmud') {
         setTalmudEdition('Bavli');
-      setTalmudSeder(null);
+        setTalmudSeder(null);
       }
 
       setSelectedBook(null);
       setMishnahSection(null);
+      setHalakhahSection(null);
+      setHalakhahSubsection(null);
+      setSelectedHalakhahContext(null);
+      setHalakhahVerse(null);
       setBookTab('chapters');
       if (corpusId !== 'Tanakh') {
         setTanakhSection(null);
@@ -544,8 +937,7 @@ function FocusNavOverlay({
       tanakhSection,
     ],
   );
-
-  const handleMishnahSectionChange = useCallback((section: MishnahSection) => {
+const handleMishnahSectionChange = useCallback((section: MishnahSection) => {
     setMishnahSection(section);
     setSelectedBook(null);
     setCurrentLocation(null);
@@ -637,6 +1029,60 @@ function FocusNavOverlay({
     tanakhEntries,
   } = useTanakhCollections(catalog, tanakhSeed);
 
+  const halakhahSections = useMemo(
+    () => buildHalakhahSections(catalog),
+    [catalog],
+  );
+  const halakhahSectionData = halakhahSections.find((section) => section.id === halakhahSection) ?? null;
+  const halakhahSectionItems = halakhahSections.map((section) => ({
+    id: section.id,
+    label: section.label,
+  }));
+  const halakhahSectionLabel = halakhahSectionData?.label ?? halakhahSectionItems[0]?.label ?? '';
+  const expandHalakhahSection = useCallback(
+    (sectionId: string) => {
+      const sectionData = halakhahSections.find((section) => section.id === sectionId);
+      if (!sectionData?.subsections.length) {
+        setExpandedHalakhahSubsections((prev) => (prev.length ? [] : prev));
+        setHalakhahSubsection((prev) => (prev !== null ? null : prev));
+        return;
+      }
+      const subsectionIds = sectionData.subsections.map((subsection) => subsection.id);
+      const defaultOpen =
+        sectionData.id === 'Mishneh Torah' ? subsectionIds : subsectionIds.slice(0, 1);
+      setExpandedHalakhahSubsections((prev) => {
+        const sameLength = prev.length === defaultOpen.length;
+        const sameValues = sameLength && prev.every((value, index) => value === defaultOpen[index]);
+        return sameValues ? prev : defaultOpen;
+      });
+      setHalakhahSubsection((prev) => {
+        const nextValue = subsectionIds[0] ?? null;
+        if (prev && subsectionIds.includes(prev)) {
+          return prev;
+        }
+        return nextValue;
+      });
+    },
+    [halakhahSections],
+  );
+  const toggleHalakhahSubsection = useCallback((subsectionId: string) => {
+    setExpandedHalakhahSubsections((prev) =>
+      prev.includes(subsectionId) ? prev.filter((id) => id !== subsectionId) : [...prev, subsectionId],
+    );
+    setHalakhahSubsection(subsectionId);
+  }, []);
+
+  const handleHalakhahSectionChange = useCallback(
+    (sectionId: string) => {
+      setHalakhahSection(sectionId);
+      expandHalakhahSection(sectionId);
+      setSelectedBook(null);
+      setCurrentLocation(null);
+      setLocationNav(null);
+    },
+    [expandHalakhahSection],
+  );
+
   useEffect(() => {
     if (!tanakhCollections) {
       return;
@@ -645,6 +1091,12 @@ function FocusNavOverlay({
       setTanakhSection('Torah');
     }
   }, [tanakhCollections, tanakhSection]);
+
+  useEffect(() => {
+    if (!isHalakhahSelectedBook) {
+      setHalakhahVerse(null);
+    }
+  }, [isHalakhahSelectedBook]);
 
   useEffect(() => {
     if (!mishnahCollections) {
@@ -670,6 +1122,52 @@ function FocusNavOverlay({
       }
     }
   }, [mishnahCollections, mishnahSection, rootSection]);
+
+  useEffect(() => {
+    if (rootSection !== 'Halakha' || halakhahSections.length === 0) {
+      setExpandedHalakhahSubsections([]);
+      setHalakhahSubsection(null);
+      setHalakhahSection(null);
+      setSelectedHalakhahContext(null);
+      setHalakhahVerse(null);
+      return;
+    }
+
+    const resolvedSection = halakhahSection ?? halakhahSections[0].id;
+    if (resolvedSection !== halakhahSection) {
+      setHalakhahSection(resolvedSection);
+      return;
+    }
+
+    expandHalakhahSection(resolvedSection);
+  }, [
+    rootSection,
+    halakhahSections,
+    halakhahSection,
+    expandHalakhahSection,
+  ]);
+
+  useEffect(() => {
+    if (rootSection !== 'Halakha') {
+      return;
+    }
+    if (selectedBook) {
+      return;
+    }
+    const sectionData = halakhahSections.find((section) => section.id === halakhahSection);
+    if (!sectionData) {
+      setBreadcrumbs([HALAKHAH_ROOT_LABEL]);
+      return;
+    }
+    const crumbs = [HALAKHAH_ROOT_LABEL, sectionData.label];
+    if (halakhahSubsection) {
+      const sub = sectionData.subsections.find((item) => item.id === halakhahSubsection);
+      if (sub) {
+        crumbs.push(sub.label);
+      }
+    }
+    setBreadcrumbs(crumbs);
+  }, [rootSection, selectedBook, halakhahSections, halakhahSection, halakhahSubsection]);
 
   useEffect(() => {
     if (!open || didInitFromRef) {
@@ -947,99 +1445,124 @@ function FocusNavOverlay({
                   </AnimatePresence>
 
                   <AnimatePresence initial={false}>
-                    {selectedBook && (bookData || loadingBook || bookError) && (
+                    {rootSection === 'Halakha' && halakhahSections.length > 0 && (
+                      <motion.section
+                        key="halakha"
+                        variants={SECTION_VARIANTS}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        className={clsx(
+                          'rounded-2xl border p-4 shadow-lg backdrop-blur-lg w-full',
+                          theme === 'dark'
+                            ? 'border-white/10 bg-white/10 shadow-black/20'
+                            : 'border-gray-200 bg-white/20 shadow-gray-200/20',
+                        )}
+                      >
+                        <div className="space-y-4">
+                          <h3
+                            className={clsx(
+                              'text-sm font-semibold uppercase tracking-wide',
+                              theme === 'dark' ? 'text-amber-200/90' : 'text-amber-700',
+                            )}
+                          >
+                            {HALAKHAH_ROOT_LABEL}
+                          </h3>
+                          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr),minmax(0,1.1fr)]">
+                            <div>
+                              <HalakhahSectionSelector
+                                items={halakhahSectionItems}
+                                active={halakhahSection}
+                                onSelect={handleHalakhahSectionChange}
+                                theme={theme}
+                                variants={ITEM_VARIANTS}
+                              />
+                              <div className="mt-4 space-y-3">
+                                {(halakhahSectionData?.subsections ?? []).map((subsection) => {
+                                  const entries = subsection.works
+                                    .slice()
+                                    .sort((a, b) => a.title.localeCompare(b.title, 'ru'))
+                                    .map(createHalakhahEntry);
+                                  const isExpanded = expandedHalakhahSubsections.includes(subsection.id);
+
+                                  return (
+                                    <div
+                                      key={subsection.id}
+                                      className={clsx(
+                                        'rounded-2xl border px-3 py-2 transition',
+                                        theme === 'dark'
+                                          ? 'border-white/15 bg-white/5'
+                                          : 'border-gray-200 bg-white',
+                                      )}
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleHalakhahSubsection(subsection.id)}
+                                        className="flex w-full items-center justify-between text-left text-sm font-semibold"
+                                      >
+                                        <span>{subsection.label}</span>
+                                        <span className="text-xs uppercase tracking-wide text-emerald-500">
+                                          {isExpanded ? 'Свернуть' : 'Развернуть'}
+                                        </span>
+                                      </button>
+                                      {isExpanded && entries.length > 0 && (
+                                        <div className="mt-3 space-y-3">
+                                          <BookList
+                                            books={entries}
+                                            onSelect={(book) =>
+                                              handleHalakhahWorkSelect(book, halakhahSectionLabel, subsection.label)
+                                            }
+                                            activeTitle={selectedBook?.work.title}
+                                            theme={theme}
+                                          />
+                                        </div>
+                                      )}
+                                      {isExpanded && entries.length === 0 && (
+                                        <p
+                                          className={clsx(
+                                            'mt-2 text-xs italic',
+                                            theme === 'dark' ? 'text-white/70' : 'text-gray-500',
+                                          )}
+                                        >
+                                          Тем пока нет.
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div className={bookPanelClassName}>
+                              {shouldInlineHalakhahPanel && bookDetailContent ? (
+                                bookDetailContent
+                              ) : (
+                                <div
+                                  className={clsx(
+                                    'flex min-h-[220px] items-center justify-center text-center text-sm',
+                                    theme === 'dark' ? 'text-white/70' : 'text-gray-600',
+                                  )}
+                                >
+                                  Выберите книгу слева, затем выберите главу и симан.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.section>
+                    )}
+                  </AnimatePresence>
+
+                  <AnimatePresence initial={false}>
+                    {shouldRenderBookPanel && (!isHalakhahSelectedBook || rootSection !== 'Halakha') && (
                       <motion.section
                         key="book"
                         variants={SECTION_VARIANTS}
                         initial="initial"
                         animate="animate"
                         exit="exit"
-                        className={clsx(
-                          'rounded-2xl border p-5 shadow-lg backdrop-blur-xl w-full',
-                          theme === 'dark'
-                            ? 'border-white/10 bg-white/10 shadow-black/25'
-                            : 'border-gray-200 bg-white/20 shadow-gray-200/25',
-                        )}
+                        className={bookPanelClassName}
                       >
-                        <Suspense fallback={null}>
-                          <BookHeader
-                            book={selectedBook}
-                            activeTab={bookTab}
-                            onTabChange={setBookTab}
-                            loading={loadingBook}
-                            error={bookError}
-                            isMishnah={selectedBook.work.categories.includes('Mishnah')}
-                            hasParasha={hasParasha}
-                            theme={theme}
-                          />
-                        </Suspense>
-
-                        {loadingBook && (
-                          <div
-                            className={clsx(
-                              'rounded-xl border px-4 py-6 text-sm text-center',
-                              theme === 'dark'
-                                ? 'border-white/10 bg-white/5 text-white/80'
-                                : 'border-gray-200 bg-white text-gray-700',
-                            )}
-                          >
-                            Загружаем структуру книги…
-                          </div>
-                        )}
-
-                        {!loadingBook && bookError && (
-                          <div
-                            className={clsx(
-                              'rounded-xl border px-4 py-6 text-sm text-center',
-                              theme === 'dark'
-                                ? 'border-red-400/60 bg-red-500/10 text-red-200'
-                                : 'border-red-300 bg-red-50 text-red-700',
-                            )}
-                          >
-                            {bookError}
-                          </div>
-                        )}
-
-                        {!loadingBook && !bookError && bookData && (
-                          <>
-                            {bookTab === 'chapters' && 'chapterSizes' in bookData && (
-                              <Suspense fallback={null}>
-                                <ChapterGrid
-                                  chapterSizes={bookData.chapterSizes}
-                                  onSelect={handleChapterSelect}
-                                  isLoading={loadingBook}
-                                  activeChapter={activeChapter}
-                                  theme={theme}
-                                />
-                              </Suspense>
-                            )}
-
-                            {bookTab === 'parasha' && 'parshiot' in bookData && bookData.parshiot.length > 0 && (
-                              <Suspense fallback={null}>
-                                <ParashaList
-                                  parshiot={bookData.parshiot}
-                                  onSelectParasha={handleParashaSelect}
-                                  onSelectAliyah={handleAliyahSelect}
-                                  isLoading={loadingBook}
-                                  theme={theme}
-                                />
-                              </Suspense>
-                            )}
-
-                            {bookTab === 'parasha' && 'parshiot' in bookData && bookData.parshiot.length === 0 && (
-                              <div
-                                className={clsx(
-                                  'rounded-xl border px-4 py-4 text-sm text-center',
-                                  theme === 'dark'
-                                    ? 'border-white/10 bg-white/5 text-white/70'
-                                    : 'border-gray-200 bg-gray-50 text-gray-600',
-                                )}
-                              >
-                                Для этой книги нет структурированных данных по парашам.
-                              </div>
-                            )}
-                          </>
-                        )}
+                        {bookDetailContent}
                       </motion.section>
                     )}
                   </AnimatePresence>
@@ -1162,7 +1685,11 @@ function FocusNavOverlay({
                     )}
                   </AnimatePresence>
 
-                  {rootSection && rootSection !== 'Tanakh' && rootSection !== 'Talmud' && rootSection !== 'Mishnah' && (
+                  {rootSection &&
+                    rootSection !== 'Tanakh' &&
+                    rootSection !== 'Talmud' &&
+                    rootSection !== 'Mishnah' &&
+                    rootSection !== 'Halakha' && (
                     <Suspense fallback={null}>
                       <ComingSoonPanel sectionName={rootSection} theme={theme} variants={SECTION_VARIANTS} className="w-full" />
                     </Suspense>
@@ -1232,3 +1759,7 @@ function getMishnahSectionLabel(section: MishnahSection): string {
 }
 
 export default FocusNavOverlay;
+
+
+
+
