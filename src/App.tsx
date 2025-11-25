@@ -8,6 +8,7 @@ const PersonalityList = lazy(() => import('./pages/admin/PersonalityList'));
 const PersonalityCreate = lazy(() => import('./pages/admin/PersonalityCreate'));
 const PersonalityEdit = lazy(() => import('./pages/admin/PersonalityEdit'));
 const PromptEditor = lazy(() => import('./pages/admin/PromptEditor'));
+const ProfileProgress = lazy(() => import('./pages/ProfileProgress'));
 const UserManagementPage = lazy(() => import('./pages/admin/UserManagement'));
 import { useTextSelectionListener } from './hooks/useTextSelectionListener';
 import { LexiconPanel } from './components/LexiconPanel';
@@ -95,6 +96,14 @@ function App() {
                     element={
                       <Suspense fallback={null}>
                         <ChatLayout />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/progress"
+                    element={
+                      <Suspense fallback={null}>
+                        <ProfileProgress />
                       </Suspense>
                     }
                   />

@@ -111,7 +111,9 @@ export function ChatLayout() {
     sendMessage,
     isSending,
     deleteSession,
+    completeDailySession,
     reloadChats,
+    setSelectedChatId,
   } = useChat(agentId, urlChatId);
   const { mode } = useLayout();
   // Force GIRSA mode (temporarily disable IYUN)
@@ -244,9 +246,12 @@ export function ChatLayout() {
         debugLog('Daily session created:', created);
         
         debugLog('Navigating to:', `/daily/${sessionId}`);
+        setSelectedChatId(sessionId);
         navigate(`/daily/${sessionId}`);
       } catch (error) {
         console.error('❌ Failed to create daily session:', error);
+        setSelectedChatId(sessionId);
+        navigate(`/daily/${sessionId}`);
       }
     } else {
       // Exiting study if active to reveal chat UI
@@ -349,6 +354,7 @@ export function ChatLayout() {
                   onCreateChat={createChat}
                   onCreateStudy={handleOpenStudyNavigator}
                   onDeleteSession={deleteSession}
+                  onCompleteDaily={completeDailySession}
                   onModeChange={setSidebarMode}
                 />
               </Suspense>
@@ -468,6 +474,7 @@ export function ChatLayout() {
                   onCreateChat={createChat}
                   onCreateStudy={handleOpenStudyNavigator}
                   onDeleteSession={deleteSession}
+                  onCompleteDaily={completeDailySession}
                   onModeChange={setSidebarMode}
                 />
               </div>

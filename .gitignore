@@ -8,7 +8,7 @@
 !
 
 /node_modules
-/public/sefaria-cache
+
 dist/
 
 !astra-web-client\public\sefaria-cache\catalog.json

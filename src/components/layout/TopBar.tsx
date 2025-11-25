@@ -71,6 +71,13 @@ const TopBar: React.FC<TopBarProps> = ({ agentId, setAgentId }) => {
           </span>
         ) : null}
         <button
+          onClick={() => navigate('/progress')}
+          className="h-8 text-xs rounded-lg border border-border/50 px-3 flex items-center hover:bg-accent/50 transition-colors"
+          title="Прогресс"
+        >
+          Прогресс
+        </button>
+        <button
           onClick={() => navigate('/admin')}
           className="h-8 text-xs rounded-lg border border-border/50 px-3 flex items-center hover:bg-accent/50 transition-colors"
           title="Админ-панель"

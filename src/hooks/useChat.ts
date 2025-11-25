@@ -177,6 +177,28 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
     }
   }, [navigate, selectedChatId]);
 
+  const completeDailySession = useCallback(async (sessionId: string, completed: boolean) => {
+    try {
+      // Ensure session exists before marking complete
+      try {
+        await api.createDailySessionLazy(sessionId);
+      } catch (e) {
+        // best-effort; if it fails we still try to mark
+      }
+      const result = await api.markDailyComplete(sessionId, completed);
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.session_id === sessionId ? { ...chat, completed } : chat
+        )
+      );
+      return result;
+    } catch (error) {
+      console.error("Failed to mark daily session complete:", error);
+      setError('Не удалось отметить урок завершенным.');
+      throw error;
+    }
+  }, []);
+
   const reloadChats = useCallback(async () => {
     try {
       debugLog('Reloading chats from API...');
@@ -291,6 +313,8 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
     isSending,
     deleteChat,
     deleteSession,
+    completeDailySession,
     reloadChats,
+    setSelectedChatId,
   };
 }

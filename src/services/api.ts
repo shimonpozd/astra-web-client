@@ -19,6 +19,26 @@ export interface Chat {
   };
 }
 
+export interface DailyProgressEntry {
+  session_id: string;
+  category?: string | null;
+  ref?: string | null;
+  title?: string | null;
+  ts?: string;
+}
+
+export interface DailyProgressDay {
+  date: string;
+  completed: boolean;
+  entries: DailyProgressEntry[];
+}
+
+export interface DailyProgressResponse {
+  today: string;
+  streak: { current: number; best: number };
+  history: DailyProgressDay[];
+}
+
 export interface Message {
   id: string | number;
   role: 'user' | 'assistant' | 'system' | 'source';
@@ -196,6 +216,34 @@ async function createDailySessionLazy(sessionId: string): Promise<boolean> {
   } catch (error) {
     console.error("Failed to create daily session:", error);
     return false;
+  }
+}
+
+async function markDailyComplete(sessionId: string, completed: boolean): Promise<{ streak?: { current: number; best: number }; date?: string }> {
+  try {
+    const response = await authorizedFetch(`${API_BASE}/daily/${sessionId}/complete?completed=${completed}`, {
+      method: 'PATCH',
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to mark daily complete: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to mark daily complete:", error);
+    throw error;
+  }
+}
+
+async function getDailyProgress(days: number = 90): Promise<DailyProgressResponse> {
+  try {
+    const response = await authorizedFetch(`${API_BASE}/daily/progress?days=${days}`);
+    if (!response.ok) {
+      throw new Error(`Failed to get daily progress: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to get daily progress:", error);
+    throw error;
   }
 }
 
@@ -1099,6 +1147,8 @@ export const api = {
   explainTerm,
   getDailyCalendar,
   createDailySessionLazy,
+  markDailyComplete,
+  getDailyProgress,
   getDailySegments,
   adminListUsers,
   adminCreateUser,
