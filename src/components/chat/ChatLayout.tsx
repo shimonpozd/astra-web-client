@@ -21,6 +21,7 @@ import { debugLog } from '../../utils/debugLogger';
 import { authorizedFetch } from '../../lib/authorizedFetch';
 import { buildStudyQuickActions } from '../../utils/studyQuickActions';
 import { normalizeRefForAPI } from "../../utils/refUtils";
+import type { Persona } from "../../types/chat";
 
 export function ChatLayout() {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ export function ChatLayout() {
   const [agentId, setAgentId] = useState<string>(() => {
     return localStorage.getItem("astra_agent_id") || "default";
   });
+  const [personas, setPersonas] = useState<Persona[]>([]);
   const [sidebarMode, setSidebarMode] = useState<'split' | 'compact'>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -116,8 +118,6 @@ export function ChatLayout() {
     setSelectedChatId,
   } = useChat(agentId, urlChatId);
   const { mode } = useLayout();
-  // Force GIRSA mode (temporarily disable IYUN)
-  const studyUiMode: 'iyun' | 'girsa' = 'girsa';
 
   const studyQuickActions = useMemo(
     () =>
@@ -127,6 +127,10 @@ export function ChatLayout() {
         rightPanelVisible: rightWorkbenchVisible,
       }),
     [studySnapshot, leftWorkbenchVisible, rightWorkbenchVisible]
+  );
+  const currentPersona = useMemo(
+    () => personas.find((p) => p.id === agentId) || personas[0],
+    [agentId, personas],
   );
 
 
@@ -179,6 +183,31 @@ export function ChatLayout() {
 
   useEffect(() => {
     localStorage.setItem("astra_agent_id", agentId);
+  }, [agentId]);
+
+  useEffect(() => {
+    const loadPersonas = async () => {
+      try {
+        const response = await authorizedFetch(`/api/admin/personalities/public?t=${Date.now()}`);
+        if (!response.ok) {
+          throw new Error(`Failed to load personas (${response.status})`);
+        }
+        const data = await response.json();
+        const mapped: Persona[] = (data || []).map((persona: any) => ({
+          id: persona.id,
+          name: persona.name || persona.flow || persona.id,
+          description: persona.description,
+          systemPrompt: persona.system_prompt || persona.systemPrompt,
+        }));
+        setPersonas(mapped);
+        if (mapped.length && !mapped.find((p) => p.id === agentId)) {
+          setAgentId(mapped[0].id);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    void loadPersonas();
   }, [agentId]);
 
   useEffect(() => {
@@ -338,7 +367,7 @@ export function ChatLayout() {
 
   return (
     <div className="h-screen w-full flex flex-col overflow-hidden">
-      <TopBar agentId={agentId} setAgentId={setAgentId} />
+      <TopBar />
 
       {isVerticalLayout ? (
         <div className="flex-1 min-h-0 grid overflow-hidden" style={{ gridTemplateColumns: verticalGridTemplate }}>
@@ -377,8 +406,10 @@ export function ChatLayout() {
                     agentId={agentId}
                     selectedPanelId={selectedPanelId}
                     discussionFocusRef={studySnapshot?.discussion_focus_ref}
-                    studyMode={studyUiMode}
-                    quickActions={studyQuickActions}
+                    panelActions={studyQuickActions}
+                    currentPersona={currentPersona}
+                    availablePersonas={personas}
+                    onPersonaChange={setAgentId}
                   />
                 </Suspense>
               ) : (
@@ -396,8 +427,10 @@ export function ChatLayout() {
                       <MessageComposer
                         onSendMessage={sendMessage}
                         disabled={isSending}
-                        studyMode={studyUiMode}
-                        selectedPanelId={selectedPanelId}
+                        panelActions={undefined}
+                        currentPersona={currentPersona}
+                        availablePersonas={personas}
+                        onPersonaChange={setAgentId}
                       />
                     </Suspense>
                   </div>
@@ -439,6 +472,9 @@ export function ChatLayout() {
                 showRightPanel={rightWorkbenchVisible}
                 onToggleLeftPanel={handleToggleLeftWorkbench}
                 onToggleRightPanel={handleToggleRightWorkbench}
+                currentPersona={currentPersona}
+                availablePersonas={personas}
+                onPersonaChange={setAgentId}
               />
             </Suspense>
           </div>
@@ -516,6 +552,9 @@ export function ChatLayout() {
                       showRightPanel={rightWorkbenchVisible}
                       onToggleLeftPanel={handleToggleLeftWorkbench}
                       onToggleRightPanel={handleToggleRightWorkbench}
+                      currentPersona={currentPersona}
+                      availablePersonas={personas}
+                      onPersonaChange={setAgentId}
                     />
                   </Suspense>
                 ) : (
@@ -523,19 +562,26 @@ export function ChatLayout() {
                     <div className="flex-1 min-h-0 overflow-hidden">
                       <Suspense fallback={null}>
                         <ChatViewport
-                          messages={messages.map((m) => ({ ...m, id: String(m.id) }))}
-                          isLoading={isLoadingMessages}
-                        />
-                      </Suspense>
-                    </div>
-                    <div className="flex-shrink-0 panel-padding">
-                      <Suspense fallback={null}>
-                        <MessageComposer onSendMessage={sendMessage} disabled={isSending} />
-                      </Suspense>
-                    </div>
-                  </div>
-                )}
+                      messages={messages.map((m) => ({ ...m, id: String(m.id) }))}
+                      isLoading={isLoadingMessages}
+                    />
+                  </Suspense>
+                </div>
+                <div className="flex-shrink-0 panel-padding">
+                  <Suspense fallback={null}>
+                    <MessageComposer
+                      onSendMessage={sendMessage}
+                      disabled={isSending}
+                      panelActions={undefined}
+                      currentPersona={currentPersona}
+                      availablePersonas={personas}
+                      onPersonaChange={setAgentId}
+                    />
+                  </Suspense>
+                </div>
               </div>
+            )}
+          </div>
             </main>
           )}
 

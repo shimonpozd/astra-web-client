@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, DailyProgressDay, DailyProgressResponse, XpEvent, Achievement } from '../services/api';
+import { api, DailyProgressDay, DailyProgressResponse, XpEvent, Achievement, DailyProgressEntry } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Flame, Trophy, ChevronLeft, ChevronRight, Sparkles, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -113,11 +113,23 @@ function normalizeCategory(label?: string | null): string | null {
   return label;
 }
 
+function inferCategory(entry: DailyProgressEntry): string | null {
+  const label = normalizeCategory(entry.category_label || entry.category);
+  if (label) return label;
+  const ref = (entry.ref || entry.title || '').toLowerCase();
+  if (!ref) return null;
+  if (ref.includes('mishnah')) return 'Мишна йомит';
+  if (ref.includes('mishneh torah') || ref.includes('rambam')) return 'Рамбам';
+  if (ref.includes('daf')) return 'Даф йоми';
+  if (ref.includes('talmud')) return 'Даф йоми';
+  return null;
+}
+
 function deriveCategories(history: DailyProgressDay[]): string[] {
   const set = new Set<string>();
   history.forEach((day) => {
     (day.entries || []).forEach((entry) => {
-      const label = normalizeCategory(entry.category_label || entry.category);
+      const label = normalizeCategory(entry.category_label || entry.category) || inferCategory(entry);
       if (label) set.add(label);
     });
   });
@@ -185,14 +197,24 @@ function checkIfCategoryCompleted(day: DailyProgressDay | undefined, category: s
   if (!day) return false;
   const entries = day.entries || [];
   const hitEntry = entries.some((e) => {
-    const label = normalizeCategory(e.category_label || e.category);
+    const label = normalizeCategory(e.category_label || e.category) || inferCategory(e);
     return label?.toLowerCase() === category.toLowerCase();
   });
   if (hitEntry) return true;
-  // fallback: если день отмечен, но нет записей — подсветим ключевые daily категории
-  if (day.completed && (!entries.length || entries == null)) {
+
+  const hasAnyCategory = entries.some((e) => !!normalizeCategory(e.category_label || e.category));
+
+  // fallback: если день отмечен, но нет или не хватает категорий — подсветим ключевые daily категории
+  if (day.completed && (!entries.length || !hasAnyCategory)) {
     const key = category.toLowerCase();
-    return key.includes('даф') || key.includes('йоми') || key.includes('rambam') || key.includes('рамбам');
+    return (
+      key.includes('даф') ||
+      key.includes('йоми') ||
+      key.includes('rambam') ||
+      key.includes('рамбам') ||
+      key.includes('мишн') ||
+      key.includes('mishn')
+    );
   }
   return false;
 }
@@ -591,16 +613,7 @@ export default function ProfileProgress() {
                   </div>
                   {monthDays.map((d) => {
                     const day = historyByDate.get(d);
-                    const dayEntries = day?.entries || [];
-                    const dayCompleted = day?.completed;
-                    const hitExplicit = dayEntries.some((e) => {
-                      const label = (e.category_label || e.category || '').toLowerCase();
-                      return label === cat.toLowerCase();
-                    });
-                    const hitFallback =
-                      (!dayEntries.length && dayCompleted) ||
-                      (cat.toLowerCase() === 'все уроки' && (dayCompleted || dayEntries.length > 0));
-                    const hit = hitExplicit || hitFallback;
+                    const hit = checkIfCategoryCompleted(day, cat);
                     return (
                       <motion.div key={d} whileHover={{ scale: 1.15 }} className="relative group">
                         <div

@@ -1,102 +1,69 @@
-import { useEffect, useMemo, useState } from 'react';
-
-import { authorizedFetch } from '../lib/authorizedFetch';
-import { debugLog } from '../utils/debugLogger';
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import type { Persona } from '../types/chat';
+import { Button } from './ui/button';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
-
-interface Persona {
-  id: string;
-  name: string;
-  description: string;
-  flow: string;
-  system_prompt?: string | string[];
-  language?: string;
-}
-
-interface PersonaMap {
-  [key: string]: Persona;
-}
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 
 interface PersonaSelectorProps {
-  selected: string;
-  onSelect: (persona: string) => void;
+  currentPersona?: Persona;
+  personas?: Persona[];
+  onSelect?: (persona: Persona) => void;
+  disabled?: boolean;
 }
 
-export default function PersonaSelector({ selected, onSelect }: PersonaSelectorProps) {
-  const [personas, setPersonas] = useState<PersonaMap>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default function PersonaSelector({
+  currentPersona,
+  personas = [],
+  onSelect,
+  disabled,
+}: PersonaSelectorProps) {
+  const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadPersonas = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await authorizedFetch(
-          `/api/admin/personalities/public?t=${Date.now()}`,
-        );
-        if (!response.ok) {
-          throw new Error(`Failed to load personas: ${response.statusText}`);
-        }
-        const data = (await response.json()) as Persona[];
-        if (!isMounted) return;
-        const byId = data.reduce<PersonaMap>((acc, persona) => {
-          acc[persona.id] = persona;
-          return acc;
-        }, {});
-        setPersonas(byId);
-        debugLog('[PersonaSelector] Loaded personas:', Object.keys(byId));
-      } catch (err) {
-        if (!isMounted) return;
-        const message = err instanceof Error ? err.message : 'Failed to load personas';
-        setError(message);
-        debugLog('[PersonaSelector] Failed to load personas', err);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadPersonas();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const options = useMemo(() => Object.entries(personas), [personas]);
+  const activePersona = currentPersona || personas[0];
 
   return (
-    <Select value={selected} onValueChange={onSelect}>
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder="Выберите персонажа" />
-      </SelectTrigger>
-      <SelectContent>
-        {isLoading ? (
-          <SelectItem value="loading" disabled>
-            Загрузка...
-          </SelectItem>
-        ) : error ? (
-          <SelectItem value="error" disabled>
-            Ошибка: {error}
-          </SelectItem>
-        ) : (
-          options.map(([key, persona]) => (
-            <SelectItem key={key} value={key}>
-              {persona.name || key}
-            </SelectItem>
-          ))
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild disabled={disabled}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 px-2 rounded-lg hover:bg-muted/60 flex items-center gap-1.5 text-sm"
+        >
+          <span className="text-muted-foreground">
+            {activePersona?.name || 'Выбрать персону'}
+          </span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="top" className="w-56">
+        {personas.map((persona) => (
+          <DropdownMenuItem
+            key={persona.id}
+            onClick={() => {
+              onSelect?.(persona);
+              setOpen(false);
+            }}
+            className="cursor-pointer"
+          >
+            <div className="flex flex-col gap-0.5">
+              <span className="font-medium">{persona.name}</span>
+              {persona.description && (
+                <span className="text-xs text-muted-foreground line-clamp-1">
+                  {persona.description}
+                </span>
+              )}
+            </div>
+          </DropdownMenuItem>
+        ))}
+        {personas.length === 0 && (
+          <DropdownMenuItem disabled>Нет доступных персон</DropdownMenuItem>
         )}
-      </SelectContent>
-    </Select>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

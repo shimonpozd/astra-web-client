@@ -80,6 +80,7 @@ interface ConfigData {
       };
     };
   };
+  transcriptionModel?: string;
   voice?: {
     tts?: {
       provider?: string;
@@ -202,6 +203,7 @@ const GeneralSettings: React.FC = () => {
         top_p: 0.9
       }
     },
+    transcriptionModel: 'google/gemini-2.5-flash',
     voice: {
       tts: {
         provider: 'xtts'
@@ -403,6 +405,15 @@ const GeneralSettings: React.FC = () => {
                     value={config.llm?.model || ''}
                     onChange={(e) => updateConfig(['llm', 'model'], e.target.value)}
                     placeholder="e.g., gpt-4, claude-3-sonnet"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="transcription-model">Transcription Model</Label>
+                  <Input
+                    id="transcription-model"
+                    value={config.transcriptionModel || ''}
+                    onChange={(e) => updateConfig(['transcriptionModel'], e.target.value)}
+                    placeholder="google/gemini-2.5-flash"
                   />
                 </div>
               </div>

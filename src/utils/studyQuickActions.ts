@@ -1,4 +1,4 @@
-import type { ComposerQuickAction } from '../components/chat/MessageComposer';
+import type { PanelActions, PanelQuickAction } from '../types/chat';
 import type { StudySnapshot } from '../types/study';
 
 const normalizeRefString = (value?: string | null): string | null => {
@@ -36,13 +36,21 @@ interface BuildStudyQuickActionsParams {
   rightPanelVisible?: boolean;
 }
 
+const buildAction = (id: string, message: string, ref: string, source: PanelQuickAction['source']) => ({
+  id,
+  label: 'Объясни',
+  message,
+  ref,
+  source,
+});
+
 export const buildStudyQuickActions = ({
   snapshot,
   includeFocus = true,
   leftPanelVisible = true,
   rightPanelVisible = true,
-}: BuildStudyQuickActionsParams): ComposerQuickAction[] => {
-  if (!snapshot) return [];
+}: BuildStudyQuickActionsParams): PanelActions => {
+  if (!snapshot) return {};
 
   const focusRef = includeFocus
     ? normalizeRefString(snapshot.discussion_focus_ref ?? snapshot.ref)
@@ -56,35 +64,37 @@ export const buildStudyQuickActions = ({
     ? extractWorkbenchRef(snapshot.workbench?.right)
     : null;
 
-  const actions: ComposerQuickAction[] = [];
+  const actions: PanelActions = {};
 
   if (focusRef) {
-    actions.push({
-      id: 'focus',
-      label: `Фокус: Объясни ${focusRef}`,
-      message: `Объясни ${focusRef}`,
-    });
+    actions.focus = [
+      buildAction('focus-explain', `Объясни выделенный текст: ${focusRef}`, focusRef, 'focus'),
+    ];
   }
 
   if (leftWorkbenchRef) {
-    actions.push({
-      id: 'left_workbench',
-      label: `Левая панель: Объясни ${leftWorkbenchRef}`,
-      message: `Объясни ${leftWorkbenchRef}`,
-    });
+    actions.leftWorkbench = [
+      buildAction(
+        'left-explain',
+        `Объясни комментарий: ${leftWorkbenchRef}`,
+        leftWorkbenchRef,
+        'commentary',
+      ),
+    ];
   }
 
   if (rightWorkbenchRef) {
-    actions.push({
-      id: 'right_workbench',
-      label: `Правая панель: Объясни ${rightWorkbenchRef}`,
-      message: `Объясни ${rightWorkbenchRef}`,
-    });
+    actions.rightWorkbench = [
+      buildAction(
+        'right-explain',
+        `Объясни комментарий: ${rightWorkbenchRef}`,
+        rightWorkbenchRef,
+        'commentary',
+      ),
+    ];
   }
 
   return actions;
 };
 
 export { normalizeRefString, extractWorkbenchRef };
-
-

@@ -1,17 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import TopBar from '../components/layout/TopBar'; // Import TopBar
 
 const AdminLayout: React.FC = () => {
   const location = useLocation();
-  const [agentId, setAgentId] = useState<string>(() => {
-    return localStorage.getItem("astra_agent_id") || "default";
-  });
-
-  useEffect(() => {
-    localStorage.setItem("astra_agent_id", agentId);
-  }, [agentId]);
 
   const navItems = [
     { path: '/admin/settings', label: 'General Settings' },
@@ -23,7 +16,7 @@ const AdminLayout: React.FC = () => {
   return (
     <div className="h-screen w-full flex flex-col">
       {/* Shared Top Bar */}
-      <TopBar agentId={agentId} setAgentId={setAgentId} />
+      <TopBar />
 
       {/* Admin Content */}
       <div className="flex-1 flex min-h-0">

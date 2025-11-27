@@ -3,7 +3,7 @@ import { StudySnapshot } from '../../types/study';
 import { ContinuousText, TextSegment, ChapterNavigation } from '../../types/text';
 const FocusReader = lazy(() => import('./FocusReader'));
 import ChatViewport from '../chat/ChatViewport';
-import MessageComposer, { ComposerQuickAction } from '../chat/MessageComposer';
+import MessageComposer from '../chat/MessageComposer';
 import WorkbenchPanelInline from './WorkbenchPanelInline';
 import { api } from '../../services/api';
 import { useLexiconStore } from '../../store/lexiconStore';
@@ -15,6 +15,7 @@ import { getChapterSizesForWork } from '../../lib/sefariaShapeCache';
 import { buildStudyQuickActions } from '../../utils/studyQuickActions';
 import { emitGamificationEvent } from '../../contexts/GamificationContext';
 import { calcTextXp, docToPlainText } from '../../utils/xpUtils';
+import type { PanelActions, Persona } from '../../types/chat';
 
 interface StudyChatPanelProps {
   className?: string;
@@ -28,8 +29,11 @@ interface StudyChatPanelProps {
   agentId: string;
   selectedPanelId: string | null;
   discussionFocusRef?: string | null;
-  studyMode: 'iyun' | 'girsa';
-  quickActions?: ComposerQuickAction[];
+  panelActions?: PanelActions;
+  currentPersona?: Persona;
+  availablePersonas?: Persona[];
+  onPersonaChange?: (persona: Persona) => void;
+  layoutMode?: 'horizontal' | 'vertical';
 }
 
 export function StudyChatPanel({
@@ -44,8 +48,11 @@ export function StudyChatPanel({
   agentId,
   selectedPanelId,
   discussionFocusRef,
-  studyMode,
-  quickActions = [],
+  panelActions,
+  currentPersona,
+  availablePersonas,
+  onPersonaChange,
+  layoutMode = 'horizontal',
 }: StudyChatPanelProps) {
   const containerClass = `flex flex-col min-h-0 ${className || ''}`;
 
@@ -161,9 +168,11 @@ export function StudyChatPanel({
           }}
           disabled={isSending}
           discussionFocusRef={discussionFocusRef ?? undefined}
-          studyMode={studyMode}
-          selectedPanelId={selectedPanelId}
-          quickActions={quickActions}
+          panelActions={panelActions}
+          currentPersona={currentPersona}
+          availablePersonas={availablePersonas}
+          onPersonaChange={onPersonaChange}
+          layoutMode={layoutMode}
         />
       </div>
     </div>
@@ -210,6 +219,9 @@ interface StudyModeProps {
   onToggleRightPanel?: () => void;
   layoutVariant?: 'classic' | 'stacked';
   showChatPanel?: boolean;
+  currentPersona?: Persona;
+  availablePersonas?: Persona[];
+  onPersonaChange?: (persona: Persona) => void;
 }
 
 export default function StudyMode({
@@ -244,6 +256,9 @@ export default function StudyMode({
   onToggleRightPanel,
   layoutVariant = 'classic',
   showChatPanel = true,
+  currentPersona,
+  availablePersonas,
+  onPersonaChange,
 }: StudyModeProps) {
   // Use props if provided, otherwise fall back to local state
   const [localSelectedPanelId, setLocalSelectedPanelId] = useState<string | null>(null);
@@ -265,9 +280,6 @@ export default function StudyMode({
     }
   }, [selectedPanelId, setSelectedPanelId]);
 
-  // Get current study mode
-  const studyMode = selectedPanelId ? 'iyun' : 'girsa';
-
   // Visibility states for workbench panels
   const [internalLeftPanelVisible, setInternalLeftPanelVisible] = useState(true);
   const [internalRightPanelVisible, setInternalRightPanelVisible] = useState(true);
@@ -275,7 +287,7 @@ export default function StudyMode({
   const leftPanelIsVisible = showLeftPanel ?? internalLeftPanelVisible;
   const rightPanelIsVisible = showRightPanel ?? internalRightPanelVisible;
 
-  const composerQuickActions = useMemo<ComposerQuickAction[]>(() => {
+  const composerPanelActions = useMemo<PanelActions>(() => {
     return buildStudyQuickActions({
       snapshot,
       leftPanelVisible: leftPanelIsVisible,
@@ -319,6 +331,7 @@ export default function StudyMode({
     ? 'grid grid-cols-[1fr_300px]'
     : 'grid grid-cols-1';
   const isStackedLayout = layoutVariant === 'stacked';
+  const composerLayoutMode: 'horizontal' | 'vertical' = isStackedLayout ? 'vertical' : 'horizontal';
 
   // New lexicon double-click handler using global store
   const handleLexiconDoubleClick = async (segment?: TextSegment) => {
@@ -685,8 +698,11 @@ export default function StudyMode({
               agentId={agentId}
               selectedPanelId={selectedPanelId}
               discussionFocusRef={snapshot?.discussion_focus_ref}
-              studyMode={studyMode}
-              quickActions={composerQuickActions}
+              panelActions={composerPanelActions}
+              currentPersona={currentPersona}
+              availablePersonas={availablePersonas}
+              onPersonaChange={onPersonaChange}
+              layoutMode={composerLayoutMode}
             />
           )}
         </div>

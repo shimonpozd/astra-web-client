@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import PersonaSelector from '../PersonaSelector';
 import { ThemeToggle } from '../ThemeToggle';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -9,11 +8,6 @@ import { useGamification } from '../../contexts/GamificationContext';
 import { LayoutSelector } from './LayoutSelector';
 import { LevelProgressBar } from './LevelProgressBar';
 import { UserMenu } from './UserMenu';
-
-interface TopBarProps {
-  agentId: string;
-  setAgentId: (value: string) => void;
-}
 
 const BASE_LEVEL_XP = 300;
 const LEVEL_GROWTH = 1.18;
@@ -40,7 +34,7 @@ function calculateLevelProgress(totalXp: number) {
   };
 }
 
-const TopBar: React.FC<TopBarProps> = ({ agentId, setAgentId }) => {
+const TopBar: React.FC = () => {
   const navigate = useNavigate();
   const { mode, setMode } = useLayout();
   const { logout, user } = useAuth();
@@ -73,9 +67,6 @@ const TopBar: React.FC<TopBarProps> = ({ agentId, setAgentId }) => {
         />
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">
-        <div className="hidden lg:block w-40">
-          <PersonaSelector selected={agentId} onSelect={setAgentId} />
-        </div>
         <UserMenu
           user={user}
           levelProgress={levelProgress}
