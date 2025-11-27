@@ -53,6 +53,7 @@ export interface FocusReaderProps {
   onToggleRightPanel?: () => void;
   showLeftPanel?: boolean;
   showRightPanel?: boolean;
+  sessionId?: string | null;
 }
 
 // Message rendering types

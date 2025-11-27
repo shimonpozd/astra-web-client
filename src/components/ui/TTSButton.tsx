@@ -1,7 +1,10 @@
 import { Play, Pause, VolumeX } from 'lucide-react';
 import { Button } from './button';
 import { useTTS } from '../../hooks/useTTS';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { emitGamificationEvent } from '../../contexts/GamificationContext';
+
+const buildEventId = (verb: string) => ['chat', verb, 'tts-btn', Math.ceil(Date.now() / 5000)].join('|');
 
 interface TTSButtonProps {
   text: string;
@@ -45,6 +48,7 @@ export function TTSButton({
     speed,
     autoPlay,
   });
+  const awardedRef = useRef(false);
 
   const isCurrentText = currentText === text;
   const isActive = isCurrentText && (isPlaying || isPaused);
@@ -66,6 +70,22 @@ export function TTSButton({
         await stop();
         // Start new playback
         await play(text);
+        if (!awardedRef.current) {
+          awardedRef.current = true;
+          const clean = text.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+          const textXp = Math.min(25, 3 + Math.ceil(clean.length / 220));
+          const listenXp = Math.max(1, Math.ceil(textXp * 0.5));
+          emitGamificationEvent({
+            amount: listenXp,
+            source: 'chat',
+            verb: 'listen',
+            label: 'Ответ (прослушивание)',
+            meta: {
+              chars: clean.length,
+              event_id: buildEventId('listen'),
+            },
+          });
+        }
       }
     } catch (err) {
       console.error('TTS button error:', err);

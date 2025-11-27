@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { api, Chat, Message, ChatRequest, VirtualDailyChat } from '../services/api';
 
 import { debugLog } from '../utils/debugLogger';
+import { emitGamificationEvent } from '../contexts/GamificationContext';
+import { calcTextXp, docToPlainText } from '../utils/xpUtils';
 function generateId(): string {
   const cryptoObj: Crypto | undefined =
     typeof globalThis !== 'undefined' ? (globalThis.crypto as Crypto | undefined) : undefined;
@@ -39,6 +41,7 @@ function mapVirtualDailyChat(item: VirtualDailyChat): Chat {
     last_modified: item.date,
     type: 'daily',
     completed: item.exists ?? false,
+    stale: false,
     display_value: displayValue,
     display_value_he: item.he_display_value,
     display_value_ru: item.display_value_ru || displayValue,
@@ -51,6 +54,15 @@ function mapVirtualDailyChat(item: VirtualDailyChat): Chat {
         }
       : undefined,
   };
+}
+
+function dateFromDailySessionId(sessionId: string): number | null {
+  if (!sessionId.startsWith('daily-')) return null;
+  const parts = sessionId.split('-');
+  if (parts.length < 3) return null;
+  const datePart = parts[1];
+  const time = Date.parse(datePart);
+  return Number.isNaN(time) ? null : time;
 }
 
 export function useChat(agentId: string = 'default', initialChatId?: string | null) {
@@ -91,14 +103,23 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
         debugLog('Daily chats created:', dailyChats);
         
         // Combine and sort (daily chats first, then by last_modified)
-        const allChats = [...dailyChats, ...sessionList].sort((a, b) => {
-          // Daily chats always come first
-          if (a.type === 'daily' && b.type !== 'daily') return -1;
-          if (a.type !== 'daily' && b.type === 'daily') return 1;
-          
-          // Within same type, sort by last_modified (newest first)
-          return new Date(b.last_modified).getTime() - new Date(a.last_modified).getTime();
-        });
+      const allChats = [...dailyChats, ...sessionList].sort((a, b) => {
+        // Daily chats always come first
+        if (a.type === 'daily' && b.type !== 'daily') return -1;
+        if (a.type !== 'daily' && b.type === 'daily') return 1;
+        if (a.type === 'daily' && b.type === 'daily') {
+          const aStale = a.stale ? 1 : 0;
+          const bStale = b.stale ? 1 : 0;
+          if (aStale !== bStale) return aStale - bStale; // fresh above stale
+          const aDate = dateFromDailySessionId(a.session_id);
+          const bDate = dateFromDailySessionId(b.session_id);
+          if (aDate && bDate && aDate !== bDate) {
+            return bDate - aDate; // newer date first
+          }
+        }
+        // Within same type, sort by last_modified (newest first)
+        return new Date(b.last_modified).getTime() - new Date(a.last_modified).getTime();
+      });
         
         setChats(allChats);
       } catch (e) {
@@ -260,8 +281,28 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
       context: context || undefined,
     };
 
+    let assistantText = '';
+    let assistantDoc: any = null;
+
+    // XP за вопрос
+    const askAmount = calcTextXp(text);
+    if (askAmount > 0) {
+      emitGamificationEvent({
+        amount: askAmount,
+        source: 'chat',
+        verb: 'ask',
+        label: `Вопрос · ${text.length} симв.`,
+        meta: {
+          session_id: selectedChatId,
+          chars: text.length,
+          event_id: ['chat', 'ask', selectedChatId || '', Math.ceil(Date.now() / 5000)].join('|'),
+        },
+      });
+    }
+
     await api.sendMessage(request, {
       onChunk: (chunk) => {
+        assistantText += chunk;
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
@@ -275,6 +316,7 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
         );
       },
       onDoc: (doc) => {
+        assistantDoc = doc;
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
@@ -285,6 +327,21 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
       },
       onComplete: () => {
         setIsSending(false);
+        const replyText = assistantDoc ? docToPlainText(assistantDoc) : assistantText;
+        const amount = calcTextXp(replyText);
+        if (amount > 0) {
+          emitGamificationEvent({
+            amount,
+            source: 'chat',
+            verb: 'reply',
+            label: `Ответ · ${replyText.length} симв.`,
+            meta: {
+              session_id: selectedChatId,
+              chars: replyText.length,
+              event_id: ['chat', 'reply', selectedChatId || '', Math.ceil(Date.now() / 5000)].join('|'),
+            },
+          });
+        }
       },
       onError: (error) => {
         setMessages((prev) =>
@@ -298,7 +355,7 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
       },
     });
 
-  }, [selectedChatId]);
+  }, [agentId, selectedChatId]);
 
   return {
     chats,

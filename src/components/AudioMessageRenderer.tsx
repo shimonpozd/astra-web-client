@@ -1,6 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Play, Pause, Download, Volume2, Clock } from 'lucide-react';
 import type { AudioMessage } from '../types/text';
+import { emitGamificationEvent } from '../contexts/GamificationContext';
+const buildEventId = (verb: string, id: string | number) => ['chat', verb, id, Math.ceil(Date.now() / 5000)].join('|');
 
 interface AudioMessageRendererProps {
   message: AudioMessage;
@@ -12,9 +14,15 @@ export function AudioMessageRenderer({ message }: AudioMessageRendererProps) {
   const [duration, setDuration] = useState(message.content.duration || 0);
   const [isLoading, setIsLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const awardedRef = useRef(false);
 
   const { content } = message;
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const listenXp = useMemo(() => {
+    const clean = (content.text || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    const textXp = Math.min(25, 3 + Math.ceil(clean.length / 220));
+    return Math.max(1, Math.ceil(textXp * 0.5));
+  }, [content.text]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -32,6 +40,19 @@ export function AudioMessageRenderer({ message }: AudioMessageRendererProps) {
       } else {
         await audioRef.current.play();
         setIsPlaying(true);
+        if (!awardedRef.current) {
+          awardedRef.current = true;
+          emitGamificationEvent({
+            amount: listenXp,
+            source: 'chat',
+            verb: 'listen',
+            label: 'Ответ (аудио)',
+            meta: {
+              chars: clean.length,
+              event_id: buildEventId('listen', message.id),
+            },
+          });
+        }
       }
     } catch (error) {
       console.error('Audio playback error:', error);

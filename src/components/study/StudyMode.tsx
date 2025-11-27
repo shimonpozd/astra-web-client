@@ -13,6 +13,8 @@ import { parseRefSmart } from '../../utils/refUtils';
 import { TANAKH_BOOKS } from '../../data/tanakh';
 import { getChapterSizesForWork } from '../../lib/sefariaShapeCache';
 import { buildStudyQuickActions } from '../../utils/studyQuickActions';
+import { emitGamificationEvent } from '../../contexts/GamificationContext';
+import { calcTextXp, docToPlainText } from '../../utils/xpUtils';
 
 interface StudyChatPanelProps {
   className?: string;
@@ -77,11 +79,30 @@ export function StudyChatPanel({
               assistantMessage,
             ]);
 
+            let assistantText = '';
+            let assistantDoc: any = null;
+
+            // XP за вопрос
+            const askAmount = calcTextXp(message);
+            if (askAmount > 0) {
+              emitGamificationEvent({
+                amount: askAmount,
+                source: 'chat',
+                verb: 'ask',
+                label: `Вопрос · ${message.length} симв.`,
+                meta: {
+                  session_id: studySessionId,
+                  chars: message.length,
+                  event_id: ['study', 'ask', studySessionId || '', Math.ceil(Date.now() / 5000)].join('|'),
+                },
+              });
+            }
             await api.sendStudyMessage(
               studySessionId,
               message,
               {
                 onChunk: (chunk) => {
+                  assistantText += chunk;
                   setMessages((prev) =>
                     prev.map((msg) =>
                       msg.id === assistantMessageId
@@ -95,6 +116,7 @@ export function StudyChatPanel({
                   );
                 },
                 onDoc: (doc) => {
+                  assistantDoc = doc;
                   setMessages((prev) =>
                     prev.map((msg) =>
                       msg.id === assistantMessageId
@@ -105,6 +127,21 @@ export function StudyChatPanel({
                 },
                 onComplete: () => {
                   setIsSending(false);
+                  const replyText = assistantDoc ? docToPlainText(assistantDoc) : assistantText;
+                  const amount = calcTextXp(replyText);
+                  if (amount > 0) {
+                    emitGamificationEvent({
+                      amount,
+                      source: 'chat',
+                      verb: 'reply',
+                      label: `Study чат · ${replyText.length} симв.`,
+                      meta: {
+                        session_id: studySessionId,
+                        chars: replyText.length,
+                        event_id: ['study', 'reply', studySessionId || '', Math.ceil(Date.now() / 5000)].join('|'),
+                      },
+                    });
+                  }
                   refreshStudySnapshot();
                 },
                 onError: (error) => {
@@ -483,6 +520,7 @@ export default function StudyMode({
                       onToggleRightPanel={handleToggleRightPanel}
                       showLeftPanel={leftPanelIsVisible}
                       showRightPanel={rightPanelIsVisible}
+                      sessionId={studySessionId}
                     />
                   </Suspense>
                 </div>
@@ -494,6 +532,7 @@ export default function StudyMode({
                       item={snapshot?.workbench?.left || null}
                       active={snapshot?.discussion_focus_ref === snapshot?.workbench?.left?.ref}
                       selected={selectedPanelId === 'left_workbench'}
+                      sessionId={studySessionId}
                       onDropRef={(ref: string, dragData) => {
                         debugLog('StudyMode: Dropped on left workbench:', ref, dragData);
                         if (dragData?.type === 'group') {
@@ -519,6 +558,7 @@ export default function StudyMode({
                       item={snapshot?.workbench?.right || null}
                       active={snapshot?.discussion_focus_ref === snapshot?.workbench?.right?.ref}
                       selected={selectedPanelId === 'right_workbench'}
+                      sessionId={studySessionId}
                       onDropRef={(ref: string, dragData) => {
                         debugLog('StudyMode: Dropped on right workbench:', ref, dragData);
                         if (dragData?.type === 'group') {
@@ -546,6 +586,7 @@ export default function StudyMode({
                       item={snapshot?.workbench?.left || null}
                       active={snapshot?.discussion_focus_ref === snapshot?.workbench?.left?.ref}
                       selected={selectedPanelId === 'left_workbench'}
+                      sessionId={studySessionId}
                       onDropRef={(ref: string, dragData) => {
                         debugLog('StudyMode: Dropped on left workbench:', ref, dragData);
                         if (dragData?.type === 'group') {
@@ -597,6 +638,7 @@ export default function StudyMode({
                       onToggleRightPanel={handleToggleRightPanel}
                       showLeftPanel={leftPanelIsVisible}
                       showRightPanel={rightPanelIsVisible}
+                      sessionId={studySessionId}
                     />
                   </Suspense>
                 </div>
@@ -608,6 +650,7 @@ export default function StudyMode({
                       item={snapshot?.workbench?.right || null}
                       active={snapshot?.discussion_focus_ref === snapshot?.workbench?.right?.ref}
                       selected={selectedPanelId === 'right_workbench'}
+                      sessionId={studySessionId}
                       onDropRef={(ref: string, dragData) => {
                         debugLog('StudyMode: Dropped on right workbench:', ref, dragData);
                         if (dragData?.type === 'group') {

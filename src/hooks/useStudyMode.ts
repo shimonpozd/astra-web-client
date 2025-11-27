@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { api } from '../services/api';
 import { StudySnapshot } from '../types/study';
 import { TextSegment } from '../types/text';
@@ -16,6 +16,76 @@ export function useStudyMode() {
   const [canNavigateForward, setCanNavigateForward] = useState(true);
   const [isBackgroundLoading, setIsBackgroundLoading] = useState(false);
   const [segmentPollingInterval, setSegmentPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [preferredFocusRef, setPreferredFocusRef] = useState<string | null>(null);
+  const preferredFocusRefRef = useRef<string | null>(null);
+
+  const normalizeRef = useCallback((value?: string | null) => {
+    if (!value) return '';
+    return normalizeRefForAPI(value)
+      .replace(/\s+/g, ' ')
+      .replace(/[–—]/g, '-')
+      .trim()
+      .toLowerCase();
+  }, []);
+
+  const applyLocalFocus = useCallback(
+    (state: StudySnapshot | null | undefined, ref: string, segment?: TextSegment) => {
+      if (!state?.segments?.length) {
+        return state || null;
+      }
+
+      const targetNormalized = normalizeRef(ref);
+      const index = state.segments.findIndex(
+        (item) => normalizeRef(item.ref) === targetNormalized,
+      );
+
+      if (index === -1) {
+        return state;
+      }
+
+      const nextSegment = segment ?? state.segments[index];
+
+      if (
+        state.focusIndex === index &&
+        state.ref === nextSegment.ref &&
+        state.discussion_focus_ref === nextSegment.ref
+      ) {
+        return state;
+      }
+
+      return {
+        ...state,
+        focusIndex: index,
+        ref: nextSegment.ref,
+        discussion_focus_ref: nextSegment.ref,
+      };
+    },
+    [normalizeRef],
+  );
+
+  const setLocalFocus = useCallback(
+    (ref: string, segment?: TextSegment) => {
+      setStudySnapshot((prev) => applyLocalFocus(prev, ref, segment));
+    },
+    [applyLocalFocus],
+  );
+
+  const applyPreferredFocus = useCallback(
+    (state: StudySnapshot | null | undefined, fallbackRef?: string | null, segment?: TextSegment) => {
+      if (!state) return state;
+      const targetRef = fallbackRef ?? preferredFocusRefRef.current;
+      if (!targetRef) {
+        return state;
+      }
+      return applyLocalFocus(state, targetRef, segment);
+    },
+    [applyLocalFocus],
+  );
+
+  const updatePreferredFocus = useCallback((value: string | null) => {
+    preferredFocusRefRef.current = value;
+    setPreferredFocusRef(value);
+  }, []);
 
   const startStudy = useCallback(async (textRef: string, existingSessionId?: string) => {
     try {
@@ -27,7 +97,9 @@ export function useStudyMode() {
 
       const snapshot = await api.setFocus(sessionId, textRef);
       debugLog('🔍 API setFocus response:', snapshot);
+      const focusRef = snapshot?.ref || textRef || null;
       setStudySnapshot(snapshot);
+      updatePreferredFocus(focusRef);
       setCanNavigateBack(true);
       setCanNavigateForward(true);
       setIsActive(true);
@@ -46,10 +118,10 @@ export function useStudyMode() {
               // Update study snapshot with new segments
               setStudySnapshot(prev => {
                 if (!prev) return prev;
-                return {
+                return applyPreferredFocus({
                   ...prev,
                   segments: segmentsData.segments
-                };
+                });
               });
               
               // Stop polling if all segments are loaded
@@ -91,13 +163,14 @@ export function useStudyMode() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [applyPreferredFocus, updatePreferredFocus]);
 
   const exitStudy = useCallback(() => {
     setIsActive(false);
     setStudySnapshot(null);
     setStudySessionId(null);
     setError(null);
+    updatePreferredFocus(null);
     
     // Clear polling interval if exists
     if (segmentPollingInterval) {
@@ -113,6 +186,7 @@ export function useStudyMode() {
       setIsLoading(true);
       const snapshot = await api.navigateBack(studySessionId);
       setStudySnapshot(snapshot);
+      updatePreferredFocus(snapshot?.ref || null);
       setCanNavigateBack(true);
       setCanNavigateForward(true);
     } catch (e) {
@@ -122,7 +196,7 @@ export function useStudyMode() {
     } finally {
       setIsLoading(false);
     }
-  }, [studySessionId]);
+  }, [studySessionId, updatePreferredFocus]);
 
   const navigateForward = useCallback(async () => {
     if (!studySessionId) return;
@@ -130,6 +204,7 @@ export function useStudyMode() {
       setIsLoading(true);
       const snapshot = await api.navigateForward(studySessionId);
       setStudySnapshot(snapshot);
+      updatePreferredFocus(snapshot?.ref || null);
       setCanNavigateBack(true);
       setCanNavigateForward(true);
     } catch (e) {
@@ -139,10 +214,11 @@ export function useStudyMode() {
     } finally {
       setIsLoading(false);
     }
-  }, [studySessionId]);
+  }, [studySessionId, updatePreferredFocus]);
 
   const workbenchSet = useCallback(async (side: 'left' | 'right', ref: string) => {
     if (!studySessionId) return;
+    const preservedRef = preferredFocusRefRef.current || studySnapshot?.ref || null;
     try {
       setIsLoading(true);
       const response = await authorizedFetch('/api/study/workbench/set', {
@@ -159,7 +235,9 @@ export function useStudyMode() {
       }
       const result = await response.json();
       if (result.ok && result.state) {
-        setStudySnapshot(result.state);
+        const nextState = applyPreferredFocus(result.state, preservedRef);
+        setStudySnapshot(nextState);
+        updatePreferredFocus(preservedRef || result.state?.ref || null);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to set workbench';
@@ -167,10 +245,11 @@ export function useStudyMode() {
     } finally {
       setIsLoading(false);
     }
-  }, [studySessionId]);
+  }, [applyPreferredFocus, studySessionId, studySnapshot, updatePreferredFocus]);
 
   const workbenchClear = useCallback(async (side: 'left' | 'right') => {
     if (!studySessionId) return;
+    const preservedRef = preferredFocusRefRef.current || studySnapshot?.ref || null;
     try {
       setIsLoading(true);
       const response = await authorizedFetch('/api/study/workbench/set', {
@@ -187,7 +266,9 @@ export function useStudyMode() {
       }
       const result = await response.json();
       if (result?.ok && result?.state) {
-        setStudySnapshot(result.state);
+        const nextState = applyPreferredFocus(result.state, preservedRef);
+        setStudySnapshot(nextState);
+        updatePreferredFocus(preservedRef || result.state?.ref || null);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to clear workbench';
@@ -195,7 +276,7 @@ export function useStudyMode() {
     } finally {
       setIsLoading(false);
     }
-  }, [studySessionId]);
+  }, [applyPreferredFocus, studySessionId, studySnapshot, updatePreferredFocus]);
 
   const workbenchFocus = useCallback(async (side: 'left' | 'right') => {
     if (!studySessionId) return;
@@ -216,9 +297,9 @@ export function useStudyMode() {
       }
       const result = await response.json();
       if (result.ok && result.state) {
-        setStudySnapshot(result.state);
-        // Reset local focus to match the new server state
-        setLocalFocus(ref);
+        const nextState = applyLocalFocus(result.state, ref);
+        setStudySnapshot(nextState);
+        updatePreferredFocus(ref);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to focus workbench';
@@ -226,10 +307,11 @@ export function useStudyMode() {
     } finally {
       setIsLoading(false);
     }
-  }, [studySessionId, studySnapshot]);
+  }, [applyLocalFocus, studySessionId, studySnapshot, updatePreferredFocus]);
 
   const focusMainText = useCallback(async () => {
     if (!studySessionId || !studySnapshot?.ref) return;
+    const targetRef = studySnapshot.ref;
     try {
       setIsLoading(true);
       const response = await authorizedFetch('/api/study/chat/set_focus', {
@@ -245,7 +327,9 @@ export function useStudyMode() {
       }
       const result = await response.json();
       if (result.ok && result.state) {
-        setStudySnapshot(result.state);
+        const nextState = applyLocalFocus(result.state, targetRef);
+        setStudySnapshot(nextState);
+        updatePreferredFocus(targetRef);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to focus main text';
@@ -253,58 +337,7 @@ export function useStudyMode() {
     } finally {
       setIsLoading(false);
     }
-  }, [studySessionId, studySnapshot]);
-
-  const normalizeRef = useCallback((value?: string | null) => {
-    if (!value) return '';
-    return normalizeRefForAPI(value)
-      .replace(/\s+/g, ' ')
-      .replace(/[–—]/g, '-')
-      .trim()
-      .toLowerCase();
-  }, []);
-
-  const applyLocalFocus = useCallback(
-    (state: StudySnapshot | null | undefined, ref: string, segment?: TextSegment) => {
-      if (!state?.segments?.length) {
-        return state;
-      }
-
-      const targetNormalized = normalizeRef(ref);
-      const index = state.segments.findIndex(
-        (item) => normalizeRef(item.ref) === targetNormalized,
-      );
-
-      if (index === -1) {
-        return state;
-      }
-
-      const nextSegment = segment ?? state.segments[index];
-
-      if (
-        state.focusIndex === index &&
-        state.ref === nextSegment.ref &&
-        state.discussion_focus_ref === nextSegment.ref
-      ) {
-        return state;
-      }
-
-      return {
-        ...state,
-        focusIndex: index,
-        ref: nextSegment.ref,
-        discussion_focus_ref: nextSegment.ref,
-      };
-    },
-    [normalizeRef],
-  );
-
-  const setLocalFocus = useCallback(
-    (ref: string, segment?: TextSegment) => {
-      setStudySnapshot((prev) => applyLocalFocus(prev, ref, segment));
-    },
-    [applyLocalFocus],
-  );
+  }, [applyLocalFocus, studySessionId, studySnapshot, updatePreferredFocus]);
 
   const navigateToRef = useCallback(async (ref: string, segment?: TextSegment) => {
     if (!studySessionId) return;
@@ -316,20 +349,29 @@ export function useStudyMode() {
     const fallbackSegment = segment ?? (isLocalNavigation ? segments[existingIndex] : undefined);
     const pendingRef = fallbackSegment?.ref || ref;
 
+    updatePreferredFocus(pendingRef);
+
     if (fallbackSegment) {
       setLocalFocus(pendingRef, fallbackSegment);
     }
 
+    const nearWindowEdge =
+      isLocalNavigation &&
+      (existingIndex <= 1 || existingIndex >= Math.max(segments.length - 2, 0));
+    // Если нужный отрывок уже есть в текущем окне и мы не на краю окна — не дергаем бэк
+    if (isLocalNavigation && !nearWindowEdge) {
+      return;
+    }
+
     try {
-      if (!isLocalNavigation) {
-        setIsLoading(true);
-      }
+      setIsLoading(true);
 
       debugLog('🧭 NavigateToRef:', { 
         studySessionId, 
         ref, 
         isDaily: studySessionId.startsWith('daily-'),
-        isLocalNavigation
+        isLocalNavigation,
+        nearWindowEdge
       });
       
       const response = await authorizedFetch('/api/study/set_focus', {
@@ -357,7 +399,7 @@ export function useStudyMode() {
         setIsLoading(false);
       }
     }
-  }, [studySessionId, studySnapshot, normalizeRef, setLocalFocus, applyLocalFocus]);
+  }, [applyLocalFocus, normalizeRef, setLocalFocus, updatePreferredFocus, studySessionId, studySnapshot]);
 
   const loadStudySession = useCallback(async (sessionId: string) => {
     try {
@@ -365,8 +407,10 @@ export function useStudyMode() {
       setError(null);
 
       const snapshot = await api.getStudyState(sessionId);
+      const focusRef = snapshot?.ref || null;
       setStudySessionId(sessionId);
-      setStudySnapshot(snapshot);
+      setStudySnapshot(applyPreferredFocus(snapshot, focusRef));
+      updatePreferredFocus(focusRef);
       setCanNavigateBack(true);
       setCanNavigateForward(true);
       setIsActive(true);
@@ -394,10 +438,10 @@ export function useStudyMode() {
                   // Update study snapshot with new segments
                   setStudySnapshot(prev => {
                     if (!prev) return prev;
-                    return {
+                    return applyPreferredFocus({
                       ...prev,
                       segments: segmentsData.segments
-                    };
+                    });
                   });
                   
                   // Stop polling if all segments are loaded
@@ -441,17 +485,17 @@ export function useStudyMode() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [applyPreferredFocus, updatePreferredFocus]);
 
   const refreshStudySnapshot = useCallback(async () => {
     if (!studySessionId) return;
     try {
       const snapshot = await api.getStudyState(studySessionId);
-      setStudySnapshot(snapshot);
+      setStudySnapshot(applyPreferredFocus(snapshot));
     } catch (e) {
       console.error("Failed to refresh study snapshot:", e);
     }
-  }, [studySessionId]);
+  }, [applyPreferredFocus, studySessionId]);
 
 
   return {

@@ -12,6 +12,7 @@ export interface Chat {
   display_value_he?: string;
   display_value_ru?: string;
   daily_category?: string;
+   stale?: boolean;
   daily_stream?: {
     stream_id: string;
     units_total: number;
@@ -37,6 +38,43 @@ export interface DailyProgressResponse {
   today: string;
   streak: { current: number; best: number };
   history: DailyProgressDay[];
+}
+
+export interface XpProfile {
+  xp_total: number;
+  level: number;
+  xp_in_level: number;
+  xp_to_next: number;
+  last_level_up_at?: number | null;
+}
+
+export interface XpEventPayload {
+  source: 'chat' | 'focus' | 'workbench' | 'lexicon' | 'daily';
+  verb?: string;
+  session_id?: string;
+  ref?: string;
+  title?: string;
+  chars?: number;
+  duration_ms?: number;
+  amount?: number;
+  event_id?: string;
+  ts?: number;
+}
+
+export interface XpEvent {
+  source: string;
+  verb?: string;
+  amount: number;
+  ref?: string | null;
+  title?: string | null;
+  ts?: number | null;
+}
+
+export interface Achievement {
+  category: string;
+  level: string;
+  value: number;
+  to_next: number | null;
 }
 
 export interface Message {
@@ -441,6 +479,42 @@ async function adminRevokeSession(userId: string, sessionId: string): Promise<vo
   if (!response.ok) {
     throw new Error('Failed to revoke session');
   }
+}
+
+async function getXpProfile(): Promise<XpProfile> {
+  const response = await authorizedFetch(`${API_BASE}/xp/profile`);
+  if (!response.ok) {
+    throw new Error(`Failed to get XP profile: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function postXpEvent(payload: XpEventPayload): Promise<XpProfile> {
+  const response = await authorizedFetch(`${API_BASE}/xp/event`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to record XP event: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function getXpHistory(limit: number = 50): Promise<XpEvent[]> {
+  const response = await authorizedFetch(`${API_BASE}/xp/history?limit=${limit}`);
+  if (!response.ok) {
+    throw new Error(`Failed to get XP history: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function getAchievements(): Promise<Achievement[]> {
+  const response = await authorizedFetch(`${API_BASE}/achievements`);
+  if (!response.ok) {
+    throw new Error(`Failed to get achievements: ${response.statusText}`);
+  }
+  return response.json();
 }
 
 async function adminListUserLoginEvents(
@@ -1150,6 +1224,10 @@ export const api = {
   markDailyComplete,
   getDailyProgress,
   getDailySegments,
+  getXpProfile,
+  postXpEvent,
+  getXpHistory,
+  getAchievements,
   adminListUsers,
   adminCreateUser,
   adminUpdateUser,

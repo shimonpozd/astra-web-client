@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { Play, Pause, Volume2, Loader2 } from 'lucide-react';
 import { authorizedFetch } from '../lib/authorizedFetch';
+import { emitGamificationEvent } from '../contexts/GamificationContext';
+const buildEventId = (verb: string) => ['chat', verb, 'streaming', Math.ceil(Date.now() / 5000)].join('|');
 
 interface SimpleStreamingTTSProps {
   text: string;
@@ -21,6 +23,7 @@ export function SimpleStreamingTTS({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const awardedRef = useRef(false);
 
   const handlePlay = async () => {
     try {
@@ -67,6 +70,22 @@ export function SimpleStreamingTTS({
         setIsLoading(false);
         audio.play();
         setIsPlaying(true);
+        if (!awardedRef.current) {
+          awardedRef.current = true;
+          const clean = text.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+          const textXp = Math.min(25, 3 + Math.ceil(clean.length / 220));
+          const listenXp = Math.max(1, Math.ceil(textXp * 0.5));
+          emitGamificationEvent({
+            amount: listenXp,
+            source: 'chat',
+            verb: 'listen',
+            label: 'Ответ (прослушивание)',
+            meta: {
+              chars: clean.length,
+              event_id: buildEventId('listen'),
+            },
+          });
+        }
       });
 
       audio.addEventListener('play', () => {

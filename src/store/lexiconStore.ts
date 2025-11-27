@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
 import { debugLog } from '../utils/debugLogger';
+import { emitGamificationEvent } from '../contexts/GamificationContext';
 
 interface LexiconState {
   term: string | null;
@@ -53,6 +54,16 @@ export const useLexiconStore = create<LexiconState>((set, get) => ({
         onComplete: () => {
           debugLog('[LexiconStore] Fetch complete, explanation:', currentText);
           set({ explanation: currentText, isLoading: false });
+          emitGamificationEvent({
+            amount: 25,
+            source: 'lexicon',
+            verb: 'lookup',
+            label: term,
+            meta: {
+              ref: term,
+              event_id: ['lexicon', 'lookup', term, Math.ceil(Date.now() / 5000)].join('|'),
+            },
+          });
         },
         onError: (error: Error) => {
           console.error('[LexiconStore] Failed to fetch explanation:', error);

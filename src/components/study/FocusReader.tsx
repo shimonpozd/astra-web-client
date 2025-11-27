@@ -9,6 +9,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useSpeechify } from '../../hooks/useSpeechify';
 import { useTTS } from '../../hooks/useTTS';
 import { debugWarn } from '../../utils/debugLogger';
+import { emitGamificationEvent } from '../../contexts/GamificationContext';
 // import { useKeyboardNavigation } from '../../hooks/useKeyboardNavigation';
 
 const FONT_SIZE_VALUES: Record<string, string> = {
@@ -18,6 +19,8 @@ const FONT_SIZE_VALUES: Record<string, string> = {
 };
 
 const FOCUS_READER_SETTINGS_KEY = 'focus-reader-font-settings';
+const buildEventId = (verb: string, ref?: string | null, sessionId?: string | null) =>
+  ['focus', verb, sessionId || '', ref || ''].join('|');
 
 function formatDisplayRef(ref?: string | null): string {
   if (!ref) return '—';
@@ -74,6 +77,7 @@ const FocusReader = memo(({
   onToggleRightPanel,
   showLeftPanel,
   showRightPanel,
+  sessionId,
 }: FocusReaderProps) => {
   const focusRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -84,6 +88,8 @@ const FocusReader = memo(({
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
   const [stableTranslatedText, setStableTranslatedText] = useState('');
+  const visitedRefsRef = useRef<Set<string>>(new Set());
+  const lastTranslationRef = useRef<string | null>(null);
   const initialFontSettings = readInitialFontSettings();
   const [readerFontSize, setReaderFontSize] = useState<'small' | 'medium' | 'large'>(() => initialFontSettings.readerFontSize);
   const [hebrewScale, setHebrewScale] = useState(() => initialFontSettings.hebrewScale);
@@ -109,6 +115,27 @@ const FocusReader = memo(({
       setStableTranslatedText(translatedText);
     }
   }, [translatedText]);
+
+  useEffect(() => {
+    if (!showTranslation || !stableTranslatedText || !activeSegmentRef) return;
+    if (lastTranslationRef.current === activeSegmentRef) return;
+    lastTranslationRef.current = activeSegmentRef;
+    const clean = stableTranslatedText.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    const scale = Math.ceil(clean.length / 350);
+    const amount = Math.min(8, 3 + Math.max(1, scale));
+    emitGamificationEvent({
+      amount,
+      source: 'focus',
+      verb: 'translate',
+      label: activeSegmentRef,
+      meta: {
+        session_id: sessionId,
+        ref: activeSegmentRef,
+        chars: clean.length,
+        event_id: buildEventId('translate', activeSegmentRef, sessionId),
+      },
+    });
+  }, [activeSegmentRef, showTranslation, stableTranslatedText, sessionId]);
 
   // Очищаем стабильный текст при смене сегмента
   useEffect(() => {
@@ -366,6 +393,22 @@ const FocusReader = memo(({
 
       await play(textToSpeak, { language: playbackLanguage });
       setActiveTTSRef(activeSegmentRef);
+      const lengthChars = textToSpeak.length;
+      const estimatedSeconds = lengthChars / 15; // грубая оценка длительности
+      const xp = Math.max(2, Math.min(8, Math.ceil(estimatedSeconds / 30) * 2));
+      emitGamificationEvent({
+        amount: xp,
+        source: 'focus',
+        verb: 'listen',
+        label: activeSegmentRef || 'Отрывок',
+        meta: {
+          session_id: sessionId,
+          ref: activeSegmentRef || currentRef || '',
+          duration_ms: Math.round(estimatedSeconds * 1000),
+          chars: lengthChars,
+          event_id: buildEventId('listen', activeSegmentRef || currentRef || '', sessionId),
+        },
+      });
     } catch (err) {
       debugWarn('[FocusReader] TTS error:', err);
       setActiveTTSRef(null);
@@ -436,8 +479,18 @@ const FocusReader = memo(({
   const handleOverlayNavigate = useCallback(
     (ref: string) => {
       onNavigateToRef?.(normalizeRefForAPI(ref));
+      if (!visitedRefsRef.current.has(ref)) {
+        visitedRefsRef.current.add(ref);
+        emitGamificationEvent({
+          amount: 2,
+          source: 'focus',
+          verb: 'switch',
+          label: ref,
+          meta: { session_id: sessionId, ref, event_id: buildEventId('switch', ref, sessionId) },
+        });
+      }
     },
-    [onNavigateToRef],
+    [onNavigateToRef, sessionId],
   );
 
   const handleSegmentNavigation = useCallback(
@@ -445,9 +498,20 @@ const FocusReader = memo(({
       onNavigateToRef?.(ref, segment);
       if (segment) {
         onSegmentClick?.(segment);
+        const normalized = normalizeRefForAPI(segment.ref);
+        if (!visitedRefsRef.current.has(normalized)) {
+          visitedRefsRef.current.add(normalized);
+          emitGamificationEvent({
+            amount: 2,
+            source: 'focus',
+            verb: 'switch',
+            label: normalized,
+            meta: { session_id: sessionId, ref: normalized, event_id: buildEventId('switch', normalized, sessionId) },
+          });
+        }
       }
     },
-    [onNavigateToRef, onSegmentClick],
+    [onNavigateToRef, onSegmentClick, sessionId],
   );
 
   const fontSizeValues = useMemo(() => FONT_SIZE_VALUES, []);

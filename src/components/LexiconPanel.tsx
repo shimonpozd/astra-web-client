@@ -14,7 +14,7 @@ export const LexiconPanel: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-full max-w-md z-50 animate-in slide-in-from-bottom-2 duration-300">
+    <div className="fixed bottom-4 right-4 w-full max-w-md z-50 animate-in slide-in-from-bottom-2 duration-300 pointer-events-auto">
       <Card className="shadow-lg border-2">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">

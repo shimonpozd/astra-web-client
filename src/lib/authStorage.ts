@@ -5,6 +5,10 @@ export interface StoredUser {
   username: string;
   role: string;
   is_active?: boolean;
+  xp_total?: number;
+  level?: number;
+  xp_in_level?: number;
+  xp_to_next?: number;
 }
 
 const TOKEN_KEY = 'astra_access_token';

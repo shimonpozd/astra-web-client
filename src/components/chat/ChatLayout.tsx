@@ -337,11 +337,11 @@ export function ChatLayout() {
   const verticalGridTemplate = verticalColumns.join(' ');
 
   return (
-    <div className="h-screen w-full flex flex-col">
+    <div className="h-screen w-full flex flex-col overflow-hidden">
       <TopBar agentId={agentId} setAgentId={setAgentId} />
 
       {isVerticalLayout ? (
-        <div className="flex-1 min-h-0 grid" style={{ gridTemplateColumns: verticalGridTemplate }}>
+        <div className="flex-1 min-h-0 grid overflow-hidden" style={{ gridTemplateColumns: verticalGridTemplate }}>
           {isSidebarVisible && (
             <div className="min-h-0 bg-background overflow-hidden h-full">
               <Suspense fallback={null}>
@@ -461,10 +461,10 @@ export function ChatLayout() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 grid" style={{ gridTemplateColumns: gridCols }}>
+        <div className="flex-1 min-h-0 grid overflow-hidden" style={{ gridTemplateColumns: gridCols }}>
           {isSidebarVisible && (
             <Suspense fallback={null}>
-              <div className="h-full">
+              <div className="h-full min-h-0 overflow-hidden">
                 <ChatSidebar
                   chats={chats}
                   isLoading={isLoadingChats}
@@ -482,7 +482,7 @@ export function ChatLayout() {
           )}
 
           {isChatAreaVisible && (
-            <main className="flex flex-col min-h-0 bg-background">
+            <main className="flex flex-col min-h-0 bg-background overflow-hidden">
               <div className="flex-1 min-h-0">
                 {isStudyActive ? (
                   <Suspense fallback={null}>
@@ -519,8 +519,8 @@ export function ChatLayout() {
                     />
                   </Suspense>
                 ) : (
-                  <div className="h-full flex flex-col min-h-0">
-                    <div className="flex-1 min-h-0">
+                  <div className="h-full flex flex-col min-h-0 overflow-hidden">
+                    <div className="flex-1 min-h-0 overflow-hidden">
                       <Suspense fallback={null}>
                         <ChatViewport
                           messages={messages.map((m) => ({ ...m, id: String(m.id) }))}

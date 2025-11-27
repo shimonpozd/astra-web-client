@@ -3,6 +3,8 @@ import { Chat } from '../../services/api';
 import { useCallback, useEffect, useState } from 'react';
 import { useTheme } from '../theme-provider';
 import { useLocation } from 'react-router-dom';
+import { emitGamificationEvent } from '../../contexts/GamificationContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChatSidebarProps {
   chats: Chat[];
@@ -41,6 +43,7 @@ export default function ChatSidebar({
   const [pendingCompleteId, setPendingCompleteId] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ text: string; accent?: boolean } | null>(null);
   const [confirmDailyId, setConfirmDailyId] = useState<string | null>(null);
+  const [confettiAt, setConfettiAt] = useState<number | null>(null);
   const { theme } = useTheme();
   const location = useLocation();
   const routeMatch = location.pathname.match(/^\/(chat|study|daily)\/([^\/?#]+)/);
@@ -166,8 +169,23 @@ export default function ChatSidebar({
       const result = await onCompleteDaily(session_id, targetState);
       if (targetState) {
         const currentStreak = result?.streak?.current ?? 0;
-        setFlash({ text: `Отлично! Серия ${currentStreak} 🔥`, accent: true });
-      } else {
+        const bonus = Math.min(0.5, currentStreak / 20);
+        const xpAward = Math.round(60 * (1 + bonus));
+          emitGamificationEvent({
+            amount: xpAward,
+            source: 'daily',
+            verb: 'complete',
+            label: chat?.display_value_ru || chat?.display_value || chat?.name || 'Daily',
+            meta: {
+              session_id,
+              ref: chat?.ref || chat?.display_value || chat?.name,
+              category: chat?.daily_category,
+              event_id: ['daily', 'complete', session_id, Math.ceil(Date.now() / 5000)].join('|'),
+            },
+          });
+          setFlash({ text: `Отлично! Серия ${currentStreak} 🔥`, accent: true });
+          setConfettiAt(Date.now());
+        } else {
         setFlash({ text: 'Отметка снята', accent: false });
       }
       window.setTimeout(() => setFlash(null), 2600);
@@ -178,7 +196,7 @@ export default function ChatSidebar({
   };
 
   return (
-    <aside className="border-r panel-outer flex flex-row min-h-0 h-full relative" style={{ color: colorFg }}>
+    <aside className="border-r panel-outer flex flex-row min-h-0 h-full relative overflow-hidden" style={{ color: colorFg }}>
       <style>{`
         @keyframes marquee {
           0% { transform: translateX(0); }
@@ -199,6 +217,38 @@ export default function ChatSidebar({
           {flash.text}
         </div>
       )}
+      <AnimatePresence>
+        {confettiAt && (
+          <motion.div
+            key={confettiAt}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="pointer-events-none absolute inset-0 z-10"
+          >
+            <div className="absolute inset-0 overflow-hidden">
+              {Array.from({ length: 30 }).map((_, idx) => {
+                const left = Math.random() * 100;
+                const delay = Math.random() * 0.4;
+                const duration = 2 + Math.random() * 1.5;
+                const size = 6 + Math.random() * 8;
+                const colors = ['#34d399', '#fbbf24', '#f472b6', '#60a5fa'];
+                return (
+                  <motion.span
+                    key={`${confettiAt}-${idx}`}
+                    className="absolute rounded-sm"
+                    style={{ left: `${left}%`, width: size, height: size * 2, background: colors[idx % colors.length] }}
+                    initial={{ y: -40, rotate: 0, opacity: 0 }}
+                    animate={{ y: '120%', rotate: 360, opacity: [0, 1, 1, 0] }}
+                    transition={{ duration, delay, ease: 'easeOut' }}
+                  />
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {confirmDailyId && (
         <div className="absolute inset-0 z-30 bg-black/30 backdrop-blur-[2px] flex items-center justify-center px-4">
           <div className="bg-background border border-border/80 rounded-lg shadow-xl p-5 max-w-sm w-full space-y-3">
@@ -271,7 +321,7 @@ export default function ChatSidebar({
 
       {/* Right List */}
       <div
-        className={`min-h-0 overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
+        className={`min-h-0 h-full overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
           collapsed ? 'flex-none opacity-0 pointer-events-none' : 'flex-1 opacity-100'
         }`}
         style={{
@@ -279,10 +329,11 @@ export default function ChatSidebar({
           flexBasis: listFlexBasis,
           flexGrow: collapsed ? 0 : 1,
           boxShadow: listBoxShadow,
+          maxHeight: '100vh'
         }}
         aria-hidden={collapsed}
       >
-          <div className="panel-padding border-b border-[color:var(--color-separator,transparent)]" style={{ borderColor: colorSeparator }}>
+          <div className="panel-padding border-b border-[color:var(--color-separator,transparent)] flex-none" style={{ borderColor: colorSeparator, flexShrink: 0 }}>
             <div className="flex items-center justify-between">
               <h3 className="text-[12px] font-medium tracking-wide" style={{ color: colorFgMuted }}>
                 {activeCategory[0].toUpperCase() + activeCategory.slice(1)}
@@ -305,8 +356,8 @@ export default function ChatSidebar({
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto panel-padding-sm" role="list" onKeyDown={handleKeyDownList} tabIndex={collapsed ? -1 : 0}
-               style={{ transition: 'all 200ms cubic-bezier(0.25,1,0.5,1)', transform: isFading ? 'translateX(8px)' : 'translateX(0)', opacity: isFading ? 0 : 1 }}>
+          <div className="flex-1 min-h-0 overflow-y-auto panel-padding-sm" role="list" onKeyDown={handleKeyDownList} tabIndex={collapsed ? -1 : 0}
+               style={{ transition: 'all 200ms cubic-bezier(0.25,1,0.5,1)', transform: isFading ? 'translateX(8px)' : 'translateX(0)', opacity: isFading ? 0 : 1, overscrollBehavior: 'contain' }}>
         {isLoading && (
           <div className="space-y-2">
             {[0,1,2,3].map(i => (
@@ -333,6 +384,7 @@ export default function ChatSidebar({
               visibleChats.map((chat, idx) => {
                 const isRouteActive = Boolean(activeRouteId && activeRouteType === chat.type && activeRouteId === chat.session_id);
                 const selected = isRouteActive || (!activeRouteId && selectedChatId === chat.session_id);
+                const stale = chat.type === 'daily' && chat.stale;
                 return (
                   <div
                     key={chat.session_id}
@@ -343,6 +395,7 @@ export default function ChatSidebar({
                     className="relative flex items-center justify-between h-12 px-3 rounded-md outline-none gap-2"
                     style={{
                       background: selected ? (isDark ? 'rgba(184,157,99,0.12)' : 'rgba(194,169,112,0.10)') : 'transparent',
+                      opacity: stale ? 0.5 : 1,
                       transition: 'all 200ms cubic-bezier(0.25,1,0.5,1)'
                     }}
                     onClick={() => {
@@ -370,9 +423,9 @@ export default function ChatSidebar({
                         <div className="min-w-0 space-y-0.5">
                           <span
                             className="truncate text-[14.5px] font-[600] tracking-[-0.01em]"
-                            title={chat.display_value_ru || chat.display_value || chat.name}
+                            title={chat.name || chat.display_value_ru || chat.display_value}
                           >
-                            {chat.display_value_ru || chat.display_value || chat.name}
+                            {chat.name || chat.display_value_ru || chat.display_value}
                           </span>
                           {chat.type === 'daily' && (
                             <div className="flex items-center gap-2 text-[11px]" style={{ color: colorFgMuted }}>
@@ -385,12 +438,12 @@ export default function ChatSidebar({
                                 >
                                   <span
                                     className="inline-block"
-                                    title={chat.ref || chat.display_value || chat.name}
+                                    title={chat.display_value_ru || chat.display_value || chat.ref || chat.name}
                                     style={{
                                       animation: (chat.ref && chat.ref.length > 28) ? 'marquee 9s linear infinite' : undefined,
                                     }}
                                   >
-                                    {chat.ref || chat.display_value_ru || chat.display_value || '—'}
+                                    {chat.display_value_ru || chat.display_value || chat.ref || '—'}
                                   </span>
                                 </div>
                               </div>

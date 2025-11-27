@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, DailyProgressDay, DailyProgressResponse } from '../services/api';
+import { api, DailyProgressDay, DailyProgressResponse, XpEvent, Achievement } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Flame, Trophy, ChevronLeft, ChevronRight, Sparkles, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../lib/utils';
+import { useGamification } from '../contexts/GamificationContext';
 
 const DEFAULT_CATEGORIES_RU = [
   'Недельная глава',
@@ -17,25 +18,110 @@ const DEFAULT_CATEGORIES_RU = [
   'Арух а-Шульхан',
   'Танах йоми',
   '929',
-  'Хок ле-Исраэль',
   'Танья йоми',
   'Йерушалми йоми',
-  'Все уроки',
 ];
+
+const achievementLabels: Record<string, { title: string; emoji: string; description: string }> = {
+  discipline: {
+    title: 'Дисциплина',
+    emoji: '📅',
+    description: 'Регулярность daily и серия',
+  },
+  lexicon: {
+    title: 'Лексикон',
+    emoji: '🔍',
+    description: 'Работа со словами и карточками',
+  },
+  rambam: {
+    title: 'Рамбам',
+    emoji: '📘',
+    description: 'Изучение Рамбама (halachot/главы)',
+  },
+  daf: {
+    title: 'Талмуд (Даф Йоми)',
+    emoji: '📖',
+    description: 'Изученные дафы',
+  },
+};
+
+const levelNames: Record<string, string> = {
+  none: 'Нет уровня',
+  bronze: 'Бронза',
+  silver: 'Серебро',
+  gold: 'Золото',
+  platinum: 'Алмаз',
+};
+
+const badgeMap: Record<string, Record<string, string>> = {
+  discipline: {
+    bronze: '/images/badge_0000.png',
+    silver: '/images/badge_0001.png',
+    gold: '/images/badge_0002.png',
+    platinum: '/images/badge_0003.png',
+  },
+  lexicon: {
+    bronze: '/images/badge_0004.png',
+    silver: '/images/badge_0005.png',
+    gold: '/images/badge_0006.png',
+    platinum: '/images/badge_0007.png',
+  },
+  rambam: {
+    bronze: '/images/badge_0008.png',
+    silver: '/images/badge_0009.png',
+    gold: '/images/badge_0010.png',
+    platinum: '/images/badge_0011.png',
+  },
+  daf: {
+    bronze: '/images/badge_0012.png',
+    silver: '/images/badge_0013.png',
+    gold: '/images/badge_0014.png',
+    platinum: '/images/badge_0015.png',
+  },
+};
+
+const thresholds: Record<string, number[]> = {
+  discipline: [7, 30, 100, 365],
+  lexicon: [10, 50, 150, 500],
+  rambam: [10, 40, 120, 300],
+  daf: [7, 30, 100, 365],
+};
+
+const CATEGORY_TRANSLATIONS: Record<string, string> = {
+  'daf yomi': 'Даф йоми',
+  'daf yomit': 'Даф йоми',
+  'daf': 'Даф йоми',
+  'daily rambam': 'Рамбам',
+  'rambam': 'Рамбам',
+  'mishneh torah': 'Рамбам',
+  'rambam (3 chapters)': 'Рамбам',
+  'daily mishnah': 'Мишна йомит',
+  'mishnah yomit': 'Мишна йомит',
+  'tanya yomit': 'Танья йоми',
+  'yerushalmi yomit': 'Йерушалми йоми',
+  'daf yomi weekly': 'Даф за неделю',
+  'daf a week': 'Даф за неделю',
+  'haftarah': 'Афтара',
+  'parashat hashavua': 'Недельная глава',
+};
+
+function normalizeCategory(label?: string | null): string | null {
+  if (!label) return null;
+  const lower = label.trim().toLowerCase();
+  const translated = CATEGORY_TRANSLATIONS[lower];
+  if (translated) return translated;
+  return label;
+}
 
 function deriveCategories(history: DailyProgressDay[]): string[] {
   const set = new Set<string>();
   history.forEach((day) => {
     (day.entries || []).forEach((entry) => {
-      const label = entry.category_label || entry.category;
+      const label = normalizeCategory(entry.category_label || entry.category);
       if (label) set.add(label);
     });
   });
   const list = Array.from(set).sort();
-  const hasAnyCompletion = history.some((d) => d.completed);
-  if (!list.length && hasAnyCompletion) {
-    return ['Все уроки'];
-  }
   return list;
 }
 
@@ -98,14 +184,17 @@ function getCategoryIcon(category: string): string {
 function checkIfCategoryCompleted(day: DailyProgressDay | undefined, category: string): boolean {
   if (!day) return false;
   const entries = day.entries || [];
-  const hasExplicit = entries.some((e) => {
-    const label = (e.category_label || e.category || '').toLowerCase();
-    return label === category.toLowerCase();
+  const hitEntry = entries.some((e) => {
+    const label = normalizeCategory(e.category_label || e.category);
+    return label?.toLowerCase() === category.toLowerCase();
   });
-  if (!entries.length && day.completed) return true;
-  if (category.toLowerCase() === 'все уроки' && day.completed) return true;
-  if (category.toLowerCase() === 'все уроки' && (day.completed || entries.length > 0)) return true;
-  return hasExplicit;
+  if (hitEntry) return true;
+  // fallback: если день отмечен, но нет записей — подсветим ключевые daily категории
+  if (day.completed && (!entries.length || entries == null)) {
+    const key = category.toLowerCase();
+    return key.includes('даф') || key.includes('йоми') || key.includes('rambam') || key.includes('рамбам');
+  }
+  return false;
 }
 
 function getTodayString(): string {
@@ -116,7 +205,12 @@ export default function ProfileProgress() {
   const [progress, setProgress] = useState<DailyProgressResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [viewDate, setViewDate] = useState(() => new Date());
+  const [xpHistory, setXpHistory] = useState<XpEvent[]>([]);
+  const [isXpLoading, setIsXpLoading] = useState(false);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [isAchievementsLoading, setIsAchievementsLoading] = useState(false);
   const navigate = useNavigate();
+  const { xpTotal, level, xpIntoLevel, xpForLevel, xpToNext, recent, levelUps, formatXp } = useGamification();
 
   useEffect(() => {
     const load = async () => {
@@ -140,8 +234,8 @@ export default function ProfileProgress() {
 
   const categoryLegend = useMemo(() => (progress ? deriveCategories(progress.history) : []), [progress]);
   const effectiveCategories = useMemo(() => {
-    const base = categoryLegend.length ? categoryLegend : ['Все уроки'];
-    const merged = new Set<string>(['Все уроки', ...DEFAULT_CATEGORIES_RU, ...base]);
+    const base = categoryLegend.length ? categoryLegend : DEFAULT_CATEGORIES_RU;
+    const merged = new Set<string>([...DEFAULT_CATEGORIES_RU, ...base]);
     return Array.from(merged);
   }, [categoryLegend]);
   const monthDays = useMemo(() => daysOfMonth(viewDate), [viewDate]);
@@ -155,6 +249,41 @@ export default function ProfileProgress() {
     return progress.history.reduce((acc, day) => acc + (day.entries?.length || 0), 0);
   }, [progress]);
   const todayString = getTodayString();
+
+  const xpRecent = recent.slice(0, 6);
+  const levelUpsRecent = levelUps.slice(0, 3);
+  const achievementsByCat = useMemo(() => {
+    const map = new Map<string, Achievement>();
+    achievements.forEach((a) => map.set(a.category, a));
+    return map;
+  }, [achievements]);
+
+  useEffect(() => {
+    const loadXpHistory = async () => {
+      try {
+        setIsXpLoading(true);
+        const data = await api.getXpHistory(20);
+        setXpHistory(data);
+      } catch {
+        setXpHistory([]);
+      } finally {
+        setIsXpLoading(false);
+      }
+    };
+    loadXpHistory();
+    const loadAchievements = async () => {
+      try {
+        setIsAchievementsLoading(true);
+        const data = await api.getAchievements();
+        setAchievements(data);
+      } catch {
+        setAchievements([]);
+      } finally {
+        setIsAchievementsLoading(false);
+      }
+    };
+    loadAchievements();
+  }, []);
 
   return (
     <motion.div
@@ -213,28 +342,189 @@ export default function ProfileProgress() {
                 <div className="text-sm text-muted-foreground mt-1">Всего уроков</div>
               </motion.div>
 
-              <div className="p-6 rounded-xl bg-card/50 border-2 border-dashed border-border/50 text-center opacity-60">
-                <div className="text-2xl mb-2">⚡</div>
-                <div className="text-lg font-semibold text-muted-foreground">Уровень</div>
-                <div className="text-sm text-muted-foreground mt-2">Скоро</div>
-                <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-blue-400 to-purple-500 w-0" />
+              <motion.div
+                whileHover={{ y: -2 }}
+                className="p-6 rounded-xl bg-gradient-to-br from-primary/5 via-card to-card border-2 border-primary/30 shadow-md text-center"
+              >
+                <div className="text-2xl mb-1 flex items-center justify-center gap-2 text-primary">
+                  ⚡ <span className="text-lg text-foreground">Уровень {level}</span>
                 </div>
-              </div>
+                <div className="text-xl font-semibold text-foreground">
+                  {formatXp(xpTotal)} XP
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  До след. уровня: {formatXp(xpToNext)}
+                </div>
+                <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary via-amber-400 to-orange-500"
+                    style={{ width: `${Math.max(6, Math.min(100, Math.round((xpIntoLevel / xpForLevel) * 100 || 0)))}%` }}
+                  />
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  {formatXp(xpIntoLevel)} / {formatXp(xpForLevel)}
+                </div>
+              </motion.div>
 
-              <div className="p-6 rounded-xl bg-card/50 border-2 border-dashed border-border/50 text-center opacity-60">
+              <motion.div
+                whileHover={{ y: -2 }}
+                className="p-6 rounded-xl bg-card/80 border-2 border-border/50 text-center"
+              >
                 <div className="text-2xl mb-2">🏆</div>
-                <div className="text-lg font-semibold text-muted-foreground">Достижения</div>
-                <div className="text-sm text-muted-foreground mt-2">В разработке</div>
-              </div>
+                <div className="text-lg font-semibold text-foreground">Level-ups</div>
+                <div className="text-sm text-muted-foreground mt-2">
+                  {levelUpsRecent.length ? `Последние: ${levelUpsRecent.map((l) => l.level).join(', ')}` : 'Ещё не было'}
+                </div>
+              </motion.div>
             </div>
           </div>
         </div>
 
-        {/* Calendar */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
+      {/* XP Session Events */}
+      <div className="rounded-2xl border border-border/50 bg-card/80 shadow-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">XP за текущую сессию</h2>
+            <p className="text-sm text-muted-foreground">Локальные начисления за время этого запуска</p>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {formatXp(xpTotal)} XP · уровень {level}
+          </div>
+        </div>
+        {xpRecent.length === 0 ? (
+          <div className="text-sm text-muted-foreground">Пока нет начислений.</div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {xpRecent.map((item) => (
+              <div key={item.at} className="p-3 rounded-lg border border-border/40 bg-card/70 flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">+{item.amount} XP</span>
+                  <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                    {item.source}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {item.label || item.verb || 'Событие'}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* XP History from backend */}
+      <div className="rounded-2xl border border-border/50 bg-card/80 shadow-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">История XP (бэкенд)</h2>
+            <p className="text-sm text-muted-foreground">Последние события, сохранённые на сервере</p>
+          </div>
+          {isXpLoading && <span className="text-xs text-muted-foreground">Загрузка…</span>}
+        </div>
+        {xpHistory.length === 0 ? (
+          <div className="text-sm text-muted-foreground">Пока нет записей.</div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {xpHistory.map((item, idx) => (
+              <div key={`${item.ts ?? idx}-${idx}`} className="p-3 rounded-lg border border-border/40 bg-card/70 flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">+{item.amount} XP</span>
+                  <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                    {item.source}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {item.title || item.ref || item.verb || 'Событие'}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Achievements */}
+      <div className="rounded-2xl border border-border/50 bg-card/80 shadow-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Достижения</h2>
+            <p className="text-sm text-muted-foreground">4 направления × 4 уровня (Бронза → Серебро → Золото → Алмаз).</p>
+          </div>
+          {isAchievementsLoading && <span className="text-xs text-muted-foreground">Загрузка…</span>}
+        </div>
+        <div className="overflow-auto">
+          <table className="min-w-full text-sm border border-border/60 rounded-xl overflow-hidden">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Категория</th>
+                {['bronze', 'silver', 'gold', 'platinum'].map((lvl) => (
+                  <th key={lvl} className="px-3 py-2 text-center text-xs font-semibold text-muted-foreground">
+                    {levelNames[lvl]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(achievementLabels).map(([cat, meta]) => {
+                const data = achievementsByCat.get(cat) || { level: 'none', value: 0, to_next: null };
+                const currentIdx = ['none', 'bronze', 'silver', 'gold', 'platinum'].indexOf(data.level);
+                return (
+                  <tr key={cat} className="border-t border-border/40">
+                    <td className="px-3 py-3 align-middle">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{meta.emoji}</span>
+                        <div>
+                          <div className="font-semibold">{meta.title}</div>
+                          <div className="text-xs text-muted-foreground">{meta.description}</div>
+                        </div>
+                      </div>
+                    </td>
+                    {['bronze', 'silver', 'gold', 'platinum'].map((lvl, idx) => {
+                      const unlocked = idx + 1 <= currentIdx; // currentIdx includes 'none' at 0
+                      const img = badgeMap[cat]?.[lvl] || '/images/badge_0000.png';
+                      const req = (thresholds[cat] || [])[idx];
+                      const remaining = req != null ? Math.max(0, req - (data.value ?? 0)) : null;
+                  return (
+                    <td key={lvl} className="px-2 py-2 text-center">
+                      <div className="w-16 h-16 mx-auto rounded-lg border border-border/60 bg-card/70 overflow-hidden flex items-center justify-center">
+                        <img
+                          src={img}
+                              alt={`${meta.title} ${levelNames[lvl]}`}
+                              className={`w-full h-full object-cover ${unlocked ? '' : 'grayscale opacity-40'}`}
+                            />
+                      </div>
+                      <div className="mt-1 text-[11px] text-muted-foreground leading-tight">
+                        {req != null ? `Порог: ${req}` : ''}
+                        {req != null
+                          ? unlocked
+                            ? ' · Получено'
+                            : ` · Осталось: ${remaining}`
+                          : ''}
+                      </div>
+                      {req != null && (
+                        <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={`h-full ${unlocked ? 'bg-gradient-to-r from-primary via-amber-400 to-orange-500' : 'bg-muted-foreground/30'}`}
+                            style={{
+                              width: `${Math.min(100, Math.max(0, ((data.value ?? 0) / req) * 100))}%`,
+                            }}
+                          />
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Calendar */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
               <h2 className="text-xl font-semibold tracking-tight">Календарь прогресса</h2>
               <p className="text-sm text-muted-foreground">
                 Вертикально — уроки, горизонтально — дни месяца. Сделал/не сделал.

@@ -19,6 +19,9 @@ const LoginPage = lazy(() => import('./pages/Login'));
 const RegisterPage = lazy(() => import('./pages/Register'));
 import { RequireAuth } from './components/auth/RequireAuth';
 const FocusNavOverlay = lazy(() => import('./components/study/nav/FocusNavOverlay'));
+import { GamificationProvider } from './contexts/GamificationContext';
+import { GamificationToasts } from './components/gamification/GamificationToasts';
+import { LevelUpCelebration } from './components/gamification/LevelUpCelebration';
 
 function AuthenticatedShell() {
   return (
@@ -27,6 +30,8 @@ function AuthenticatedShell() {
         <Outlet />
       </Suspense>
       <LexiconPanel />
+      <GamificationToasts />
+      <LevelUpCelebration />
     </div>
   );
 }
@@ -36,145 +41,147 @@ function App() {
 
   return (
     <ThemeProvider defaultTheme="light" storageKey="astra-ui-theme">
-      <FontSettingsProvider>
-        <NavigationProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route
-                path="/login"
-                element={
-                  <Suspense fallback={null}>
-                    <LoginPage />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/register"
-                element={
-                  <Suspense fallback={null}>
-                    <RegisterPage />
-                  </Suspense>
-                }
-              />
-              <Route element={<RequireAuth />}>
-                <Route element={<AuthenticatedShell />}>
-                  <Route
-                    path="/"
-                    element={
-                      <Suspense fallback={null}>
-                        <ChatLayout />
-                      </Suspense>
-                    }
-                  />
-                  <Route path="/chat" element={<Navigate to="/" replace />} />
-                  <Route
-                    path="/chat/:sessionId"
-                    element={
-                      <Suspense fallback={null}>
-                        <ChatLayout />
-                      </Suspense>
-                    }
-                  />
-                  <Route
-                    path="/study"
-                    element={
-                      <Suspense fallback={null}>
-                        <StudyLanding />
-                      </Suspense>
-                    }
-                  />
-                  <Route
-                    path="/study/:sessionId"
-                    element={
-                      <Suspense fallback={null}>
-                        <ChatLayout />
-                      </Suspense>
-                    }
-                  />
-                  <Route
-                    path="/daily/:sessionId"
-                    element={
-                      <Suspense fallback={null}>
-                        <ChatLayout />
-                      </Suspense>
-                    }
-                  />
-                  <Route
-                    path="/progress"
-                    element={
-                      <Suspense fallback={null}>
-                        <ProfileProgress />
-                      </Suspense>
-                    }
-                  />
-                  <Route element={<RequireAuth admin />}>
+      <GamificationProvider>
+        <FontSettingsProvider>
+          <NavigationProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route
+                  path="/login"
+                  element={
+                    <Suspense fallback={null}>
+                      <LoginPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/register"
+                  element={
+                    <Suspense fallback={null}>
+                      <RegisterPage />
+                    </Suspense>
+                  }
+                />
+                <Route element={<RequireAuth />}>
+                  <Route element={<AuthenticatedShell />}>
                     <Route
-                      path="/admin"
+                      path="/"
                       element={
                         <Suspense fallback={null}>
-                          <AdminLayout />
+                          <ChatLayout />
                         </Suspense>
                       }
-                    >
-                      <Route index element={<Navigate to="/admin/settings" replace />} />
+                    />
+                    <Route path="/chat" element={<Navigate to="/" replace />} />
+                    <Route
+                      path="/chat/:sessionId"
+                      element={
+                        <Suspense fallback={null}>
+                          <ChatLayout />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/study"
+                      element={
+                        <Suspense fallback={null}>
+                          <StudyLanding />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/study/:sessionId"
+                      element={
+                        <Suspense fallback={null}>
+                          <ChatLayout />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/daily/:sessionId"
+                      element={
+                        <Suspense fallback={null}>
+                          <ChatLayout />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/progress"
+                      element={
+                        <Suspense fallback={null}>
+                          <ProfileProgress />
+                        </Suspense>
+                      }
+                    />
+                    <Route element={<RequireAuth admin />}>
                       <Route
-                        path="settings"
+                        path="/admin"
                         element={
                           <Suspense fallback={null}>
-                            <GeneralSettings />
+                            <AdminLayout />
                           </Suspense>
                         }
-                      />
-                      <Route
-                        path="personalities"
-                        element={
-                          <Suspense fallback={null}>
-                            <PersonalityList />
-                          </Suspense>
-                        }
-                      />
-                      <Route
-                        path="personalities/new"
-                        element={
-                          <Suspense fallback={null}>
-                            <PersonalityCreate />
-                          </Suspense>
-                        }
-                      />
-                      <Route
-                        path="personalities/edit/:id"
-                        element={
-                          <Suspense fallback={null}>
-                            <PersonalityEdit />
-                          </Suspense>
-                        }
-                      />
-                      <Route
-                        path="prompts"
-                        element={
-                          <Suspense fallback={null}>
-                            <PromptEditor />
-                          </Suspense>
-                        }
-                      />
-                      <Route
-                        path="users"
-                        element={
-                          <Suspense fallback={null}>
-                            <UserManagementPage />
-                          </Suspense>
-                        }
-                      />
+                      >
+                        <Route index element={<Navigate to="/admin/settings" replace />} />
+                        <Route
+                          path="settings"
+                          element={
+                            <Suspense fallback={null}>
+                              <GeneralSettings />
+                            </Suspense>
+                          }
+                        />
+                        <Route
+                          path="personalities"
+                          element={
+                            <Suspense fallback={null}>
+                              <PersonalityList />
+                            </Suspense>
+                          }
+                        />
+                        <Route
+                          path="personalities/new"
+                          element={
+                            <Suspense fallback={null}>
+                              <PersonalityCreate />
+                            </Suspense>
+                          }
+                        />
+                        <Route
+                          path="personalities/edit/:id"
+                          element={
+                            <Suspense fallback={null}>
+                              <PersonalityEdit />
+                            </Suspense>
+                          }
+                        />
+                        <Route
+                          path="prompts"
+                          element={
+                            <Suspense fallback={null}>
+                              <PromptEditor />
+                            </Suspense>
+                          }
+                        />
+                        <Route
+                          path="users"
+                          element={
+                            <Suspense fallback={null}>
+                              <UserManagementPage />
+                            </Suspense>
+                          }
+                        />
+                      </Route>
                     </Route>
+                    <Route path="*" element={<Navigate to="/" replace />} />
                   </Route>
-                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>
-              </Route>
-            </Routes>
-          </BrowserRouter>
-          <GlobalNavigationModal />
-        </NavigationProvider>
-      </FontSettingsProvider>
+              </Routes>
+            </BrowserRouter>
+            <GlobalNavigationModal />
+          </NavigationProvider>
+        </FontSettingsProvider>
+      </GamificationProvider>
     </ThemeProvider>
   );
 }

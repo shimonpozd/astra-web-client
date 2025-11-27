@@ -7,6 +7,10 @@ import { useSpeechify } from "../../hooks/useSpeechify";
 import { safeScrollIntoView } from "../../utils/scrollUtils";
 import { useFontSettings } from "../../contexts/FontSettingsContext";
 import { debugLog, debugWarn } from '../../utils/debugLogger';
+import { emitGamificationEvent } from '../../contexts/GamificationContext';
+
+const buildEventId = (verb: string, ref?: string | null, sessionId?: string | null) =>
+  ['workbench', verb, sessionId || '', ref || ''].join('|');
 // Note: Tooltip import would be added if using shadcn/ui
 
 // Типы
@@ -37,6 +41,7 @@ interface WorkbenchPanelProps {
   item: WorkbenchItemLike;
   active: boolean;
   selected?: boolean;
+  sessionId?: string | null;
   onDropRef: (ref: string, dragData?: {
     type: 'single' | 'group' | 'part';
     data?: any;
@@ -513,6 +518,7 @@ const WorkbenchPanelInline = memo(({
   item,
   active,
   selected = false,
+  sessionId = null,
   onDropRef,
   onPanelClick,
   onBorderClick,
@@ -580,6 +586,7 @@ const WorkbenchPanelInline = memo(({
   const hasEnglish = sanitizedEnglish.length > 0;
 
   const [activeAudioRef, setActiveAudioRef] = useState<string | null>(null);
+  const lastTranslationAwardRef = useRef<string | null>(null);
 
   // Состояние для отслеживания показа перевода
   const [showTranslation, setShowTranslation] = useState(false);
@@ -617,8 +624,26 @@ const WorkbenchPanelInline = memo(({
     const resolvedTranslation = translatedText || await translate();
     if (resolvedTranslation && resolvedTranslation.trim()) {
       setShowTranslation(true);
+      if (itemRef && lastTranslationAwardRef.current !== itemRef) {
+        lastTranslationAwardRef.current = itemRef;
+        const clean = resolvedTranslation.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+        const scale = Math.ceil(clean.length / 320);
+        const amount = Math.min(12, 4 + Math.max(1, scale));
+        emitGamificationEvent({
+          amount,
+          source: 'workbench',
+          verb: 'translate',
+          label: (item as any)?.title || itemRef || 'Комментарий',
+          meta: {
+            session_id: sessionId,
+            ref: itemRef,
+            chars: clean.length,
+            event_id: buildEventId('translate', itemRef, sessionId),
+          },
+        });
+      }
     }
-  }, [showTranslation, translatedText, translate]);
+  }, [showTranslation, translatedText, translate, itemRef, item, sessionId]);
 
   const isAudioActive = activeAudioRef === itemRef && (isPlaying || isPaused);
   const isAudioPlaying = activeAudioRef === itemRef && isPlaying;
@@ -672,6 +697,21 @@ const WorkbenchPanelInline = memo(({
 
       await play(textToSpeak, { language: playbackLanguage });
       setActiveAudioRef(itemRef);
+      const estimatedSeconds = textToSpeak.length / 16;
+      const amount = Math.max(3, Math.min(9, Math.ceil(estimatedSeconds / 20) * 3));
+      emitGamificationEvent({
+        amount,
+        source: 'workbench',
+        verb: 'listen',
+        label: (item as any)?.title || itemRef || 'Комментарий',
+        meta: {
+          session_id: sessionId,
+          ref: itemRef,
+          duration_ms: Math.round(estimatedSeconds * 1000),
+          chars: textToSpeak.length,
+          event_id: buildEventId('listen', itemRef, sessionId),
+        },
+      });
     } catch (err) {
       debugWarn('[WorkbenchPanelInline] Audio toggle failed:', err);
       setActiveAudioRef(null);
@@ -733,6 +773,17 @@ const WorkbenchPanelInline = memo(({
           } else if (dragData.type === 'part') {
             if (process.env.NODE_ENV !== 'production') debugLog('Dropped individual part:', dragData.data?.ref);
           }
+          emitGamificationEvent({
+            amount: 4,
+            source: 'workbench',
+            verb: 'load',
+            label: dragData.ref,
+            meta: {
+              session_id: sessionId,
+              ref: dragData.ref,
+              event_id: buildEventId('load', dragData.ref, sessionId),
+            },
+          });
           onDropRef(dragData.ref.trim(), {
             type: dragData.type,
             data: dragData.data
