@@ -62,6 +62,7 @@ interface ConfigData {
     overrides?: {
       [key: string]: string | undefined;
       study?: string;
+      profile?: string;
     };
     tooling?: {
       parallel_tool_calls?: boolean;
@@ -526,7 +527,7 @@ const GeneralSettings: React.FC = () => {
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium mb-3">Model Overrides for Tasks</h4>
                 <div className="grid grid-cols-2 gap-4">
-                  {['chat', 'drafter', 'critic', 'meta_reasoner', 'curator', 'summarizer', 'translator', 'lexicon', 'speechify', 'planner', 'summary', 'study'].map((task) => (
+                  {['chat', 'drafter', 'critic', 'meta_reasoner', 'curator', 'summarizer', 'translator', 'lexicon', 'speechify', 'planner', 'summary', 'study', 'profile'].map((task) => (
                     <div className="space-y-2" key={task}>
                       <Label htmlFor={`override-${task}`} className="capitalize">{task} Model</Label>
                       <Input

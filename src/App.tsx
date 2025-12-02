@@ -10,6 +10,7 @@ const PersonalityEdit = lazy(() => import('./pages/admin/PersonalityEdit'));
 const PromptEditor = lazy(() => import('./pages/admin/PromptEditor'));
 const ProfileProgress = lazy(() => import('./pages/ProfileProgress'));
 const UserManagementPage = lazy(() => import('./pages/admin/UserManagement'));
+const ProfilesAdminPage = lazy(() => import('./pages/admin/ProfilesAdmin.tsx'));
 import { useTextSelectionListener } from './hooks/useTextSelectionListener';
 import { LexiconPanel } from './components/LexiconPanel';
 import { ThemeProvider } from './components/theme-provider';
@@ -168,6 +169,14 @@ function App() {
                           element={
                             <Suspense fallback={null}>
                               <UserManagementPage />
+                            </Suspense>
+                          }
+                        />
+                        <Route
+                          path="profiles"
+                          element={
+                            <Suspense fallback={null}>
+                              <ProfilesAdminPage />
                             </Suspense>
                           }
                         />

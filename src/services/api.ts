@@ -77,6 +77,58 @@ export interface Achievement {
   to_next: number | null;
 }
 
+export interface ProfileImage {
+  url?: string;
+  alt?: string;
+}
+
+export interface ProfileFacts {
+  title_en?: string;
+  title_he?: string;
+  lifespan?: string;
+  period?: string;
+  compPlace?: string;
+  pubPlace?: string;
+  categories?: string[];
+  authors?: string[] | string;
+  links?: Record<string, string>;
+  images?: ProfileImage[];
+  generated_at?: string;
+}
+
+export interface ProfileResponse {
+  ok: boolean;
+  slug: string;
+  title_en?: string;
+  title_he?: string;
+  summary_html?: string;
+  summary_work_html?: string | null;
+  summary_author_html?: string | null;
+  facts?: { work?: any; author?: any };
+  authors?: string[] | string | null;
+  lifespan?: string | null;
+  period?: string | null;
+  comp_place?: string | null;
+  pub_place?: string | null;
+  json_raw?: any;
+  error?: string;
+  is_verified?: boolean;
+  verified_by?: string | null;
+  verified_at?: string | null;
+  source?: 'manual' | 'generated';
+}
+
+export interface ProfileListItem {
+  slug: string;
+  title_en?: string | null;
+  title_he?: string | null;
+  is_verified?: boolean;
+  verified_by?: string | null;
+  verified_at?: string | null;
+  updated_at?: string | null;
+  source?: 'manual' | 'generated';
+}
+
 export interface Message {
   id: string | number;
   role: 'user' | 'assistant' | 'system' | 'source';
@@ -453,6 +505,52 @@ async function getBookshelfItems(sessionId: string, ref: string, category?: stri
     console.error('Failed to get bookshelf items:', error);
     throw error;
   }
+}
+
+async function getProfile(slug: string): Promise<ProfileResponse> {
+  const response = await authorizedFetch(`${API_BASE}/profile?slug=${encodeURIComponent(slug)}`);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || 'Failed to load profile');
+  }
+  return response.json();
+}
+
+async function updateProfile(payload: { slug: string; summary_html?: string | null; facts?: any }): Promise<ProfileResponse> {
+  const response = await authorizedFetch(`${API_BASE}/profile`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || 'Failed to update profile');
+  }
+  return response.json();
+}
+
+async function regenerateProfile(slug: string): Promise<ProfileResponse> {
+  const response = await authorizedFetch(`${API_BASE}/profile/regenerate?slug=${encodeURIComponent(slug)}`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || 'Failed to regenerate profile');
+  }
+  return response.json();
+}
+
+async function listProfiles(params?: { q?: string; unverified?: boolean; limit?: number }): Promise<{ ok: boolean; items: ProfileListItem[] }> {
+  const search = new URLSearchParams();
+  if (params?.q) search.set('q', params.q);
+  if (params?.unverified) search.set('unverified', 'true');
+  if (params?.limit) search.set('limit', String(params.limit));
+  const qs = search.toString();
+  const response = await authorizedFetch(`${API_BASE}/profile/list${qs ? `?${qs}` : ''}`);
+  if (!response.ok) {
+    throw new Error('Failed to load profile list');
+  }
+  return response.json();
 }
 
 
@@ -1218,6 +1316,10 @@ export const api = {
   getLexicon,
   getBookshelfCategories,
   getBookshelfItems,
+  getProfile,
+  updateProfile,
+  regenerateProfile,
+  listProfiles,
   explainTerm,
   getDailyCalendar,
   createDailySessionLazy,
@@ -1239,7 +1341,7 @@ export const api = {
   adminListUserLoginEvents,
 };
 
-export type { AdminUserSummary, AdminUserSession, AdminUserLoginEvent };
+export type { AdminUserSummary, AdminUserSession, AdminUserLoginEvent, ProfileResponse };
 
 
 

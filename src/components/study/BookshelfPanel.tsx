@@ -1,15 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { memo, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Search, BookOpen, Loader2, ArrowDownWideNarrow, ArrowDownNarrowWide, Plus } from 'lucide-react';
+import { Search, BookOpen, Loader2, ArrowDownWideNarrow, ArrowDownNarrowWide, Plus, HelpCircle } from 'lucide-react';
 import { BookshelfPanelProps } from '../../types/bookshelf';
 import { api } from '../../services/api';
+import ProfileInspectorModal from './ProfileInspectorModal';
 
 // Помощник: извлечь человекочитаемое превью из старой (string) или новой ({he,en}) схемы.
-// Правило: всегда приоритет he, затем en как fallback.
+// Правило: всегда приоритет he, затем en как fallback. Смотрим также на поля he/hebrew вне preview.
 function coalescePreview(raw: any): { text: string | undefined; lang: 'he' | 'en' | undefined } {
   if (!raw) return { text: undefined, lang: undefined };
 
-  const val = raw.preview ?? raw.text ?? raw.snippet ?? raw.summary;
+  const heDirect = typeof raw.he === 'string' ? raw.he.trim() : (typeof raw.hebrew === 'string' ? raw.hebrew.trim() : '');
+  if (heDirect) return { text: heDirect, lang: 'he' };
+
+  const val = raw.preview ?? raw.text ?? raw.snippet ?? raw.summary ?? raw.he;
 
   // Старый кейс: plain string (считаем как he для обратной совместимости)
   if (typeof val === 'string') {
@@ -30,12 +34,19 @@ function coalescePreview(raw: any): { text: string | undefined; lang: 'he' | 'en
     if (en) return { text: en, lang: 'en' };
   }
 
+  // Попробуем массивы (могут приходить текстовые версии)
+  if (Array.isArray(val)) {
+    const heFromArray = val.find((x) => typeof x === 'string' && x.trim().length > 0);
+    if (heFromArray) return { text: heFromArray.trim(), lang: 'he' };
+  }
+
   return { text: undefined, lang: undefined };
 }
 
 // Утилита: проверяет, есть ли английский перевод
 function hasEnglish(raw: any): boolean {
   if (!raw) return false;
+  if (raw.sourceHasEn === true) return true;
   const val = raw.preview ?? raw.text ?? raw.snippet ?? raw.summary;
   const obj = typeof val === 'string' ? null : (val?.text ? val.text : val);
   const en = obj?.en || (typeof val === 'object' ? val?.en : undefined);
@@ -45,17 +56,17 @@ function hasEnglish(raw: any): boolean {
 // Есть ли иврит (по тем же полям, что и coalescePreview)
 function hasHebrew(raw: any): boolean {
   if (!raw) return false;
+  if (typeof raw.he === 'string' && raw.he.trim()) return true;
+  if (typeof raw.hebrew === 'string' && raw.hebrew.trim()) return true;
   const val = raw.preview ?? raw.text ?? raw.snippet ?? raw.summary;
   const obj = typeof val === 'string' ? { he: val } : (val?.text ? val.text : val);
   const he = obj?.he;
   return typeof he === 'string' && he.trim().length > 0;
 }
-// Возвращает текст и css-класс бейджа для языков
+// Возвращает текст и css-класс бейджа для языков (оставляем только EN-маркер)
 function getLangBadge(raw: any): { text: string; className: string } | null {
-  const he = hasHebrew(raw);
   const en = hasEnglish(raw);
-  if (he && en) return { text: 'Иврит+EN', className: 'bookshelf-lang-badge' };
-  if (!he && en) return { text: 'EN', className: 'bookshelf-lang-badge' };
+  if (en) return { text: 'EN', className: 'bookshelf-lang-badge' };
   return null;
 }
 
@@ -64,23 +75,31 @@ interface Category {
   color: string;
 }
 
+type SortOrder = 'score' | 'compAsc' | 'compDesc';
+
 function CategoryButtonBar({
   categories,
   selected,
   onSelect,
   getCount,
-  accent = '#c2a970'
+  accent = '#c2a970',
+  showAll,
+  onToggleShowAll,
 }: {
   categories: { name: string; color?: string }[];
   selected: string | null;
   onSelect: (name: string) => void;
   getCount?: (name: string) => number;
   accent?: string;
+  showAll?: boolean;
+  onToggleShowAll?: (next: boolean) => void;
 }) {
+  const visible = showAll ? categories : categories.slice(0, PRIMARY_CATEGORY_ORDER.length);
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {categories.slice(0, 12).map((c) => {
+      {visible.map((c) => {
         const isActive = selected === c.name;
+        const btnAccent = c.color || accent;
         const count = getCount ? getCount(c.name) : undefined;
 
         return (
@@ -92,20 +111,32 @@ function CategoryButtonBar({
             className={`bookshelf-catbtn ${isActive ? 'is-active' : ''}`}
             style={{
               // мягкие рамки без «жёстких светлых линий»
-              borderColor: isActive ? accent : 'hsl(var(--border) / 0.28)',
+              borderColor: isActive ? btnAccent : 'hsl(var(--border) / 0.28)',
               background: isActive
-                ? `color-mix(in oklab, ${accent} 16%, transparent)`
+                ? `color-mix(in oklab, ${btnAccent} 16%, transparent)`
                 : 'hsl(var(--panel))',
             }}
             title={c.name}
           >
-            <span className="truncate">{CATEGORY_LOCALE[c.name] || c.name}</span>
+            <span className="flex items-center gap-1 truncate">
+              <span className="inline-block w-2 h-2 rounded-full" style={{ background: btnAccent }} />
+              <span className="truncate">{CATEGORY_LOCALE[c.name] || c.name}</span>
+            </span>
             {typeof count === 'number' && count > 0 && (
               <span className="bookshelf-catcount">{count}</span>
             )}
           </button>
         );
       })}
+      {categories.length > PRIMARY_CATEGORY_ORDER.length && (
+        <button
+          type="button"
+          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+          onClick={() => onToggleShowAll?.(!showAll)}
+        >
+          {showAll ? 'Скрыть остальные' : 'Показать остальные'}
+        </button>
+      )}
     </div>
   );
 }
@@ -123,6 +154,7 @@ interface BookshelfState {
   // Данные
   groups: GroupNode[];
   orphans: any[];
+  sortOrder: SortOrder;
 
   // Фильтры и поиск
   searchQuery: string;
@@ -231,11 +263,130 @@ function naturalPartValue(ref: string): { n?: number; s?: string } {
   return Number.isFinite(n) ? { n } : { s: p.part };
 }
 
-export function sortGroupItems(items: any[]): any[] {
+type CompDateRange = { start?: number; end?: number };
+
+const PERIODS: { label: string; from: number; to: number; color: string }[] = [
+  { label: 'Таннаим', from: 0, to: 220, color: '#b34f6a' },
+  { label: 'Амораим', from: 220, to: 500, color: '#b7791f' },
+  { label: 'Савораим', from: 500, to: 650, color: '#b08968' },
+  { label: 'Геоним', from: 650, to: 1038, color: '#2563eb' },
+  { label: 'Ришоним', from: 1038, to: 1500, color: '#4f46e5' },
+  { label: 'Ахроним', from: 1500, to: 2100, color: '#0ea5e9' },
+];
+
+function normalizeYear(value: any): number | undefined {
+  if (value == null) return undefined;
+  const n = Number(value);
+  if (Number.isFinite(n)) return n;
+  if (typeof value === 'string') {
+    const digits = value.replace(/[^\d\-–—]/g, '');
+    const num = Number(digits);
+    return Number.isFinite(num) ? num : undefined;
+  }
+  return undefined;
+}
+
+function parseYearRangeString(str: string): { start?: number; end?: number } | null {
+  // handle "1613-1617" or "1613–1617"
+  const m = str.split(/[–—-]/).map(s => s.trim()).filter(Boolean);
+  if (m.length === 2) {
+    const start = normalizeYear(m[0]);
+    const end = normalizeYear(m[1]);
+    if (start || end) return { start, end };
+  }
+  return null;
+}
+
+function getCompDateRange(raw: any): CompDateRange | null {
+  const src = raw?.compDate ?? raw?.metadata?.compDate ?? raw?.comp_date;
+
+  if (Array.isArray(src)) {
+    const [startRaw, endRaw] = src;
+    const start = normalizeYear(startRaw);
+    const end = normalizeYear(endRaw);
+    if (!start && !end) return null;
+    return { start, end };
+  }
+
+  if (typeof src === 'string') {
+    const range = parseYearRangeString(src);
+    if (range) return range;
+    const single = normalizeYear(src);
+    if (single != null) return { start: single, end: single };
+  }
+
+  if (typeof src === 'object' && src) {
+    const start = normalizeYear(src.start ?? src.from);
+    const end = normalizeYear(src.end ?? src.to);
+    if (!start && !end) return null;
+    return { start, end };
+  }
+
+  const single = normalizeYear(src);
+  if (single != null) return { start: single, end: single };
+
+  return null;
+}
+
+function compDateValue(raw: any): number | null {
+  const range = getCompDateRange(raw);
+  if (!range) return null;
+  if (range.start != null) return range.start;
+  if (range.end != null) return range.end;
+  return null;
+}
+
+function compOrderVal(v: number | null, sortOrder: SortOrder): number {
+  if (v == null) return sortOrder === 'compAsc' ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY;
+  return v;
+}
+
+function formatCompDateRange(range?: CompDateRange | null): string | null {
+  if (!range) return null;
+  if (range.start != null && range.end != null) return `${range.start}–${range.end}`;
+  if (range.start != null) return `${range.start}`;
+  if (range.end != null) return `${range.end}`;
+  return null;
+}
+
+function getPeriodTag(range?: CompDateRange | null): { label: string; color: string } | null {
+  if (!range) return null;
+  const year = range.start ?? range.end;
+  if (!Number.isFinite(year)) return null;
+  const period = PERIODS.find((p) => year >= p.from && year < p.to);
+  return period ? { label: period.label, color: period.color } : null;
+}
+
+function getGroupCompDateRange(group: GroupNode): CompDateRange | null {
+  if (!group.items?.length) return null;
+  const years = group.items
+    .map((it) => compDateValue(it))
+    .filter((v): v is number => v != null)
+    .sort((a, b) => a - b);
+  if (!years.length) return null;
+  return { start: years[0], end: years[years.length - 1] };
+}
+
+function groupCompDateValue(group: GroupNode): number | null {
+  const range = getGroupCompDateRange(group);
+  if (!range) return null;
+  return range.start ?? range.end ?? null;
+}
+
+export function sortGroupItems(items: any[], sortOrder: SortOrder): any[] {
   return [...items].sort((a, b) => {
+    if (sortOrder === 'compAsc' || sortOrder === 'compDesc') {
+      const av = compOrderVal(compDateValue(a), sortOrder);
+      const bv = compOrderVal(compDateValue(b), sortOrder);
+      const diff = av - bv;
+      if (diff !== 0) return sortOrder === 'compAsc' ? diff : -diff;
+      // если дата одинакова — падаем к натуральной сортировке частей
+    }
+
+    // Стандартный порядок (score → part → ref) без приоритета EN при сортировке по дате
     const ae = hasEnglish(a) ? 1 : 0;
     const be = hasEnglish(b) ? 1 : 0;
-    if (ae !== be) return be - ae; // EN first
+    if (sortOrder === 'score' && ae !== be) return be - ae; // EN first only для score-сортировки
 
     const as = a.score ?? 0, bs = b.score ?? 0;
     if (as !== bs) return bs - as;
@@ -250,18 +401,47 @@ export function sortGroupItems(items: any[]): any[] {
 }
 
 // Сортировка групп
-export function sortGroups(groups: GroupNode[]): GroupNode[] {
+export function sortGroups(groups: GroupNode[], sortOrder: SortOrder): GroupNode[] {
   const groupHasEN = (g: GroupNode) => g.items.some(hasEnglish) ? 1 : 0;
   const maxScore = (items: any[]) => items.reduce((m, it) => Math.max(m, it.score ?? -Infinity), -Infinity);
 
   return [...groups].sort((g1, g2) => {
-    const e1 = groupHasEN(g1), e2 = groupHasEN(g2);
-    if (e1 !== e2) return e2 - e1;                 // EN-first по группам
-    const s1 = maxScore(g1.items), s2 = maxScore(g2.items);
-    if (s1 !== s2) return s2 - s1;                  // затем score
+    if (sortOrder === 'compAsc' || sortOrder === 'compDesc') {
+      const d1 = groupCompDateValue(g1);
+      const d2 = groupCompDateValue(g2);
+      const v1 = compOrderVal(d1, sortOrder);
+      const v2 = compOrderVal(d2, sortOrder);
+      const diff = v1 - v2;
+      if (diff !== 0) return sortOrder === 'compAsc' ? diff : -diff;
+      // при равных датах — падение к тракта/странице
+    }
+    // EN/score приоритет только в режиме score
+    if (sortOrder === 'score') {
+      const e1 = groupHasEN(g1), e2 = groupHasEN(g2);
+      if (e1 !== e2) return e2 - e1;                 // EN-first по группам
+      const s1 = maxScore(g1.items), s2 = maxScore(g2.items);
+      if (s1 !== s2) return s2 - s1;                  // затем score
+    }
     const t1 = `${g1.parsed.tractate} ${g1.parsed.page}:${g1.parsed.section}`;
     const t2 = `${g2.parsed.tractate} ${g2.parsed.page}:${g2.parsed.section}`;
     return t1.localeCompare(t2, undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
+
+export function sortOrphans(items: any[], sortOrder: SortOrder): any[] {
+  return [...items].sort((a, b) => {
+    if (sortOrder === 'compAsc' || sortOrder === 'compDesc') {
+      const av = compOrderVal(compDateValue(a), sortOrder);
+      const bv = compOrderVal(compDateValue(b), sortOrder);
+      const diff = av - bv;
+      if (diff !== 0) return sortOrder === 'compAsc' ? diff : -diff;
+    }
+    const ae = hasEnglish(a) ? 1 : 0;
+    const be = hasEnglish(b) ? 1 : 0;
+    if (sortOrder === 'score' && ae !== be) return be - ae;
+    const as = a.score ?? 0, bs = b.score ?? 0;
+    if (as !== bs) return bs - as;
+    return (a.ref || '').localeCompare(b.ref || '', undefined, { numeric: true, sensitivity: 'base' });
   });
 }
 
@@ -289,6 +469,40 @@ export function pickColor(category?: string, commentator?: string) {
   return '#7A7A7A';
 }
 
+const CATEGORY_ALIASES: Record<string, string> = {
+  Bible: 'Tanakh',
+  'Modern Works': 'Reference',
+};
+
+const PRIMARY_CATEGORY_ORDER = [
+  'Commentary',
+  'Tanakh',
+  'Mishnah',
+  'Talmud',
+  'Halakhah',
+  'Responsa',
+];
+
+const ALL_CATEGORY_NAMES = [
+  ...PRIMARY_CATEGORY_ORDER,
+  'Midrash',
+  'Kabbalah',
+  'Liturgy',
+  'Jewish Thought',
+  'Tosefta',
+  'Chasidut',
+  'Musar',
+  'Second Temple',
+  'Reference',
+  'Targum',
+  'Quoting Commentary',
+];
+
+const FALLBACK_CATEGORIES: Category[] = ALL_CATEGORY_NAMES.map((name) => ({
+  name,
+  color: colorFromString(name),
+}));
+
 const CATEGORY_LOCALE: Record<string, string> = {
   'Commentary': 'Комментарий',
   'Quoting Commentary': 'Цитируемый комментарий',
@@ -301,8 +515,32 @@ const CATEGORY_LOCALE: Record<string, string> = {
   'Kabbalah': 'Каббала',
   'Jewish Thought': 'Еврейская мысль',
   'Liturgy': 'Литургия',
-  'Bible': 'Танах'
+  'Bible': 'Танах',
+  'Tanakh': 'Танах',
+  'Talmud': 'Талмуд',
+  'Tosefta': 'Тосефта',
+  'Musar': 'Мусар',
+  'Second Temple': 'Второй Храм',
+  'Reference': 'Справочник',
+  'Modern Works': 'Современные работы',
 };
+
+function canonicalCategoryName(name: string): string {
+  return CATEGORY_ALIASES[name] || name;
+}
+
+function orderCategories(cats: Category[]): Category[] {
+  const orderIndex = (name: string) => {
+    const idx = PRIMARY_CATEGORY_ORDER.indexOf(name);
+    return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
+  };
+  return [...cats].sort((a, b) => {
+    const oa = orderIndex(a.name);
+    const ob = orderIndex(b.name);
+    if (oa !== ob) return oa - ob;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  });
+}
 
 const BookshelfPanel = memo(({
   sessionId,
@@ -315,10 +553,12 @@ const BookshelfPanel = memo(({
   currentRef?: string;
 }) => {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>('Commentary');
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [bookshelfState, setBookshelfState] = useState<BookshelfState>({
     groups: [],
     orphans: [],
+    sortOrder: 'score',
     searchQuery: '',
     activeFilters: {
       commentators: [],
@@ -329,6 +569,8 @@ const BookshelfPanel = memo(({
     hoveredGroup: null,
     previewVisible: null
   });
+  const [profileSlug, setProfileSlug] = useState<string | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Debounced search
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -374,10 +616,29 @@ const BookshelfPanel = memo(({
     e?.preventDefault();
     
     if (!onAddToWorkbench) return;
-    
+
     const targetSide = getTargetPanel();
     onAddToWorkbench(ref, targetSide);
   }, [onAddToWorkbench, getTargetPanel]);
+
+  const handleSortChange = useCallback((order: SortOrder) => {
+    setBookshelfState(prev => ({ ...prev, sortOrder: order }));
+  }, []);
+
+  const handleOpenProfile = useCallback((slug?: string | null, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!slug) return;
+    setProfileSlug(slug);
+    setIsProfileOpen(true);
+  }, []);
+
+  const deriveProfileSlug = useCallback((item: any, parsed?: ParsedRef | null): string | null => {
+    if (item?.indexTitle) return item.indexTitle;
+    if (parsed?.commentator && parsed?.tractate) {
+      return `${parsed.commentator} on ${parsed.tractate}`;
+    }
+    return parsed?.commentator || null;
+  }, []);
 
   // Load categories on mount
   useEffect(() => {
@@ -386,10 +647,22 @@ const BookshelfPanel = memo(({
       setError(null);
       try {
         const cats = await api.getBookshelfCategories();
-        setCategories(cats);
-        // Auto-select first category if available
-        if (cats.length > 0 && !selectedCategory) {
-          setSelectedCategory(cats[0].name);
+        const mergedMap = new Map<string, Category>();
+        // сначала fallback чтобы порядок был консистентный
+        for (const c of FALLBACK_CATEGORIES) {
+          const canon = canonicalCategoryName(c.name);
+          mergedMap.set(canon, { ...c, name: canon });
+        }
+        for (const c of cats || []) {
+          const canon = canonicalCategoryName(c.name);
+          mergedMap.set(canon, { ...c, name: canon, color: c.color || colorFromString(canon) });
+        }
+        const merged = orderCategories(Array.from(mergedMap.values()));
+        setCategories(merged);
+        // Auto-select Commentary always, fallback to first
+        if (!selectedCategory || selectedCategory !== 'Commentary') {
+          const preferred = merged.find((c) => c.name === 'Commentary')?.name || merged[0]?.name;
+          setSelectedCategory(preferred ?? 'Commentary');
         }
       } catch (err: any) {
         setError(err.message || 'Failed to load categories');
@@ -413,24 +686,30 @@ const BookshelfPanel = memo(({
 
         // ✅ страховка на случай undefined/null
         const rawItems = Array.isArray(data?.bookshelf?.items) ? data.bookshelf.items : [];
+        const normalizedItems = rawItems.map((it) => ({
+          ...it,
+          category: it.category ? canonicalCategoryName(it.category) : it.category,
+        }));
 
         // Временный диагностический лог (чтобы понять причину, если снова пусто)
         console.debug('[Bookshelf] cat:', selectedCategory, 'items:', data?.bookshelf?.items?.length, 'sample:', data?.bookshelf?.items?.[0]);
 
         // Группировать и сортировать
-        const { groups, orphans } = groupByRef(rawItems);
+        const { groups, orphans } = groupByRef(normalizedItems);
 
         // Сортировать группы и элементы внутри групп
         const sortedGroups = sortGroups(groups.map(group => ({
           ...group,
-          items: sortGroupItems(group.items),
+          items: sortGroupItems(group.items, bookshelfState.sortOrder),
           color: pickColor(group.items[0]?.category, group.parsed.commentator)
-        })));
+        })), bookshelfState.sortOrder);
+
+        const sortedOrphans = sortOrphans(orphans, bookshelfState.sortOrder);
 
         setBookshelfState(prev => ({
           ...prev,
           groups: sortedGroups,
-          orphans
+          orphans: sortedOrphans
         }));
       } catch (err: any) {
         setError(err.message || 'Failed to load bookshelf items');
@@ -441,6 +720,23 @@ const BookshelfPanel = memo(({
 
     loadItems();
   }, [selectedCategory, sessionId, currentRef]);
+
+  const sortOrder = bookshelfState.sortOrder;
+
+  // Пересортировать уже загруженные данные при смене порядка сортировки
+  useEffect(() => {
+    setBookshelfState((prev) => {
+      const reGroups = sortGroups(
+        prev.groups.map((g) => ({
+          ...g,
+          items: sortGroupItems(g.items, sortOrder),
+        })),
+        sortOrder
+      );
+      const reOrphans = sortOrphans(prev.orphans, sortOrder);
+      return { ...prev, groups: reGroups, orphans: reOrphans };
+    });
+  }, [sortOrder]);
 
 
   // Filter groups and items based on search and filters
@@ -504,7 +800,9 @@ const BookshelfPanel = memo(({
   const renderSinglePartGroup = useCallback((group: GroupNode) => {
     const item = group.items[0];
     const parsed = parseRefStrict(item.ref); // может вернуть null, проверим
-
+    const compRange = getCompDateRange(item);
+    const compDateLabel = formatCompDateRange(compRange);
+    const periodTag = getPeriodTag(compRange);
     const langBadge = getLangBadge(item);
 
     return (
@@ -531,17 +829,40 @@ const BookshelfPanel = memo(({
               <div className="font-semibold text-sm truncate">
                 {group.parsed.commentator} on {group.parsed.tractate} {group.parsed.page}:{group.parsed.section}
               </div>
-              {hasEnglish(item) && (
-                <span className="bookshelf-en-badge ml-2">
-                  EN
+              {deriveProfileSlug(item, parsed) && (
+                <button
+                  type="button"
+                  onClick={(e) => handleOpenProfile(deriveProfileSlug(item, parsed), e)}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="flex-shrink-0 w-6 h-6 grid place-items-center rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-colors"
+                  title="Профиль автора/книги"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground/90 flex-nowrap">
+              {langBadge && (
+                <span className={langBadge.className} aria-label={`Язык: ${langBadge.text}`}>
+                  {langBadge.text}
+                </span>
+              )}
+              {compDateLabel && (
+                <span className="px-1.5 py-0.5 rounded-md bg-accent/20 border border-border/60 text-[11px] leading-none whitespace-nowrap text-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
+                  {compDateLabel}
+                </span>
+              )}
+              {periodTag && (
+                <span
+                  className="px-1.5 py-0.5 rounded-md text-[11px] leading-none text-white whitespace-nowrap"
+                  style={{ backgroundColor: periodTag.color }}
+                  aria-label={`Период: ${periodTag.label}`}
+                >
+                  {periodTag.label}
                 </span>
               )}
             </div>
-            {langBadge && (
-              <span className={langBadge.className} aria-label={`Язык: ${langBadge.text}`}>
-                {langBadge.text}
-              </span>
-            )}
 
             {/* ДОП. ПОДПИСИ (если есть) */}
             {(item.heRef || item.indexTitle) && (
@@ -594,10 +915,14 @@ const BookshelfPanel = memo(({
         </div>
       </div>
     );
-  }, [onDragStart, density, onAddToWorkbench, handleAddToWorkbench]);
+  }, [onDragStart, density, onAddToWorkbench, handleAddToWorkbench, handleOpenProfile, deriveProfileSlug]);
 
   // Render multi-part group
   const renderMultiPartGroup = useCallback((group: GroupNode) => {
+    const compRange = getGroupCompDateRange(group);
+    const compDateLabel = formatCompDateRange(compRange);
+    const periodTag = getPeriodTag(compRange);
+    const profileSlug = deriveProfileSlug(group.items[0], group.parsed);
     return (
       <div key={group.key} className="space-y-1">
         {/* Group header - compact "series line" */}
@@ -631,19 +956,48 @@ const BookshelfPanel = memo(({
           }}
         >
             <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-muted-foreground">≡</span>
-              <div
-                className="w-3 h-3 rounded-full relative"
-                style={{ backgroundColor: group.color }}
-              >
-                {/* Индикатор группового перетаскивания */}
-                <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full border border-background text-[8px] flex items-center justify-center text-white font-bold">
-                  ≡
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-muted-foreground">≡</span>
+                <div
+                  className="w-3 h-3 rounded-full relative"
+                  style={{ backgroundColor: group.color }}
+                >
+                  {/* Индикатор группового перетаскивания */}
+                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full border border-background text-[8px] flex items-center justify-center text-white font-bold">
+                    ≡
+                  </div>
                 </div>
+                <div className="font-semibold text-sm truncate">
+                  {group.parsed.commentator} on {group.parsed.tractate} {group.parsed.page}:{group.parsed.section}
+                </div>
+                {profileSlug && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleOpenProfile(profileSlug, e)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="flex-shrink-0 w-6 h-6 grid place-items-center rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-colors"
+                    title="Профиль автора/книги"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-              <div className="font-semibold text-sm truncate">
-                {group.parsed.commentator} on {group.parsed.tractate} {group.parsed.page}:{group.parsed.section}
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground/90 ml-5 flex-nowrap">
+              {compDateLabel && (
+              <span className="px-1.5 py-0.5 rounded-md bg-accent/20 border border-border/60 leading-none whitespace-nowrap text-foreground text-[11px] shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
+                {compDateLabel}
+              </span>
+            )}
+              {periodTag && (
+                <span
+                  className="px-1.5 py-0.5 rounded-md leading-none text-white whitespace-nowrap"
+                  style={{ backgroundColor: periodTag.color }}
+                  aria-label={`Период: ${periodTag.label}`}
+                >
+                  {periodTag.label}
+                </span>
+                )}
               </div>
             </div>
             {onAddToWorkbench && (
@@ -734,7 +1088,7 @@ const BookshelfPanel = memo(({
         </div>
       </div>
     );
-  }, [onDragStart, density, onAddToWorkbench, handleAddToWorkbench]);
+  }, [onDragStart, density, onAddToWorkbench, handleAddToWorkbench, handleOpenProfile]);
 
   // Main render group function
   const renderGroup = useCallback((group: GroupNode) => {
@@ -746,7 +1100,11 @@ const BookshelfPanel = memo(({
   // Render orphan item
   const renderOrphan = useCallback((item: any, idx?: number) => {
     const parsed = parseRefStrict(item.ref); // может быть null
+    const compRange = getCompDateRange(item);
+    const compDateLabel = formatCompDateRange(compRange);
+    const periodTag = getPeriodTag(compRange);
     const langBadge = getLangBadge(item);
+    const profileSlug = deriveProfileSlug(item, parsed);
 
     return (
       <div
@@ -768,7 +1126,31 @@ const BookshelfPanel = memo(({
                 ? `${parsed.commentator} on ${parsed.tractate} ${parsed.page}:${parsed.section}${parsed.part ? ` (Part ${parsed.part})` : ''}`
                 : item.ref}
             </div>
+            {profileSlug && (
+              <button
+                type="button"
+                onClick={(e) => handleOpenProfile(profileSlug, e)}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="flex-shrink-0 w-6 h-6 grid place-items-center rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-colors"
+                title="Профиль автора/книги"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
+            )}
             {langBadge && <span className={langBadge.className} aria-label={`Язык: ${langBadge.text}`}>{langBadge.text}</span>}
+            {compDateLabel && (
+                <span className="px-1.5 py-0.5 rounded-md bg-accent/20 border border-border/60 text-[11px] leading-none whitespace-nowrap text-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
+                  {compDateLabel}
+                </span>
+              )}
+            {periodTag && (
+              <span
+                className="px-1.5 py-0.5 rounded-md text-[11px] leading-none text-white whitespace-nowrap"
+                style={{ backgroundColor: periodTag.color }}
+              >
+                {periodTag.label}
+              </span>
+            )}
           </div>
           {density === 'normal' && (() => {
             const preview = coalescePreview(item);
@@ -797,7 +1179,7 @@ const BookshelfPanel = memo(({
         )}
       </div>
     );
-  }, [onDragStart, density, onAddToWorkbench, handleAddToWorkbench]);
+  }, [onDragStart, density, onAddToWorkbench, handleAddToWorkbench, handleOpenProfile]);
 
   if (error) {
     return <ErrorState error={error} />;
@@ -808,16 +1190,48 @@ const BookshelfPanel = memo(({
   }
 
   return (
+    <>
     <div className="h-full flex flex-col panel-outer border-l">
       {/* Header */}
       <div className="flex-shrink-0 panel-padding border-b border-border/50">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold">Источники</h3>
-          <div className="flex gap-2">
-            <button onClick={()=>setDensity('compact')} aria-pressed={density==='compact'} type="button"
-              title="Компактно" className={`rounded p-1 border ${density==='compact'?'bg-accent text-accent-foreground border-accent':'border-border bg-background text-muted-foreground'} transition-colors`}> <ArrowDownNarrowWide className="w-4 h-4"/></button>
-            <button onClick={()=>setDensity('normal')} aria-pressed={density==='normal'} type="button"
-              title="Стандартно" className={`rounded p-1 border ${density==='normal'?'bg-accent text-accent-foreground border-accent':'border-border bg-background text-muted-foreground'} transition-colors`}> <ArrowDownWideNarrow className="w-4 h-4"/></button>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md border border-border/60 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => handleSortChange('score')}
+                aria-pressed={sortOrder === 'score'}
+                className={`px-2 py-1 text-xs transition-colors ${sortOrder === 'score' ? 'bg-accent text-accent-foreground' : 'bg-background text-muted-foreground'}`}
+                title="Сначала релевантные"
+              >
+                Счёт
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSortChange('compAsc')}
+                aria-pressed={sortOrder === 'compAsc'}
+                className={`px-2 py-1 text-xs border-l border-border/60 transition-colors ${sortOrder === 'compAsc' ? 'bg-accent text-accent-foreground' : 'bg-background text-muted-foreground'}`}
+                title="По дате: ранние → поздние"
+              >
+                Дата ↑
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSortChange('compDesc')}
+                aria-pressed={sortOrder === 'compDesc'}
+                className={`px-2 py-1 text-xs border-l border-border/60 transition-colors ${sortOrder === 'compDesc' ? 'bg-accent text-accent-foreground' : 'bg-background text-muted-foreground'}`}
+                title="По дате: поздние → ранние"
+              >
+                Дата ↓
+              </button>
+            </div>
+            <div className="flex gap-1">
+              <button onClick={()=>setDensity('compact')} aria-pressed={density==='compact'} type="button"
+                title="Компактно" className={`rounded p-1 border ${density==='compact'?'bg-accent text-accent-foreground border-accent':'border-border bg-background text-muted-foreground'} transition-colors`}> <ArrowDownNarrowWide className="w-4 h-4"/></button>
+              <button onClick={()=>setDensity('normal')} aria-pressed={density==='normal'} type="button"
+                title="Стандартно" className={`rounded p-1 border ${density==='normal'?'bg-accent text-accent-foreground border-accent':'border-border bg-background text-muted-foreground'} transition-colors`}> <ArrowDownWideNarrow className="w-4 h-4"/></button>
+            </div>
           </div>
         </div>
 
@@ -835,10 +1249,12 @@ const BookshelfPanel = memo(({
 
         {/* Category Buttons (compact, 12 max) */}
         <CategoryButtonBar
-          categories={categories}
+          categories={orderCategories(categories)}
           selected={selectedCategory}
           onSelect={setSelectedCategory}
           accent="#c2a970"
+          showAll={showAllCategories}
+          onToggleShowAll={setShowAllCategories}
           getCount={(catName) => {
             // те же правила, что у тебя раньше — считаем сколько элементов в этой категории
             const all = [
@@ -877,6 +1293,12 @@ const BookshelfPanel = memo(({
         )}
       </div>
     </div>
+    <ProfileInspectorModal
+      slug={profileSlug}
+      open={isProfileOpen}
+      onClose={() => setIsProfileOpen(false)}
+    />
+    </>
   );
 });
 
@@ -911,4 +1333,3 @@ const ErrorState = ({ error }: { error: string }) => (
     <p className="text-sm text-muted-foreground">{error}</p>
   </div>
 );
-

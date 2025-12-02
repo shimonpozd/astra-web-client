@@ -235,9 +235,18 @@ export function useStudyMode() {
       }
       const result = await response.json();
       if (result.ok && result.state) {
-        const nextState = applyPreferredFocus(result.state, preservedRef);
+        const stableRef = preservedRef || result.state?.ref || null;
+        let nextState = applyPreferredFocus(result.state, stableRef);
+        // Жёстко фиксируем ссылку, чтобы drop в workbench не трогал FocusReader
+        if (stableRef) {
+          nextState = {
+            ...nextState,
+            ref: stableRef,
+            discussion_focus_ref: stableRef,
+          };
+        }
         setStudySnapshot(nextState);
-        updatePreferredFocus(preservedRef || result.state?.ref || null);
+        updatePreferredFocus(stableRef);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to set workbench';
