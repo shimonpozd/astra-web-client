@@ -336,11 +336,11 @@ export function TimelineCanvas({
               return (
                 <g key={n.id} transform={`translate(${n.x}, ${n.y})`}>
                   <rect
-                    x={-10}
-                    y={-10}
-                    width={n.width + 20}
-                    height={n.height + 20}
-                    rx={16}
+                    x={0}
+                    y={0}
+                    width={n.width}
+                    height={n.height}
+                    rx={14}
                     fill="white"
                     opacity={0.85}
                     stroke="rgba(0,0,0,0.04)"

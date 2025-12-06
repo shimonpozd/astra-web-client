@@ -66,7 +66,7 @@ function getPersonBounds(person: TimelinePerson): { start: number; end: number }
     return { start: rawStart, end: rawEnd };
   }
   if (rawStart !== undefined) {
-    return { start: rawStart, end: rawStart + 40 }; // Assume 40 years of activity
+    return { start: rawStart, end: rawStart + 40 };
   }
   if (rawEnd !== undefined) {
     return { start: rawEnd - 40, end: rawEnd };
@@ -79,10 +79,6 @@ function resolveGeneration(person: TimelinePerson): number | undefined {
     const match = (person.subPeriod || '').toLowerCase().match(/gen(\d+)/);
     if (match) return Number(match[1]);
     return undefined;
-}
-
-function overlaps(a: { start: number; end: number }, b: { start: number; end: number }) {
-  return a.end > b.start && a.start < b.end;
 }
 
 function buildBinPackedLayouts(
@@ -114,11 +110,7 @@ function buildBinPackedLayouts(
     const xEnd_initial = Math.min(periodWidth, xEndRaw);
 
     const width = Math.max(MIN_BAR_WIDTH, xEnd_initial - xStart_initial);
-
-    // Final clamping to ensure the entire bar fits within the period width
-    const xStart = Math.max(0, Math.min(xStart_initial, periodWidth - width));
-
-    // Each person gets their own row for vertical stacking
+    const xStart = Math.max(0, Math.min(xStart_initial, periodWidth - width - CARD_PADDING_X));
     const rowIndex = index;
 
     layouts.push({
@@ -135,6 +127,30 @@ function buildBinPackedLayouts(
   return { layouts, rowsCount: sorted.length };
 }
 
+function createGroupLayout(
+    id: string,
+    label: string,
+    people: TimelinePerson[],
+    yOffset: number,
+    period: Period,
+    yearToX: (year: number) => number,
+    periodWidth: number
+): GroupLayout {
+    const { layouts, rowsCount } = buildBinPackedLayouts(people, yearToX, yearToX(period.startYear), periodWidth);
+    const groupBodyHeight = rowsCount > 0 ? rowsCount * (TRACK_HEIGHT + V_MARGIN) - V_MARGIN : 0;
+    const groupHeight = GROUP_HEADER + GROUP_PADDING * 2 + groupBodyHeight;
+
+    return {
+        id,
+        label,
+        people,
+        personsLayout: layouts,
+        height: groupHeight,
+        y: yOffset,
+    };
+}
+
+
 export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): PeriodBlock[] {
   const peopleByPeriod: Record<string, TimelinePerson[]> = {};
   periods.forEach(p => { peopleByPeriod[p.id] = [] });
@@ -149,47 +165,53 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
     const x = yearToX(period.startYear);
     const width = yearToX(period.endYear) - x;
     const periodWidth = Math.max(width, MIN_PERIOD_WIDTH);
-
-    const peopleByGeneration: Record<string, TimelinePerson[]> = {};
-    periodPeople.forEach(p => {
-        const gen = resolveGeneration(p) ?? 'unknown';
-        if (!peopleByGeneration[gen]) {
-            peopleByGeneration[gen] = [];
-        }
-        peopleByGeneration[gen].push(p);
-    });
-
-    const generationKeys = Object.keys(peopleByGeneration).sort((a, b) => {
-        if (a === 'unknown') return 1;
-        if (b === 'unknown') return -1;
-        return Number(a) - Number(b);
-    });
-
+    
+    let groups: GroupLayout[] = [];
     let groupCursorY = 0;
-    const groups: GroupLayout[] = [];
 
-    generationKeys.forEach(key => {
-        const generationPeople = peopleByGeneration[key];
-        if (generationPeople.length === 0) return;
-
-        const { layouts, rowsCount } = buildBinPackedLayouts(generationPeople, yearToX, yearToX(period.startYear), periodWidth);
+    if (period.id === 'malakhim_divided') {
+        const israel = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('israel'));
+        const judah = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('judah'));
+        const other = periodPeople.filter((p) => !(p.subPeriod || '').toLowerCase().includes('israel') && !(p.subPeriod || '').toLowerCase().includes('judah'));
         
-        const groupBodyHeight = rowsCount > 0 ? rowsCount * (TRACK_HEIGHT + V_MARGIN) - V_MARGIN : 0;
-        const groupHeight = GROUP_HEADER + GROUP_PADDING * 2 + groupBodyHeight;
+        const malakhimGroups: {label: string, people: TimelinePerson[]}[] = [
+            { label: 'Царство Израиль', people: israel },
+            { label: 'Царство Иуда', people: judah },
+            { label: 'Прочие', people: other },
+        ];
 
-        const group: GroupLayout = {
-            id: `${period.id}-gen-${key}`,
-            label: key === 'unknown' ? 'Неизвестное поколение' : `Поколение ${key}`,
-            people: generationPeople,
-            personsLayout: layouts,
-            height: groupHeight,
-            y: groupCursorY,
-        };
-        groups.push(group);
-        groupCursorY += groupHeight + GROUP_GAP * 3;
-    });
+        malakhimGroups.forEach(({label, people: groupPeople}) => {
+            if(groupPeople.length === 0) return;
+            const group = createGroupLayout(`${period.id}-${label.toLowerCase()}`, label, groupPeople, groupCursorY, period, yearToX, periodWidth);
+            groups.push(group);
+            groupCursorY += group.height + GROUP_GAP;
+        });
 
-    const rowHeight = groupCursorY > 0 ? groupCursorY - GROUP_GAP * 3 : 0;
+    } else {
+        const peopleByGeneration: Record<string, TimelinePerson[]> = {};
+        periodPeople.forEach(p => {
+            const gen = resolveGeneration(p) ?? 'unknown';
+            if (!peopleByGeneration[gen]) peopleByGeneration[gen] = [];
+            peopleByGeneration[gen].push(p);
+        });
+
+        const generationKeys = Object.keys(peopleByGeneration).sort((a, b) => {
+            if (a === 'unknown') return 1; if (b === 'unknown') return -1;
+            return Number(a) - Number(b);
+        });
+
+        generationKeys.forEach(key => {
+            const generationPeople = peopleByGeneration[key];
+            if (generationPeople.length === 0) return;
+
+            const label = key === 'unknown' ? 'Неизвестное поколение' : `Поколение ${key}`;
+            const group = createGroupLayout(`${period.id}-gen-${key}`, label, generationPeople, groupCursorY, period, yearToX, periodWidth);
+            groups.push(group);
+            groupCursorY += group.height + GROUP_GAP;
+        });
+    }
+
+    const rowHeight = groupCursorY > 0 ? groupCursorY - GROUP_GAP : 0;
     const row: RowLayout = {
       id: `${period.id}-main-row`,
       label: 'Main',
@@ -197,9 +219,9 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
       height: rowHeight,
       y: BLOCK_HEADER + BLOCK_PADDING_Y,
     };
-
+    
     const blockHeight = BLOCK_HEADER + BLOCK_PADDING_Y * 2 + rowHeight;
-
+    
     const periodBlock: PeriodBlock = {
       id: period.id,
       period,
