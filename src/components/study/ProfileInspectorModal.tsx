@@ -95,6 +95,17 @@ function FactRow({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
+function RenderProfileHtml({ html }: { html?: string | null }) {
+  const safe = useMemo(() => sanitizeProfileHtml(html || ''), [html]);
+  if (!safe) return <div className="text-sm text-muted-foreground">Нет данных.</div>;
+  return (
+    <div
+      className="prose prose-sm max-w-none leading-relaxed space-y-2 prose-h2:text-lg prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-base prose-h3:mt-3 prose-h3:mb-1 prose-ul:list-disc prose-ul:pl-5 prose-li:my-1 prose-blockquote:border-l-2 prose-blockquote:border-border prose-blockquote:pl-3 prose-blockquote:text-muted-foreground"
+      dangerouslySetInnerHTML={{ __html: safe }}
+    />
+  );
+}
+
 export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = false }: ProfileInspectorModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -678,20 +689,12 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
                   {!hideWorkSection && (
                     <div>
                       <h4 className="text-sm font-semibold mb-1">Произведение</h4>
-                      {data?.summary_work_html ? (
-                        <div className="prose prose-sm max-w-none leading-relaxed space-y-2" dangerouslySetInnerHTML={{ __html: data.summary_work_html }} />
-                      ) : (
-                        <div className="text-sm text-muted-foreground">Нет описания.</div>
-                      )}
+                      <RenderProfileHtml html={data?.summary_work_html} />
                     </div>
                   )}
                   <div>
                     <h4 className="text-sm font-semibold mb-1">Автор</h4>
-                    {data?.summary_author_html ? (
-                      <div className="prose prose-sm max-w-none leading-relaxed space-y-2" dangerouslySetInnerHTML={{ __html: data.summary_author_html }} />
-                    ) : (
-                      <div className="text-sm text-muted-foreground">Нет данных об авторе.</div>
-                    )}
+                    <RenderProfileHtml html={data?.summary_author_html} />
                   </div>
                 </>
               )}
