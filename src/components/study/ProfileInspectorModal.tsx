@@ -15,6 +15,9 @@ interface ProfileInspectorModalProps {
 const ALLOWED_TAGS = new Set(['p', 'h2', 'h3', 'ul', 'li', 'blockquote', 'img', 'small', 'a']);
 
 const ERA_OPTIONS = [
+  { value: 'torah', label: 'Период Пятикнижия', generations: 0, period: 'torah' },
+  { value: 'neviim', label: 'Период Пророков (Невиим)', generations: 0, period: 'neviim' },
+  { value: 'great_assembly', label: 'Период Великого Собрания', generations: 0, period: 'great_assembly' },
   { value: 'shoftim', label: 'Шофтим', generations: 0, period: 'shoftim' },
   { value: 'melakhim_united', label: 'Млахим — Единое царство', generations: 0, period: 'malakhim_united' },
   { value: 'melakhim_divided_israel', label: 'Млахим — Разделённое (Израиль)', generations: 0, period: 'malakhim_divided', subPrefix: 'israel', region: Region.ERETZ_ISRAEL },

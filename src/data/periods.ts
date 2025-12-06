@@ -9,6 +9,27 @@ export const PERIODS: Period[] = [
     color: '#8B4513',
   },
   {
+    id: 'torah',
+    name_ru: 'Период Пятикнижия',
+    startYear: -3761,
+    endYear: -1273,
+    color: '#B5651D',
+  },
+  {
+    id: 'neviim',
+    name_ru: 'Период Пророков (Невиим)',
+    startYear: -1250,
+    endYear: -430,
+    color: '#A0522D',
+  },
+  {
+    id: 'great_assembly',
+    name_ru: 'Период Великого Собрания',
+    startYear: -450,
+    endYear: -250,
+    color: '#708090',
+  },
+  {
     id: 'malakhim_united',
     name_ru: 'Единое царство',
     startYear: -1020,
@@ -98,18 +119,6 @@ export const PERIODS: Period[] = [
     color: '#20B2AA',
     subPeriods: Array.from({ length: 5 }, (_, i) => ({
       id: `savora_gen${i + 1}`,
-      name_ru: `Поколение ${i + 1}`,
-      generation: i + 1,
-    })),
-  },
-  {
-    id: 'pumbedita',
-    name_ru: 'Ешива Пумбедита',
-    startYear: 650,
-    endYear: 1000,
-    color: '#4169E1',
-    subPeriods: Array.from({ length: 5 }, (_, i) => ({
-      id: `pumbedita_gen${i + 1}`,
       name_ru: `Поколение ${i + 1}`,
       generation: i + 1,
     })),
