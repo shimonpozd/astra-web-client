@@ -516,7 +516,7 @@ async function getProfile(slug: string): Promise<ProfileResponse> {
   return response.json();
 }
 
-async function updateProfile(payload: { slug: string; summary_html?: string | null; facts?: any }): Promise<ProfileResponse> {
+async function updateProfile(payload: { slug: string; summary_html?: string | null; facts?: any; title_en?: string; title_he?: string; title_ru?: string }): Promise<ProfileResponse> {
   const response = await authorizedFetch(`${API_BASE}/profile`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -538,6 +538,16 @@ async function regenerateProfile(slug: string): Promise<ProfileResponse> {
     throw new Error(detail || 'Failed to regenerate profile');
   }
   return response.json();
+}
+
+async function deleteProfile(slug: string): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/profile?slug=${encodeURIComponent(slug)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || 'Failed to delete profile');
+  }
 }
 
 async function listProfiles(params?: { q?: string; unverified?: boolean; limit?: number }): Promise<{ ok: boolean; items: ProfileListItem[] }> {
@@ -1319,6 +1329,7 @@ export const api = {
   getProfile,
   updateProfile,
   regenerateProfile,
+  deleteProfile,
   listProfiles,
   explainTerm,
   getDailyCalendar,

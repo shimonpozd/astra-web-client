@@ -9,6 +9,7 @@ const PersonalityCreate = lazy(() => import('./pages/admin/PersonalityCreate'));
 const PersonalityEdit = lazy(() => import('./pages/admin/PersonalityEdit'));
 const PromptEditor = lazy(() => import('./pages/admin/PromptEditor'));
 const ProfileProgress = lazy(() => import('./pages/ProfileProgress'));
+const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const UserManagementPage = lazy(() => import('./pages/admin/UserManagement'));
 const ProfilesAdminPage = lazy(() => import('./pages/admin/ProfilesAdmin.tsx'));
 import { useTextSelectionListener } from './hooks/useTextSelectionListener';
@@ -111,6 +112,14 @@ function App() {
                       element={
                         <Suspense fallback={null}>
                           <ProfileProgress />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/timeline"
+                      element={
+                        <Suspense fallback={null}>
+                          <TimelinePage />
                         </Suspense>
                       }
                     />

@@ -1,4 +1,4 @@
-import { ChevronDown, LogOut, Settings, TrendingUp, User } from 'lucide-react';
+import { ChevronDown, LogOut, Settings, TrendingUp, User, Milestone } from 'lucide-react';
 
 import {
   DropdownMenu,
@@ -57,6 +57,11 @@ export function UserMenu({ user, levelProgress, logout, navigate }: UserMenuProp
         <DropdownMenuItem onClick={() => navigate('/progress')} className="cursor-pointer">
           <TrendingUp className="w-4 h-4 mr-2" />
           Мой прогресс
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={() => navigate('/timeline')} className="cursor-pointer">
+          <Milestone className="w-4 h-4 mr-2" />
+          Таймлайн
         </DropdownMenuItem>
 
         <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
