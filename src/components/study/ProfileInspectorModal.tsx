@@ -100,7 +100,7 @@ function RenderProfileHtml({ html }: { html?: string | null }) {
   if (!safe) return <div className="text-sm text-muted-foreground">Нет данных.</div>;
   return (
     <div
-      className="prose prose-sm max-w-none leading-relaxed space-y-2 prose-h2:text-lg prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-base prose-h3:mt-3 prose-h3:mb-1 prose-ul:list-disc prose-ul:pl-5 prose-li:my-1 prose-blockquote:border-l-2 prose-blockquote:border-border prose-blockquote:pl-3 prose-blockquote:text-muted-foreground"
+      className="prose prose-sm dark:prose-invert max-w-none leading-relaxed space-y-2 prose-h2:text-lg prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-base prose-h3:mt-3 prose-h3:mb-1 prose-ul:list-disc prose-ul:pl-5 prose-li:my-1 prose-blockquote:border-l-2 prose-blockquote:border-border prose-blockquote:pl-3 prose-blockquote:text-muted-foreground dark:prose-blockquote:text-slate-200"
       dangerouslySetInnerHTML={{ __html: safe }}
     />
   );

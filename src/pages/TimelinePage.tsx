@@ -28,8 +28,10 @@ function applyFilters(people: TimelinePerson[], filters: ReturnType<typeof useTi
     }
     if (filters.dateRange) {
       const range = deriveLifespanRange(person);
-      if (!range) return false;
-      if (range.end < filters.dateRange[0] || range.start > filters.dateRange[1]) return false;
+      if (range) {
+        if (range.end < filters.dateRange[0] || range.start > filters.dateRange[1]) return false;
+      }
+      // если у персоны нет дат — не фильтруем по дате, чтобы не терять карточки без lifespan
     }
     if (query) {
       const haystack = `${person.name_en} ${person.name_ru ?? ''} ${person.name_he}`.toLowerCase();
