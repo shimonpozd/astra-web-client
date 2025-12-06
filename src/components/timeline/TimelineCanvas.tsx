@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Period, TimelinePerson } from '@/types/timeline';
 import { buildTimelineBlocks, PeriodBlock } from '@/utils/layoutEngine';
-import { getPeriodColor } from '@/utils/timelineColors';
+import { getPeriodColor, generateColorSystem } from '@/utils/timelineColors';
+import { useTimelineNavigation } from '@/hooks/useTimelineNavigation';
 import { Minimap } from './Minimap';
+import { PersonCard } from './Timeline';
+import { buildTickMarks } from '@/utils/dateCalculations';
+import { TimelineAxis } from './TimelineAxis';
 
 type LOD = 'low' | 'medium' | 'high';
 
@@ -17,6 +23,14 @@ interface TimelineCanvasProps {
 }
 
 const BASE_PX_PER_YEAR = 3;
+const BAR_TRACK_HEIGHT = 56;
+
+type RenderNode =
+  | { id: string; type: 'period_bg'; x: number; y: number; width: number; height: number; period: Period }
+  | { id: string; type: 'period_label'; x: number; y: number; period: Period }
+  | { id: string; type: 'generation_line'; x1: number; y1: number; x2: number; y2: number; }
+  | { id: string; type: 'generation_label'; x: number; y: number; label: string }
+  | { id: string; type: 'person'; x: number; y: number; width: number; height: number; person: TimelinePerson; period: Period };
 
 export function TimelineCanvas({
   people,
@@ -27,164 +41,456 @@ export function TimelineCanvas({
   onPersonSelect,
   selectedPersonSlug,
 }: TimelineCanvasProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState(1);
-  const [view, setView] = useState<{ start: number; end: number }>({ start: minYear, end: minYear + (maxYear - minYear) * 0.2 });
-  const pxPerYear = BASE_PX_PER_YEAR * zoom;
-  const yearToX = (year: number) => (year - minYear) * pxPerYear;
-  const timelineWidth = (maxYear - minYear) * pxPerYear;
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const pointerRef = useRef<{ active: boolean; lastX: number; lastY: number; lastT: number; vx: number; vy: number }>({
+    active: false,
+    lastX: 0,
+    lastY: 0,
+    lastT: 0,
+    vx: 0,
+    vy: 0,
+  });
   const [lod, setLod] = useState<LOD>('medium');
+  const hasFitted = useRef(false);
+  const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
+
+  const { transform, panBy, zoomAt, applyViewport, flyTo } = useTimelineNavigation({
+    minScale: 0.05,
+    maxScale: 5,
+  });
+
+  const yearToX = useCallback(
+    (year: number) => (year - minYear) * BASE_PX_PER_YEAR,
+    [minYear],
+  );
+  const timelineWidth = (maxYear - minYear) * BASE_PX_PER_YEAR;
 
   const blocks: PeriodBlock[] = useMemo(
     () => buildTimelineBlocks({ people, periods, yearToX }),
     [people, periods, yearToX],
   );
 
-  useEffect(() => {
-    const s = zoom;
-    setLod(s < 0.8 ? 'low' : s < 2 ? 'medium' : 'high');
-  }, [zoom]);
+  const nodes = useMemo<RenderNode[]>(() => {
+    const acc: RenderNode[] = [];
+    blocks.forEach((block) => {
+      const Y_period = block.y;
 
-  // focus scroll to specific year
-  useEffect(() => {
-    if (focusYear == null) return;
-    const node = scrollRef.current;
-    if (!node) return;
-    const targetLeft = yearToX(focusYear) - node.clientWidth / 2;
-    node.scrollTo({ left: targetLeft, behavior: 'smooth' });
-  }, [focusYear, yearToX]);
+      // 1. Add Period Background and Label
+      acc.push({
+        id: `${block.id}-bg`,
+        type: 'period_bg',
+        x: block.x,
+        y: Y_period,
+        width: block.width,
+        height: block.height,
+        period: block.period,
+      });
+      acc.push({
+        id: `${block.id}-label`,
+        type: 'period_label',
+        x: block.x + 12,
+        y: Y_period + 10,
+        period: block.period,
+      });
 
-  // sync view window for minimap
+      block.rows.forEach((row) => {
+        const Y_row = row.y; // y-offset of the row within the block
+
+        row.groups.forEach((group) => {
+          const Y_group = group.y; // y-offset of the group within the row
+
+          // 2. Add Generation Lines and Labels
+          const groupAbsoluteY = Y_period + Y_row + Y_group;
+          acc.push({
+            id: `${group.id}-line`,
+            type: 'generation_line',
+            x1: block.x,
+            y1: groupAbsoluteY,
+            x2: block.x + block.width,
+            y2: groupAbsoluteY,
+          });
+          acc.push({
+            id: `${group.id}-label`,
+            type: 'generation_label',
+            x: block.x + 12,
+            y: groupAbsoluteY + 15,
+            label: group.label,
+          });
+          
+          group.personsLayout.forEach((pl) => {
+            const person = group.people.find((p) => p.slug === pl.slug);
+            if (!person) return;
+            
+            const Y_local = pl.y; // y-offset of the person within the group
+
+            // 3. Add Person card with absolute Y
+            acc.push({
+              id: pl.slug,
+              type: 'person',
+              x: block.x + pl.x,
+              y: groupAbsoluteY + Y_local,
+              width: pl.width,
+              height: BAR_TRACK_HEIGHT,
+              person,
+              period: block.period,
+            });
+          });
+        });
+      });
+    });
+    return acc;
+  }, [blocks]);
+
+  const contentHeight = useMemo(
+    () => (blocks.length ? Math.max(...blocks.map((b) => b.y + b.height)) + 240 : 800),
+    [blocks],
+  );
+
+  const ticks = useMemo(() => {
+    const span = Math.abs(maxYear - minYear);
+    const step = span > 2000 ? 200 : span > 1200 ? 100 : 50;
+    return buildTickMarks(minYear, maxYear, step);
+  }, [maxYear, minYear]);
+
+  const periodBgNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'period_bg' }> => n.type === 'period_bg'), [nodes]);
+  const periodLabelNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'period_label' }> => n.type === 'period_label'), [nodes]);
+  const generationLineNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'generation_line' }> => n.type === 'generation_line'), [nodes]);
+  const generationLabelNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'generation_label' }> => n.type === 'generation_label'), [nodes]);
+  const personNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'person' }> => n.type === 'person'), [nodes]);
+
+  const viewWindow = useMemo(() => {
+    const viewportWidth = viewportRef.current?.clientWidth ?? 1;
+    const start = minYear + (-transform.x / Math.max(0.0001, transform.scale)) / BASE_PX_PER_YEAR;
+    const end = start + (viewportWidth / Math.max(0.0001, transform.scale)) / BASE_PX_PER_YEAR;
+    return { start, end };
+  }, [minYear, transform.x, transform.scale]);
+
+  const personLookup = useMemo(() => {
+    const map = new Map<
+      string,
+      { person: TimelinePerson; x: number; y: number; width: number; height: number; period: Period }
+    >();
+    nodes.forEach((n) => {
+      if (n.type !== 'person') return;
+      map.set(n.person.slug, {
+        person: n.person,
+        x: n.x,
+        y: n.y,
+        width: n.width,
+        height: n.height,
+        period: n.period,
+      });
+    });
+    return map;
+  }, [nodes]);
+
   useEffect(() => {
-    const node = scrollRef.current;
+    const s = transform.scale;
+    setLod(s < 0.7 ? 'low' : s < 1.6 ? 'medium' : 'high');
+  }, [transform.scale]);
+
+  // Fit initial view once content sizes known
+  useEffect(() => {
+    if (hasFitted.current) return;
+    const node = viewportRef.current;
     if (!node) return;
-    const handler = () => {
-      const start = minYear + node.scrollLeft / pxPerYear;
-      const end = start + node.clientWidth / pxPerYear;
-      setView({ start, end });
+    if (!personNodes.length && !periodBgNodes.length) return;
+    const scaleX = node.clientWidth / Math.max(1, timelineWidth + 200);
+    const scaleY = node.clientHeight / Math.max(1, contentHeight + 200);
+    const desiredScale = Math.min(5, Math.max(0.1, Math.min(scaleX, scaleY)));
+    const centeredX = (node.clientWidth - timelineWidth * desiredScale) / 2;
+    const centeredY = (node.clientHeight - contentHeight * desiredScale) / 2;
+    flyTo(centeredX, centeredY, desiredScale);
+    hasFitted.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timelineWidth, contentHeight, personNodes.length, periodBgNodes.length]);
+
+  useEffect(() => {
+    if (focusYear == null || !viewportRef.current) return;
+    const viewportWidth = viewportRef.current.clientWidth;
+    const targetX = -yearToX(focusYear) * transform.scale + viewportWidth / 2;
+    flyTo(targetX, transform.y, transform.scale);
+  }, [focusYear, flyTo, transform.scale, transform.y, yearToX]);
+
+  const worldToScreen = useCallback(
+    (point: { x: number; y: number }) => ({
+      x: point.x * transform.scale + transform.x,
+      y: point.y * transform.scale + transform.y,
+    }),
+    [transform],
+  );
+
+  const yearToScreenX = useCallback(
+    (year: number) => transform.x + (year - minYear) * BASE_PX_PER_YEAR * transform.scale,
+    [minYear, transform.x, transform.scale],
+  );
+
+  const fitToScreen = useCallback(() => {
+    const node = viewportRef.current;
+    if (!node) return;
+    const desiredScale = Math.min(5, Math.max(0.2, node.clientWidth / (timelineWidth + 240)));
+    const centeredX = (node.clientWidth - timelineWidth * desiredScale) / 2;
+    flyTo(centeredX, transform.y, desiredScale);
+  }, [flyTo, timelineWidth, transform.y]);
+
+  const focusToMid = useCallback(() => {
+    const midYear = (minYear + maxYear) / 2;
+    const node = viewportRef.current;
+    if (!node) return;
+    const targetX = -yearToX(midYear) * transform.scale + node.clientWidth / 2;
+    flyTo(targetX, transform.y, transform.scale);
+  }, [flyTo, maxYear, minYear, transform.scale, transform.y, yearToX]);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button === 2) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-interactive="true"]')) return;
+    pointerRef.current = {
+      active: true,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      lastT: performance.now(),
+      vx: 0,
+      vy: 0,
     };
-    handler();
-    node.addEventListener('scroll', handler);
-    return () => node.removeEventListener('scroll', handler);
-  }, [minYear, pxPerYear]);
-
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (!(e.ctrlKey || e.metaKey)) return;
-    e.preventDefault();
-    const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom((prev) => Math.min(4, Math.max(0.5, prev * factor)));
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   };
 
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointerRef.current.active) return;
+    const now = performance.now();
+    const dx = e.clientX - pointerRef.current.lastX;
+    const dy = e.clientY - pointerRef.current.lastY;
+    const dt = Math.max(16, now - pointerRef.current.lastT);
+    pointerRef.current.vx = (dx / dt) * 16;
+    pointerRef.current.vy = (dy / dt) * 16;
+    pointerRef.current.lastX = e.clientX;
+    pointerRef.current.lastY = e.clientY;
+    pointerRef.current.lastT = now;
+    panBy(dx, dy);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointerRef.current.active) return;
+    panBy(0, 0, { vx: pointerRef.current.vx, vy: pointerRef.current.vy });
+    pointerRef.current.active = false;
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const factor = Math.exp(-e.deltaY * 0.0014);
+    zoomAt(point, factor);
+  };
+
+  const activeDetailSlug = hoveredSlug ?? selectedPersonSlug ?? null;
+  const activeDetail = activeDetailSlug ? personLookup.get(activeDetailSlug) : undefined;
+  const activeDetailScreen = activeDetail
+    ? worldToScreen({ x: activeDetail.x + activeDetail.width / 2, y: activeDetail.y })
+    : null;
+
   return (
-    <div className="relative h-full w-full overflow-hidden bg-slate-50 dark:bg-slate-900/80">
+    <div className="relative h-full w-full overflow-hidden bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
+      <div className="absolute left-4 top-4 z-30 flex items-center gap-2 rounded-full border bg-white/80 px-3 py-2 shadow-lg backdrop-blur-md dark:bg-slate-900/80">
+        <button
+          type="button"
+          className="text-xs font-semibold px-2 py-1 rounded-md border border-border/60 hover:bg-muted"
+          onClick={fitToScreen}
+        >
+          Fit to screen
+        </button>
+        <button
+          type="button"
+          className="text-xs font-semibold px-2 py-1 rounded-md border border-border/60 hover:bg-muted"
+          onClick={focusToMid}
+        >
+          Focus to date
+        </button>
+      </div>
+
       <div
-        ref={scrollRef}
-        className="absolute inset-0 overflow-x-auto overflow-y-auto"
+        ref={viewportRef}
+        className="absolute inset-0 cursor-grab select-none active:cursor-grabbing"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
         onWheel={handleWheel}
+        style={{ touchAction: 'none' }}
       >
+        <svg
+          width="100%"
+          height="100%"
+          className="absolute top-0 left-0"
+        >
+          <g
+            id="timeline-content-group"
+            transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}
+          >
+            {/* Period backgrounds */}
+            {periodBgNodes.map((n) => {
+              const color = getPeriodColor(periods, n.period.id);
+              return (
+                <g key={n.id} transform={`translate(${n.x}, ${n.y})`}>
+                  <rect
+                    x={-10}
+                    y={-10}
+                    width={n.width + 20}
+                    height={n.height + 20}
+                    rx={16}
+                    fill="white"
+                    opacity={0.85}
+                    stroke="rgba(0,0,0,0.04)"
+                    style={{ filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.08))' }}
+                  />
+                  <rect
+                    x={0}
+                    y={0}
+                    width={n.width}
+                    height={n.height}
+                    rx={14}
+                    fill="rgba(255,255,255,0.78)"
+                    stroke={color}
+                    strokeWidth={2}
+                  />
+                </g>
+              );
+            })}
+
+            {/* Generation lines */}
+            {generationLineNodes.map((n) => (
+              <line
+                key={n.id}
+                x1={n.x1}
+                y1={n.y1}
+                x2={n.x2}
+                y2={n.y2}
+                stroke="#e2e8f0"
+                strokeWidth={1}
+                strokeDasharray="4 4"
+              />
+            ))}
+            
+            {/* Period Labels */}
+            {periodLabelNodes.map((n) => {
+              const color = getPeriodColor(periods, n.period.id);
+              return (
+                <g key={n.id} transform={`translate(${n.x}, ${n.y})`}>
+                  <text x={0} y={14} className="text-sm font-bold" fill={color}>
+                    {n.period.name_ru}
+                  </text>
+                  <text x={0} y={30} className="text-[11px] font-semibold" fill="rgba(0,0,0,0.55)">
+                    {n.period.startYear} — {n.period.endYear}
+                  </text>
+                </g>
+              );
+            })}
+            
+            {/* Generation Labels */}
+            {generationLabelNodes.map((n) => (
+              <text key={n.id} x={n.x} y={n.y} className="text-xs font-semibold text-slate-500">
+                {n.label}
+              </text>
+            ))}
+
+            {/* People */}
+            {personNodes.map((n) => {
+              const colors = generateColorSystem(n.person.period);
+              const isSelected = selectedPersonSlug === n.person.slug;
+              const isDimmed = Boolean(hoveredSlug && hoveredSlug !== n.person.slug);
+              const displayName = n.person.name_ru || n.person.name_en;
+              const lifespan = n.person.lifespan || `${n.person.birthYear ?? ''}–${n.person.deathYear ?? ''}`;
+
+              return (
+                <g 
+                  key={n.id} 
+                  transform={`translate(${n.x}, ${n.y})`}
+                  className="cursor-pointer"
+                  onClick={() => onPersonSelect(n.person)}
+                  onMouseEnter={() => setHoveredSlug(n.person.slug)}
+                  onMouseLeave={() => setHoveredSlug(null)}
+                >
+                  <rect
+                    x={0}
+                    y={0}
+                    width={n.width}
+                    height={n.height - 6}
+                    rx={8}
+                    fill={colors.personBar.normal}
+                    stroke={isSelected ? colors.periodBase : 'transparent'}
+                    strokeWidth={2}
+                    opacity={isDimmed ? 0.3 : 1}
+                  />
+                  {lod !== 'low' && n.width > 70 && (() => {
+                      const age = (n.person.deathYear && n.person.birthYear) ? `(~${n.person.deathYear - n.person.birthYear} лет)` : '';
+                      const lifespan = n.person.lifespan || `${n.person.birthYear ?? ''}–${n.person.deathYear ?? ''}`;
+
+                      return (
+                        <text 
+                          x={12}
+                          y={14}
+                          className="text-xs select-none pointer-events-none"
+                          fill={colors.text.onPeriod}
+                          opacity={isDimmed ? 0.35 : 0.95}
+                        >
+                          <tspan x="12" dy="0" className="font-semibold">{n.person.name_ru || n.person.name_en}</tspan>
+                          <tspan x="12" dy="1.2em" className="font-semibold">{n.person.name_he}</tspan>
+                          <tspan x="12" dy="1.2em" className="text-[10px]">{lifespan} {age}</tspan>
+                        </text>
+                      );
+                  })()}
+                </g>
+              );
+            })}
+          </g>
+
+        </svg>
+      </div>
+
+      <svg
+        className="pointer-events-none absolute bottom-0 left-0 right-0"
+        height={80}
+        width="100%"
+      >
+        <TimelineAxis ticks={ticks} yearToX={yearToScreenX} height={40} />
+      </svg>
+
+      {activeDetail && lod === 'high' && activeDetailScreen && (
         <div
-          className="relative"
+          className={cn(
+            'pointer-events-auto absolute z-40 transition-opacity duration-150',
+            hoveredSlug === activeDetail.person.slug ? 'opacity-100' : 'opacity-90',
+          )}
           style={{
-            width: timelineWidth,
-            height: (blocks.length ? Math.max(...blocks.map((b) => b.y + b.height)) : 400) + 200,
+            left: activeDetailScreen.x,
+            top: activeDetailScreen.y - 140,
+            transform: 'translate(-40%, -10%)',
           }}
         >
-          {blocks.map((block) => {
-            const color = getPeriodColor(periods, block.period.id);
-            const showPeople = lod !== 'low';
-            return (
-              <div
-                key={block.id}
-                className="absolute rounded-xl border border-border/70 bg-white/70 p-3 shadow-sm backdrop-blur-sm dark:bg-slate-900/70"
-                style={{ left: block.x, top: block.y, width: block.width, height: block.height }}
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="text-sm font-bold" style={{ color }}>
-                    {block.period.name_ru}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {block.period.startYear} — {block.period.endYear}
-                  </div>
-                </div>
-                {lod === 'low' ? null : (
-                  <div className="flex flex-col gap-2">
-                    {block.rows.map((row) => {
-                      let accTop = 0;
-                      return (
-                        <div key={row.id} className="relative" style={{ minHeight: row.height }}>
-                          <div className="text-[12px] font-semibold text-slate-600 dark:text-slate-200 mb-1">{row.label}</div>
-                          {row.groups.map((group) => {
-                            const top = accTop;
-                            accTop += group.height + 12;
-                            const hasLayouts = Array.isArray(group.personsLayout) && group.personsLayout.length > 0;
-                            return (
-                              <div
-                                key={group.id}
-                                className="absolute inset-x-0 border border-border/50 rounded-md bg-background/60 p-1"
-                                style={{ top, minHeight: group.height }}
-                              >
-                                <div className="text-[11px] font-semibold text-muted-foreground px-1">{group.label}</div>
-                                {showPeople && hasLayouts && (
-                                  <div className="relative" style={{ height: group.height }}>
-                                    {group.personsLayout!.map((pl) => {
-                                      const person = group.people.find((p) => p.slug === pl.slug);
-                                      if (!person) return null;
-                                      return (
-                                        <button
-                                          key={person.slug}
-                                          className="absolute rounded-md border bg-white/80 px-2 py-1 text-left shadow-sm text-[12px] leading-tight hover:-translate-y-0.5 hover:shadow-md transition"
-                                          style={{ left: pl.x, top: pl.y, width: Math.max(pl.width, 110) }}
-                                          onClick={() => onPersonSelect(person)}
-                                        >
-                                          <div className="font-semibold line-clamp-2">{person.name_ru || person.name_en || person.slug}</div>
-                                          <div className="text-[11px] text-muted-foreground">{person.lifespan || `${person.birthYear ?? ''}—${person.deathYear ?? ''}`}</div>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                                {showPeople && !hasLayouts && (
-                                  <div className="flex flex-wrap gap-2 p-1">
-                                    {group.people.map((person) => (
-                                      <button
-                                        key={person.slug}
-                                        className="rounded-md border bg-white/80 px-2 py-1 text-left shadow-sm text-[12px] leading-tight hover:-translate-y-0.5 hover:shadow-md transition min-w-[120px]"
-                                        onClick={() => onPersonSelect(person)}
-                                      >
-                                        <div className="font-semibold line-clamp-2">{person.name_ru || person.name_en || person.slug}</div>
-                                        <div className="text-[11px] text-muted-foreground">{person.lifespan || `${person.birthYear ?? ''}—${person.deathYear ?? ''}`}</div>
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          <PersonCard
+            person={activeDetail.person}
+            layout={{ x: 0, y: 0, width: 160, height: 100, tier: 0, slug: activeDetail.person.slug }}
+            onSelect={onPersonSelect}
+            isSelected={selectedPersonSlug === activeDetail.person.slug}
+            periodColor={getPeriodColor(periods, activeDetail.period.id)}
+            period={activeDetail.period}
+          />
         </div>
-      </div>
+      )}
 
       <Minimap
         people={people}
         minYear={minYear}
         maxYear={maxYear}
-        viewStart={view.start}
-        viewEnd={view.end}
+        viewStart={viewWindow.start}
+        viewEnd={viewWindow.end}
         onBrush={(start, end) => {
-          const node = scrollRef.current;
+          const node = viewportRef.current;
           if (!node) return;
-          const viewport = node.clientWidth;
-          const desiredScale = Math.min(4, Math.max(0.5, viewport / ((end - start) * BASE_PX_PER_YEAR)));
-          setZoom(desiredScale);
-          const desiredLeft = (start - minYear) * BASE_PX_PER_YEAR * desiredScale;
-          node.scrollTo({ left: desiredLeft, behavior: 'smooth' });
+          applyViewport(start, end, minYear, BASE_PX_PER_YEAR, node.clientWidth);
         }}
       />
     </div>

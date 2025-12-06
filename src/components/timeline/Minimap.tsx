@@ -58,8 +58,13 @@ export function Minimap({ people, minYear, maxYear, viewStart, viewEnd, onBrush 
   };
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-card/90 backdrop-blur-md border border-border/60 rounded-xl shadow-xl px-3 py-2">
-      <div className="text-[11px] text-muted-foreground mb-1">Навигатор</div>
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-card/95 backdrop-blur-md border-2 border-border/70 rounded-xl shadow-2xl px-4 py-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs font-semibold text-foreground">Навигатор</div>
+        <div className="text-[10px] text-muted-foreground">
+          {Math.round(viewStart)} — {Math.round(viewEnd)}
+        </div>
+      </div>
       <svg
         ref={svgRef}
         width={width}
@@ -69,44 +74,75 @@ export function Minimap({ people, minYear, maxYear, viewStart, viewEnd, onBrush 
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
+        {/* Градиент для плотности */}
+        <defs>
+          <linearGradient id="densityGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#1e40af" stopOpacity="0.3" />
+          </linearGradient>
+        </defs>
+        
+        {/* Плотность персон */}
         {bins.map((v, i) => (
           <rect
             key={i}
             x={(i / bins.length) * width}
-            y={height - v * (height - 20)}
+            y={height - v * (height - 24)}
             width={width / bins.length + 1}
-            height={v * (height - 20)}
-            fill="#64748b"
-            opacity={0.35}
+            height={v * (height - 24)}
+            fill="url(#densityGradient)"
+            opacity={0.5}
+            className="transition-opacity hover:opacity-70"
           />
         ))}
+        
+        {/* Временная шкала */}
+        <line
+          x1={0}
+          y1={height - 2}
+          x2={width}
+          y2={height - 2}
+          stroke="hsl(var(--border))"
+          strokeWidth={1}
+          opacity={0.5}
+        />
+        
+        {/* Brush (окно просмотра) */}
         <rect
           x={brushX}
-          y={0}
+          y={2}
           width={Math.max(12, brushW)}
-          height={height}
-          fill="rgba(56,189,248,0.12)"
-          stroke="#0ea5e9"
-          strokeWidth={1.4}
+          height={height - 4}
+          fill="rgba(59, 130, 246, 0.15)"
+          stroke="#3b82f6"
+          strokeWidth={2}
           rx={4}
+          className="cursor-move transition-all"
           onMouseDown={() => setDragging(true)}
         />
+        
         {/* Resize handles */}
         <rect
-          x={brushX - 4}
-          y={0}
-          width={8}
-          height={height}
-          fill="transparent"
+          x={brushX - 3}
+          y={2}
+          width={6}
+          height={height - 4}
+          fill="#3b82f6"
+          opacity={0.6}
+          className="cursor-ew-resize hover:opacity-100"
           onMouseDown={() => setResizing('left')}
+          rx={2}
         />
         <rect
-          x={brushX + brushW - 4}
-          y={0}
-          width={8}
-          height={height}
-          fill="transparent"
+          x={brushX + brushW - 3}
+          y={2}
+          width={6}
+          height={height - 4}
+          fill="#3b82f6"
+          opacity={0.6}
+          className="cursor-ew-resize hover:opacity-100"
           onMouseDown={() => setResizing('right')}
+          rx={2}
         />
       </svg>
     </div>

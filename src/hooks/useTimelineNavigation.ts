@@ -65,8 +65,8 @@ export function useTimelineNavigation(options: NavigationOptions = {}): Navigati
       setTransform((prev) => {
         const nextScale = clampScale(prev.scale * factor);
         const scaleDelta = nextScale / prev.scale;
-        const nx = point.x - (point.x - prev.x) * scaleDelta;
-        const ny = point.y - (point.y - prev.y) * scaleDelta;
+        const nx = prev.x - (point.x - prev.x) * (scaleDelta - 1);
+        const ny = prev.y - (point.y - prev.y) * (scaleDelta - 1);
         return clampPos(nx, ny, nextScale);
       });
     },

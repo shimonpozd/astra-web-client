@@ -97,22 +97,10 @@ export default function TimelinePage() {
 
   const filteredPeople = useMemo(() => applyFilters(people, filters), [people, filters]);
 
-  const { minYear, maxYear } = useMemo(
-    () => getTimelineBounds(people, periods, 40),
-    [people, periods],
-  );
-
-  const stats = useMemo(() => {
-    const byPeriod: Record<string, number> = {};
-    filteredPeople.forEach((p) => {
-      byPeriod[p.period] = (byPeriod[p.period] || 0) + 1;
-    });
-    return { total: filteredPeople.length, byPeriod };
-  }, [filteredPeople]);
   const periodMin = useMemo(() => Math.min(...periods.map((p) => p.startYear)), [periods]);
   const periodMax = useMemo(() => Math.max(...periods.map((p) => p.endYear)), [periods]);
-  const timelineMinYear = Math.min(periodMin, minYear);
-  const timelineMaxYear = Math.max(periodMax, maxYear);
+  const timelineMinYear = periodMin;
+  const timelineMaxYear = periodMax;
 
   const filtersKey = useMemo(
     () =>
