@@ -22,6 +22,15 @@ const BASE_PX_PER_YEAR = 3;
 const GROUP_HEADER = 24; // Обновлено для соответствия layoutEngine
 const PERIOD_HEADER = 40;
 
+function groupBg(id: string): string {
+  if (id.startsWith('preflood_cain')) return 'bg-rose-50/80 dark:bg-rose-900/30';
+  if (id.startsWith('preflood_seth')) return 'bg-emerald-50/80 dark:bg-emerald-900/30';
+  if (id.startsWith('flood_line_shem')) return 'bg-teal-50/80 dark:bg-teal-900/30';
+  if (id.startsWith('flood_line_ham')) return 'bg-amber-50/80 dark:bg-amber-900/30';
+  if (id.startsWith('flood_line_japheth')) return 'bg-sky-50/80 dark:bg-sky-900/30';
+  return 'bg-muted/30 dark:bg-muted/20';
+}
+
 export function PersonCard({
   person,
   layout,
@@ -309,7 +318,7 @@ export function Timeline({
                                 const node = (
                                   <div
                                     key={group.id}
-                                    className="absolute border border-border/40 rounded-lg bg-muted/30 dark:bg-muted/20 p-2 w-full backdrop-blur-sm overflow-hidden"
+                                    className={`absolute border border-border/40 rounded-lg p-2 w-full backdrop-blur-sm overflow-hidden ${groupBg(group.id)}`}
                                     style={{ top: acc.accTop, minHeight: group.height }}
                                   >
                                     {group.label && (
