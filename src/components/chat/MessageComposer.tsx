@@ -536,11 +536,11 @@ export default function MessageComposer({
     <div className="panel-padding-lg panel-inner">
       <div className="max-w-2xl mx-auto w-full">
         <div
-          className="relative overflow-hidden rounded-3xl bg-[#2C2621]/95 backdrop-blur-2xl border border-[#91794b]/60 shadow-2xl shadow-black/60 transition-all hover:border-[#91794b] focus-within:border-[#91794b] focus-within:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.7)]"
+          className="relative overflow-hidden rounded-3xl bg-card/95 backdrop-blur-2xl border border-border/60 shadow-2xl shadow-black/30 transition-all hover:border-primary/60 focus-within:border-primary/70 focus-within:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)]"
           onDrop={onDrop}
           onDragOver={(e) => e.preventDefault()}
         >
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-600/50 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent pointer-events-none" />
           {panelActions && (focusActions.length > 0 || primaryLeft || primaryRight) && (
             <div className="px-3 pt-2 animate-in fade-in slide-in-from-top-1 duration-300">
               <div className="flex flex-wrap gap-2 px-1 justify-center">

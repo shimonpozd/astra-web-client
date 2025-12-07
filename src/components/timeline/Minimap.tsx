@@ -77,8 +77,8 @@ export function Minimap({ people, minYear, maxYear, viewStart, viewEnd, onBrush 
         {/* Градиент для плотности */}
         <defs>
           <linearGradient id="densityGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#1e40af" stopOpacity="0.3" />
+            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.25" />
           </linearGradient>
         </defs>
         
@@ -114,7 +114,7 @@ export function Minimap({ people, minYear, maxYear, viewStart, viewEnd, onBrush 
           width={Math.max(12, brushW)}
           height={height - 4}
           fill="rgba(59, 130, 246, 0.15)"
-          stroke="#3b82f6"
+          stroke="hsl(var(--primary))"
           strokeWidth={2}
           rx={4}
           className="cursor-move transition-all"
@@ -127,7 +127,7 @@ export function Minimap({ people, minYear, maxYear, viewStart, viewEnd, onBrush 
           y={2}
           width={6}
           height={height - 4}
-          fill="#3b82f6"
+          fill="hsl(var(--primary))"
           opacity={0.6}
           className="cursor-ew-resize hover:opacity-100"
           onMouseDown={() => setResizing('left')}
@@ -138,7 +138,7 @@ export function Minimap({ people, minYear, maxYear, viewStart, viewEnd, onBrush 
           y={2}
           width={6}
           height={height - 4}
-          fill="#3b82f6"
+          fill="hsl(var(--primary))"
           opacity={0.6}
           className="cursor-ew-resize hover:opacity-100"
           onMouseDown={() => setResizing('right')}

@@ -302,8 +302,9 @@ export function TimelineCanvas({
     : null;
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
-      <div className="absolute left-4 top-4 z-30 flex items-center gap-2 rounded-full border bg-white/80 px-3 py-2 shadow-lg backdrop-blur-md dark:bg-slate-900/80">
+    <div className="relative h-full w-full overflow-hidden bg-background text-foreground">
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-35 blur-2xl [background:radial-gradient(circle_at_25%_20%,hsl(var(--primary))/18,transparent_45%),radial-gradient(circle_at_80%_10%,hsl(var(--muted-foreground))/14,transparent_40%),radial-gradient(circle_at_40%_70%,hsl(var(--accent))/12,transparent_38%)]" />
+      <div className="absolute left-4 top-4 z-30 flex items-center gap-2 rounded-full border border-border/70 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-md text-foreground">
         <button
           type="button"
           className="text-xs font-semibold px-2 py-1 rounded-md border border-border/60 hover:bg-muted"
@@ -368,9 +369,10 @@ export function TimelineCanvas({
                 y1={n.y1}
                 x2={n.x2}
                 y2={n.y2}
-                stroke="#e2e8f0"
+                stroke="hsl(var(--border))"
                 strokeWidth={1}
                 strokeDasharray="4 4"
+                strokeOpacity={0.7}
               />
             ))}
             
@@ -382,7 +384,12 @@ export function TimelineCanvas({
                   <text x={0} y={14} className="text-sm font-bold" fill={color}>
                     {n.period.name_ru}
                   </text>
-                  <text x={0} y={30} className="text-[11px] font-semibold" fill="rgba(0,0,0,0.55)">
+                  <text
+                    x={0}
+                    y={30}
+                    className="text-[11px] font-semibold text-muted-foreground"
+                    fill="currentColor"
+                  >
                     {n.period.startYear} — {n.period.endYear}
                   </text>
                 </g>
@@ -395,7 +402,8 @@ export function TimelineCanvas({
                 key={n.id}
                 x={n.x}
                 y={n.y}
-                className="text-xs font-semibold text-slate-500"
+                className="text-xs font-semibold text-muted-foreground"
+                fill="currentColor"
                 opacity={n.periodId === 'torah' && n.label.toLowerCase().includes('поколение') ? 0 : 1}
               >
                 {n.label}

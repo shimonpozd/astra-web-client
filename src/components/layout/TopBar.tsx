@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { Milestone } from 'lucide-react';
+
 import { ThemeToggle } from '../ThemeToggle';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -8,6 +10,7 @@ import { useGamification } from '../../contexts/GamificationContext';
 import { LayoutSelector } from './LayoutSelector';
 import { LevelProgressBar } from './LevelProgressBar';
 import { UserMenu } from './UserMenu';
+import { Button } from '../ui/button';
 
 const BASE_LEVEL_XP = 300;
 const LEVEL_GROWTH = 1.18;
@@ -59,6 +62,16 @@ const TopBar: React.FC = () => {
         <h1 className="text-lg font-semibold tracking-tight">Astra</h1>
         <LayoutSelector mode={mode} setMode={setMode} />
         <ThemeToggle />
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={() => navigate('/timeline')}
+          className="gap-2 font-semibold shadow-sm"
+        >
+          <Milestone className="w-4 h-4" />
+          Таймлайн
+        </Button>
       </div>
       <div className="flex-1 flex justify-center min-w-0">
         <LevelProgressBar
