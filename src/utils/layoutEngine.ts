@@ -325,6 +325,46 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
           groupCursorY += group.height + GROUP_GAP;
         });
 
+    } else if (period.id === 'shoftim') {
+        // Шофтим: один общий трек, порядок задаётся generation как порядковый номер, но без отдельных групп
+        const sorted = [...periodPeople].sort((a, b) => (resolveGeneration(a, period) ?? 0) - (resolveGeneration(b, period) ?? 0));
+        const group = createGroupLayout(`${period.id}-all`, 'Шофтим', sorted, groupCursorY, period, yearToX, periodWidth);
+        groups.push(group);
+        groupCursorY += group.height + GROUP_GAP;
+
+    } else if (period.id === 'rishonim') {
+        const regionLabels: Record<string, string> = {
+          germany: 'Германия',
+          france: 'Франция',
+          england: 'Англия',
+          provence: 'Прованс',
+          sefarad: 'Сфарад',
+          italy: 'Италия',
+          north_africa: 'Северная Африка',
+          yemen: 'Йемен',
+          egypt: 'Египет',
+          other: 'Прочие',
+        };
+        const buckets: Record<string, TimelinePerson[]> = {};
+        Object.keys(regionLabels).forEach((k) => { buckets[k] = []; });
+        periodPeople.forEach((p) => {
+          const key = (p.region as string) || 'other';
+          if (!buckets[key]) buckets[key] = [];
+          buckets[key].push(p);
+        });
+        Object.entries(regionLabels).forEach(([key, label]) => {
+          const list = buckets[key] || [];
+          if (!list.length) return;
+          const group = createGroupLayout(`${period.id}-${key}`, label, list, groupCursorY, period, yearToX, periodWidth);
+          groups.push(group);
+          groupCursorY += group.height + GROUP_GAP;
+        });
+
+    } else if (period.id === 'achronim') {
+        const group = createGroupLayout(`${period.id}-all`, 'Ахроним', periodPeople, groupCursorY, period, yearToX, periodWidth);
+        groups.push(group);
+        groupCursorY += group.height + GROUP_GAP;
+
     } else {
         const peopleByGeneration: Record<string, TimelinePerson[]> = {};
         periodPeople.forEach(p => {

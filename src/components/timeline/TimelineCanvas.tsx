@@ -101,7 +101,7 @@ export function TimelineCanvas({
 
           // 2. Add Generation Lines and Labels (кроме периода Торы — там оставляем только подпись ветви)
           const groupAbsoluteY = Y_period + Y_row + Y_group;
-          if (block.period.id !== 'torah') {
+          if (block.period.id !== 'torah' && block.period.id !== 'shoftim') {
             acc.push({
               id: `${group.id}-line`,
               type: 'generation_line',
@@ -411,7 +411,6 @@ export function TimelineCanvas({
               const safeId = n.id.replace(/[^a-zA-Z0-9-_]/g, '_');
               const gradId = `fuzzy-${safeId}`;
               const pillGradId = `pill-${safeId}`;
-              const clipId = `clip-${safeId}`;
               const patternId = `pat-${safeId}`;
               const wrapName = (name: string, maxChars: number) => {
                 const words = name.split(' ');
@@ -432,6 +431,10 @@ export function TimelineCanvas({
                   const rest = lines.slice(1).join(' ');
                   const truncated = rest.length > maxChars ? rest.slice(0, maxChars - 1) + '…' : rest;
                   return [first, truncated];
+                }
+                if (lines.length === 1 && lines[0].length > maxChars) {
+                  // одиночное длинное слово — обрежем с многоточием
+                  return [lines[0].slice(0, maxChars - 1) + '…'];
                 }
                 return lines;
               };
@@ -469,9 +472,6 @@ export function TimelineCanvas({
                       <stop offset="50%" stopColor="white" stopOpacity="0.08" />
                       <stop offset="100%" stopColor="white" stopOpacity="0" />
                     </linearGradient>
-                    <clipPath id={clipId}>
-                      <rect x={0} y={0} width={n.width} height={n.height - 6} rx={14} ry={14} />
-                    </clipPath>
                     <pattern id={patternId} patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
                       <line x1="0" y1="0" x2="0" y2="6" stroke={colors.personBar.normal} strokeWidth="1" strokeOpacity="0.18" />
                     </pattern>
@@ -530,7 +530,7 @@ export function TimelineCanvas({
                     />
                   )}
                   {lod !== 'low' && n.width > 30 && (
-                    <g clipPath={`url(#${clipId})`}>
+                    <>
                       {nameLines.map((line, idx) => {
                         const lineY = (n.height - 6) / 2 - ((nameLines.length - 1) * 10) / 2 + idx * 12;
                         return (
@@ -562,7 +562,7 @@ export function TimelineCanvas({
                           </g>
                         );
                       })}
-                    </g>
+                    </>
                   )}
                 </g>
               );
