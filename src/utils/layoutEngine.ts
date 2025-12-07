@@ -18,6 +18,7 @@ export interface GroupLayout {
   personsLayout: PersonLayout[];
   height: number;
   y: number;
+  xOffset?: number;
 }
 
 export interface RowLayout {
@@ -59,6 +60,10 @@ const MIN_BAR_WIDTH = 120;
 const ROW_GAP = 28;
 const CARD_PADDING_X = 12;
 const TORAH_STEP_PX = 150;
+const TORAH_COLUMN_WIDTH = TORAH_STEP_PX * 10; // фиксированная ширина колонки внутри Торы
+// Для Шофтим держим компактный шаг: поколение идёт в фикcированном X-шаге, чтобы весь период не растягивался
+const SHOFTIM_STEP_PX = 60;
+const SHOFTIM_BAR_WIDTH = 80;
 
 function resolveGeneration(person: TimelinePerson, period?: Period): number | undefined {
   if (person.generation) return person.generation;
@@ -113,11 +118,19 @@ function buildBinPackedLayouts(
   yearToX: (year: number) => number,
   xOffset = 0,
   periodWidth: number,
+  xShift = 0,
 ): { layouts: PersonLayout[]; rowsCount: number } {
   if (!people.length) return { layouts: [], rowsCount: 0 };
 
+  const minWidthForPeriod = period.id === 'malakhim_divided' ? 40 : MIN_BAR_WIDTH;
+
   const sorted = [...people].sort((a, b) => {
     if (period.id === 'torah') {
+      const ga = resolveGeneration(a, period) ?? 0;
+      const gb = resolveGeneration(b, period) ?? 0;
+      if (ga !== gb) return ga - gb;
+    }
+    if (period.id === 'shoftim') {
       const ga = resolveGeneration(a, period) ?? 0;
       const gb = resolveGeneration(b, period) ?? 0;
       if (ga !== gb) return ga - gb;
@@ -143,9 +156,15 @@ function buildBinPackedLayouts(
       // Дискретный шаг по поколениям для Торы
       const g = resolveGeneration(person, period) ?? 1;
       const STEP = TORAH_STEP_PX;
-      const estStartPx = (g - 1) * STEP;
+      const estStartPx = (g - 1) * STEP + xShift;
       xStartRaw = estStartPx;
       xEndRaw = estStartPx + Math.max(MIN_BAR_WIDTH, STEP * 0.8);
+    } else if (period.id === 'shoftim') {
+      // Для Шофтим игнорируем даты: фиксированная ширина и шаг по поколению
+      const g = resolveGeneration(person, period) ?? 1;
+      const estStartPx = (g - 1) * SHOFTIM_STEP_PX;
+      xStartRaw = estStartPx;
+      xEndRaw = estStartPx + SHOFTIM_BAR_WIDTH;
     } else {
       xStartRaw = yearToX(start) - xOffset;
       xEndRaw = yearToX(end) - xOffset;
@@ -154,7 +173,8 @@ function buildBinPackedLayouts(
     const xStart_initial = Math.max(0, xStartRaw);
     const xEnd_initial = Math.min(periodWidth, xEndRaw);
 
-    const width = Math.max(MIN_BAR_WIDTH, xEnd_initial - xStart_initial);
+    const widthRaw = xEnd_initial - xStart_initial;
+    const width = Math.max(minWidthForPeriod, widthRaw);
     const xStart = Math.max(0, Math.min(xStart_initial, periodWidth - width - CARD_PADDING_X));
 
     // Greedy packing: ищем первый трек без пересечения по X
@@ -188,9 +208,10 @@ function createGroupLayout(
     yOffset: number,
     period: Period,
     yearToX: (year: number) => number,
-    periodWidth: number
+    periodWidth: number,
+    xShift = 0,
 ): GroupLayout {
-    const { layouts, rowsCount } = buildBinPackedLayouts(people, period, yearToX, yearToX(period.startYear), periodWidth);
+    const { layouts, rowsCount } = buildBinPackedLayouts(people, period, yearToX, yearToX(period.startYear), periodWidth, xShift);
     const groupBodyHeight = rowsCount > 0 ? rowsCount * (TRACK_HEIGHT + V_MARGIN) - V_MARGIN : 0;
     const groupHeight = GROUP_HEADER + GROUP_PADDING * 2 + groupBodyHeight;
 
@@ -201,6 +222,7 @@ function createGroupLayout(
         personsLayout: layouts,
         height: groupHeight,
         y: yOffset,
+        xOffset: xShift,
     };
 }
 
@@ -224,7 +246,14 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
         const g = resolveGeneration(p, period);
         return g && g > acc ? g : acc;
       }, 0) || 10; // если нет данных, считаем хотя бы 10 шагов
-      periodWidth = Math.max(MIN_PERIOD_WIDTH, TORAH_STEP_PX * (maxGen + 2));
+      const dynamicWidth = TORAH_STEP_PX * (maxGen + 2);
+      periodWidth = Math.max(MIN_PERIOD_WIDTH, Math.max(dynamicWidth, TORAH_COLUMN_WIDTH * 3 + TORAH_STEP_PX * 2));
+    } else if (period.id === 'shoftim') {
+      const maxGen = periodPeople.reduce((acc, p) => {
+        const g = resolveGeneration(p, period);
+        return g && g > acc ? g : acc;
+      }, 0) || 13;
+      periodWidth = Math.max(width, SHOFTIM_STEP_PX * Math.max(1, maxGen) + SHOFTIM_BAR_WIDTH);
     } else {
       periodWidth = Math.max(width, MIN_PERIOD_WIDTH);
     }
@@ -260,6 +289,8 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
           { id: 'postflood_line_shem', label: 'Линия Шема' },
           { id: 'postflood_line_ham', label: 'Линия Хама' },
           { id: 'postflood_line_japheth', label: 'Линия Яфета' },
+          { id: 'patriarchs', label: 'Эпоха праотцов' },
+          { id: 'tribes', label: '12 колен' },
           { id: 'other', label: 'Прочие' },
         ];
         const buckets: Record<string, TimelinePerson[]> = {};
@@ -275,6 +306,8 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
             sub.startsWith('postflood_line_shem') ? 'postflood_line_shem' :
             sub.startsWith('postflood_line_ham') ? 'postflood_line_ham' :
             sub.startsWith('postflood_line_japheth') ? 'postflood_line_japheth' :
+            sub.startsWith('patriarchs') ? 'patriarchs' :
+            sub.startsWith('tribe_') ? 'tribes' :
             'other';
           if (!buckets[key]) buckets[key] = [];
           buckets[key].push(p);
@@ -283,7 +316,11 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
         lineageOrder.forEach(({id, label}) => {
           const list = buckets[id] || [];
           if (!list.length) return;
-          const group = createGroupLayout(`${period.id}-${id}`, label, list, groupCursorY, period, yearToX, periodWidth);
+          let col = 0;
+          if (id.startsWith('postflood')) col = 1;
+          if (id === 'patriarchs' || id === 'tribes') col = 2;
+          const xOffset = col * TORAH_COLUMN_WIDTH;
+          const group = createGroupLayout(`${period.id}-${id}`, label, list, groupCursorY, period, yearToX, periodWidth, xOffset);
           groups.push(group);
           groupCursorY += group.height + GROUP_GAP;
         });
@@ -301,12 +338,13 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
             return Number(a) - Number(b);
         });
 
-        generationKeys.forEach(key => {
+        generationKeys.forEach((key, idx) => {
             const generationPeople = peopleByGeneration[key];
             if (generationPeople.length === 0) return;
 
             const label = key === 'unknown' ? 'Неизвестное поколение' : `Поколение ${key}`;
-            const group = createGroupLayout(`${period.id}-gen-${key}`, label, generationPeople, groupCursorY, period, yearToX, periodWidth);
+            const ladderOffset = period.id === 'shoftim' ? idx * 8 : 0; // легкий «ступенчатый» сдвиг
+            const group = createGroupLayout(`${period.id}-gen-${key}`, label, generationPeople, groupCursorY + ladderOffset, period, yearToX, periodWidth);
             groups.push(group);
             groupCursorY += group.height + GROUP_GAP;
         });

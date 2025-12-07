@@ -31,6 +31,7 @@ const ERA_OPTIONS = [
   { value: 'neviim', label: 'Период Пророков (Невиим)', generations: 0, period: 'neviim' },
   { value: 'great_assembly', label: 'Период Великого Собрания', generations: 0, period: 'great_assembly' },
   { value: 'shoftim', label: 'Шофтим', generations: 0, period: 'shoftim' },
+  { value: 'shoftim_generations', label: 'Шофтим — поколения (1–13)', generations: 13, period: 'shoftim', subPrefix: 'shoftim_gen' },
   { value: 'melakhim_united', label: 'Млахим — Единое царство', generations: 0, period: 'malakhim_united' },
   { value: 'melakhim_divided_israel', label: 'Млахим — Разделённое (Израиль)', generations: 0, period: 'malakhim_divided', subPrefix: 'israel', region: Region.ERETZ_ISRAEL },
   { value: 'melakhim_divided_judah', label: 'Млахим — Разделённое (Иуда)', generations: 0, period: 'malakhim_divided', subPrefix: 'judah', region: Region.ERETZ_ISRAEL },

@@ -111,11 +111,13 @@ export function TimelineCanvas({
               y2: groupAbsoluteY,
             });
           }
+          const labelX = block.x + (group as any).xOffset + 12;
+          const labelY = block.period.id === 'torah' ? groupAbsoluteY + 8 : groupAbsoluteY + 15;
           acc.push({
             id: `${group.id}-label`,
             type: 'generation_label',
-            x: block.x + 12,
-            y: groupAbsoluteY + 15,
+            x: labelX,
+            y: labelY,
             label: group.label,
             periodId: block.period.id,
           });
