@@ -113,14 +113,16 @@ export function TimelineCanvas({
           }
           const labelX = block.x + (group as any).xOffset + 12;
           const labelY = block.period.id === 'torah' ? groupAbsoluteY + 8 : groupAbsoluteY + 15;
-          acc.push({
-            id: `${group.id}-label`,
-            type: 'generation_label',
-            x: labelX,
-            y: labelY,
-            label: group.label,
-            periodId: block.period.id,
-          });
+          if (block.period.id !== 'shoftim') {
+            acc.push({
+              id: `${group.id}-label`,
+              type: 'generation_label',
+              x: labelX,
+              y: labelY,
+              label: group.label,
+              periodId: block.period.id,
+            });
+          }
           
           group.personsLayout.forEach((pl) => {
             const person = group.people.find((p) => p.slug === pl.slug);

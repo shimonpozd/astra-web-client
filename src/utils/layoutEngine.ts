@@ -325,13 +325,6 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
           groupCursorY += group.height + GROUP_GAP;
         });
 
-    } else if (period.id === 'shoftim') {
-        // Шофтим: один общий трек, порядок задаётся generation как порядковый номер, но без отдельных групп
-        const sorted = [...periodPeople].sort((a, b) => (resolveGeneration(a, period) ?? 0) - (resolveGeneration(b, period) ?? 0));
-        const group = createGroupLayout(`${period.id}-all`, 'Шофтим', sorted, groupCursorY, period, yearToX, periodWidth);
-        groups.push(group);
-        groupCursorY += group.height + GROUP_GAP;
-
     } else if (period.id === 'rishonim') {
         const regionLabels: Record<string, string> = {
           germany: 'Германия',
