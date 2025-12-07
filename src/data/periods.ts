@@ -2,6 +2,47 @@ import { Period, Region } from '@/types/timeline';
 
 export const PERIODS: Period[] = [
   {
+    id: 'torah',
+    name_ru: 'Период Пятикнижия',
+    startYear: -3761,
+    endYear: -1273,
+    color: '#B5651D',
+    subPeriods: [
+      // Эпоха допотопного человечества
+      { id: 'preflood_gen1', name_ru: 'Поколение 1', generation: 1 },
+      { id: 'preflood_cain_gen2', name_ru: 'Поколение 2 — линия Каина', generation: 2 },
+      { id: 'preflood_seth_gen2', name_ru: 'Поколение 2 — линия Шета', generation: 2 },
+      { id: 'preflood_cain_gen3', name_ru: 'Поколение 3 — линия Каина', generation: 3 },
+      { id: 'preflood_seth_gen3', name_ru: 'Поколение 3 — линия Шета', generation: 3 },
+      { id: 'preflood_cain_gen4', name_ru: 'Поколение 4 — линия Каина', generation: 4 },
+      { id: 'preflood_seth_gen4', name_ru: 'Поколение 4 — линия Шета', generation: 4 },
+      { id: 'preflood_cain_gen5', name_ru: 'Поколение 5 — линия Каина', generation: 5 },
+      { id: 'preflood_seth_gen5', name_ru: 'Поколение 5 — линия Шета', generation: 5 },
+      { id: 'preflood_cain_gen6', name_ru: 'Поколение 6 — линия Каина', generation: 6 },
+      { id: 'preflood_seth_gen6', name_ru: 'Поколение 6 — линия Шета', generation: 6 },
+      { id: 'preflood_gen7', name_ru: 'Поколение 7', generation: 7 },
+      { id: 'preflood_gen8', name_ru: 'Поколение 8', generation: 8 },
+      { id: 'preflood_gen9', name_ru: 'Поколение 9', generation: 9 },
+      { id: 'preflood_gen10', name_ru: 'Поколение 10', generation: 10 },
+      // Потоп и перезагрузка
+      { id: 'flood_gen1', name_ru: 'Поколение Потопа', generation: 1 },
+      { id: 'flood_gen2', name_ru: 'Поколение сыновей Ноя', generation: 2 },
+      { id: 'flood_line_shem', name_ru: 'Семитская линия', generation: 2 },
+      { id: 'flood_line_ham', name_ru: 'Хамитская линия', generation: 2 },
+      { id: 'flood_line_japheth', name_ru: 'Яфетическая линия', generation: 2 },
+      // Эпоха праотцов
+      { id: 'patriarchs_gen1', name_ru: 'Поколение 1 (праотцы)', generation: 1 },
+      { id: 'patriarchs_gen2', name_ru: 'Поколение 2 (праотцы)', generation: 2 },
+      { id: 'patriarchs_gen3', name_ru: 'Поколение 3 (праотцы)', generation: 3 },
+      // 12 колен — параллельные ветви одного поколения
+      ...Array.from({ length: 12 }, (_, i) => ({
+        id: `tribe_${i + 1}`,
+        name_ru: `Колено ${i + 1}`,
+        generation: 1,
+      })),
+    ],
+  },
+  {
     id: 'shoftim',
     name_ru: 'Шофтим (Судьи)',
     startYear: -1200,
@@ -9,17 +50,10 @@ export const PERIODS: Period[] = [
     color: '#8B4513',
   },
   {
-    id: 'torah',
-    name_ru: 'Период Пятикнижия',
-    startYear: -3761,
-    endYear: -1273,
-    color: '#B5651D',
-  },
-  {
     id: 'neviim',
     name_ru: 'Период Пророков (Невиим)',
-    startYear: -1250,
-    endYear: -430,
+    startYear: -800,
+    endYear: -400,
     color: '#A0522D',
   },
   {

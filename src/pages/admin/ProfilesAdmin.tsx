@@ -43,6 +43,13 @@ export default function ProfilesAdminPage() {
 
   const ERA_OPTIONS = [
     { value: 'torah', label: 'Период Пятикнижия', generations: 0, period: 'torah' },
+    { value: 'torah_preflood', label: 'Эпоха допотопного человечества', generations: 10, period: 'torah', subPrefix: 'preflood_gen' },
+    { value: 'torah_preflood_cain', label: 'Допотоп — линия Каина', generations: 5, period: 'torah', subPrefix: 'preflood_cain_gen' },
+    { value: 'torah_preflood_seth', label: 'Допотоп — линия Шета', generations: 5, period: 'torah', subPrefix: 'preflood_seth_gen' },
+    { value: 'torah_flood', label: 'Эпоха Потопа', generations: 2, period: 'torah', subPrefix: 'flood_gen' },
+    { value: 'torah_flood_lines', label: 'Потоп — линии Сема/Хама/Яфета', generations: 2, period: 'torah', subPrefix: 'flood_line_' },
+    { value: 'patriarchs', label: 'Эпоха праотцов', generations: 3, period: 'torah', subPrefix: 'patriarchs_gen' },
+    { value: 'twelve_tribes', label: 'Эпоха 12 колен (ветви)', generations: 12, period: 'torah', subPrefix: 'tribe_' },
     { value: 'neviim', label: 'Период Пророков (Невиим)', generations: 0, period: 'neviim' },
     { value: 'great_assembly', label: 'Период Великого Собрания', generations: 0, period: 'great_assembly' },
     { value: 'shoftim', label: 'Шофтим', generations: 0, period: 'shoftim' },
