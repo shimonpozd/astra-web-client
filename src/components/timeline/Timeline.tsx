@@ -71,8 +71,7 @@ export function PersonCard({
     person.summary_html ? 'Есть описание' : undefined,
   ].filter(Boolean).join('\n');
 
-  // Используем фиксированный размер для плиточной системы
-  const CARD_WIDTH = 160;
+  const CARD_WIDTH = Math.max(layout.width || 160, 120);
   const CARD_HEIGHT = 100;
 
   // Вычисляем цвет карточки на основе периода, поколения и региона
@@ -121,18 +120,19 @@ export function PersonCard({
       <button
         type="button"
         className={cn(
-          'relative rounded-lg border-2 text-left shadow-sm transition-all duration-200',
+          'relative rounded-lg border text-left shadow-sm transition-all duration-200',
           'hover:shadow-md',
-          isSelected 
-            ? 'ring-2 ring-offset-1 ring-primary shadow-md' 
-            : 'ring-0',
+          isSelected ? 'ring-2 ring-offset-1 ring-primary shadow-md' : 'ring-0',
+          layout.isFuzzy ? 'border-dashed' : 'border-solid'
         )}
         style={{ 
           width: CARD_WIDTH, 
           height: CARD_HEIGHT,
           borderLeftColor: cardColor,
           borderLeftWidth: '4px',
-          backgroundColor: 'hsl(var(--card))',
+          background: layout.isFuzzy
+            ? `linear-gradient(90deg, transparent 0%, ${cardColor}33 20%, ${cardColor}66 50%, ${cardColor}33 80%, transparent 100%)`
+            : 'hsl(var(--card))',
           borderColor: isSelected ? cardColor : 'hsl(var(--border))',
         }}
         onClick={() => onSelect(person)}
@@ -140,10 +140,12 @@ export function PersonCard({
         onMouseLeave={() => setShowTooltip(false)}
       >
         {/* Фон с цветом периода (с opacity) */}
-        <div 
-          className="absolute inset-0 rounded-lg opacity-10 dark:opacity-15"
-          style={{ backgroundColor: cardColor }}
-        />
+        {!layout.isFuzzy && (
+          <div 
+            className="absolute inset-0 rounded-lg opacity-10 dark:opacity-15"
+            style={{ backgroundColor: cardColor }}
+          />
+        )}
         
         {/* Содержимое карточки */}
         <div className="relative h-full flex flex-col p-3">

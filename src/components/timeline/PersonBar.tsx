@@ -13,6 +13,7 @@ interface PersonBarProps {
   isDimmed?: boolean;
   showLabel?: boolean;
   isHovered?: boolean;
+  isFuzzy?: boolean;
 }
 
 export function PersonBar({
@@ -27,9 +28,10 @@ export function PersonBar({
   isDimmed,
   showLabel,
   isHovered,
+  isFuzzy,
 }: PersonBarProps) {
   const colors = generateColorSystem(person.period);
-  const estimated = person.lifespan_range?.estimated || !person.deathYear;
+  const estimated = isFuzzy || person.lifespan_range?.estimated || !person.deathYear;
   const isVerified = Boolean(person.is_verified);
   const displayName = person.name_ru || (person as any).display?.name_ru || person.name_en || person.slug;
 
@@ -46,10 +48,10 @@ export function PersonBar({
     >
       <defs>
         <linearGradient id={`gradient-${person.slug}`} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor={colors.personBar.normal} stopOpacity={0.6} />
-          <stop offset="15%" stopColor={colors.personBar.normal} stopOpacity={0.95} />
-          <stop offset="85%" stopColor={colors.personBar.normal} stopOpacity={0.95} />
-          <stop offset="100%" stopColor={colors.personBar.normal} stopOpacity={0.6} />
+          <stop offset="0%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.05 : 0.6} />
+          <stop offset="20%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.7 : 0.95} />
+          <stop offset="80%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.7 : 0.95} />
+          <stop offset="100%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.05 : 0.6} />
         </linearGradient>
         <linearGradient id={`shine-${person.slug}`} x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="white" stopOpacity={0.35} />
@@ -58,15 +60,15 @@ export function PersonBar({
         </linearGradient>
       </defs>
 
+      {/* Базовый цвет под градиентом, чтобы не было "чёрного" фона на прозрачных участках */}
       <rect
         x={x}
-        y={y + 3}
+        y={y}
         width={width}
-        height={height - 4}
+        height={height - 6}
         rx={10}
-        fill="black"
-        opacity={0.08}
-        style={{ filter: 'blur(6px)' }}
+        fill={colors.personBar.normal}
+        opacity={isFuzzy ? 0.25 : 0.4}
       />
 
       <rect
@@ -98,24 +100,28 @@ export function PersonBar({
       />
 
       <g className="life-markers">
-        <circle
-          cx={x + 6}
-          cy={y + (height - 6) / 2}
-          r={5}
-          fill={colors.periodBase}
-          stroke="white"
-          strokeWidth={2}
-          opacity={isDimmed ? 0.5 : 1}
-        />
-        <circle
-          cx={x + width - 6}
-          cy={y + (height - 6) / 2}
-          r={5}
-          fill={colors.periodBase}
-          stroke="white"
-          strokeWidth={2}
-          opacity={estimated || isDimmed ? 0.5 : 1}
-        />
+        {!isFuzzy && (
+          <>
+            <circle
+              cx={x + 6}
+              cy={y + (height - 6) / 2}
+              r={5}
+              fill={colors.periodBase}
+              stroke="white"
+              strokeWidth={2}
+              opacity={isDimmed ? 0.5 : 1}
+            />
+            <circle
+              cx={x + width - 6}
+              cy={y + (height - 6) / 2}
+              r={5}
+              fill={colors.periodBase}
+              stroke="white"
+              strokeWidth={2}
+              opacity={estimated || isDimmed ? 0.5 : 1}
+            />
+          </>
+        )}
       </g>
 
       {showLabel && width > 80 && (

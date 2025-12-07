@@ -20,6 +20,14 @@ export const PERIODS: Period[] = [
       { id: 'preflood_seth_gen5', name_ru: 'Поколение 5 — линия Шета', generation: 5 },
       { id: 'preflood_cain_gen6', name_ru: 'Поколение 6 — линия Каина', generation: 6 },
       { id: 'preflood_seth_gen6', name_ru: 'Поколение 6 — линия Шета', generation: 6 },
+      { id: 'preflood_cain_gen7', name_ru: 'Поколение 7 — линия Каина', generation: 7 },
+      { id: 'preflood_seth_gen7', name_ru: 'Поколение 7 — линия Шета', generation: 7 },
+      { id: 'preflood_cain_gen8', name_ru: 'Поколение 8 — линия Каина', generation: 8 },
+      { id: 'preflood_seth_gen8', name_ru: 'Поколение 8 — линия Шета', generation: 8 },
+      { id: 'preflood_cain_gen9', name_ru: 'Поколение 9 — линия Каина', generation: 9 },
+      { id: 'preflood_seth_gen9', name_ru: 'Поколение 9 — линия Шета', generation: 9 },
+      { id: 'preflood_cain_gen10', name_ru: 'Поколение 10 — линия Каина', generation: 10 },
+      { id: 'preflood_seth_gen10', name_ru: 'Поколение 10 — линия Шета', generation: 10 },
       { id: 'preflood_gen7', name_ru: 'Поколение 7', generation: 7 },
       { id: 'preflood_gen8', name_ru: 'Поколение 8', generation: 8 },
       { id: 'preflood_gen9', name_ru: 'Поколение 9', generation: 9 },
@@ -27,9 +35,6 @@ export const PERIODS: Period[] = [
       // Потоп и перезагрузка
       { id: 'flood_gen1', name_ru: 'Поколение Потопа', generation: 1 },
       { id: 'flood_gen2', name_ru: 'Поколение сыновей Ноя', generation: 2 },
-      { id: 'flood_line_shem', name_ru: 'Семитская линия', generation: 2 },
-      { id: 'flood_line_ham', name_ru: 'Хамитская линия', generation: 2 },
-      { id: 'flood_line_japheth', name_ru: 'Яфетическая линия', generation: 2 },
       // Эпоха праотцов
       { id: 'patriarchs_gen1', name_ru: 'Поколение 1 (праотцы)', generation: 1 },
       { id: 'patriarchs_gen2', name_ru: 'Поколение 2 (праотцы)', generation: 2 },
@@ -40,6 +45,15 @@ export const PERIODS: Period[] = [
         name_ru: `Колено ${i + 1}`,
         generation: 1,
       })),
+      // После Потопа: поколения от Ноя до Авраама + ветви Сема/Хама/Яфета
+      ...Array.from({ length: 10 }, (_, i) => ({
+        id: `postflood_gen${i + 1}`,
+        name_ru: `После Потопа — поколение ${i + 1}`,
+        generation: i + 1,
+      })),
+      { id: 'postflood_line_shem', name_ru: 'Семитская линия', generation: 1 },
+      { id: 'postflood_line_ham', name_ru: 'Хамитская линия', generation: 1 },
+      { id: 'postflood_line_japheth', name_ru: 'Яфетическая линия', generation: 1 },
     ],
   },
   {

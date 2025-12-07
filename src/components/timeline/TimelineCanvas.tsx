@@ -29,8 +29,8 @@ type RenderNode =
   | { id: string; type: 'period_bg'; x: number; y: number; width: number; height: number; period: Period }
   | { id: string; type: 'period_label'; x: number; y: number; period: Period }
   | { id: string; type: 'generation_line'; x1: number; y1: number; x2: number; y2: number; }
-  | { id: string; type: 'generation_label'; x: number; y: number; label: string }
-  | { id: string; type: 'person'; x: number; y: number; width: number; height: number; person: TimelinePerson; period: Period };
+  | { id: string; type: 'generation_label'; x: number; y: number; label: string; periodId: string }
+  | { id: string; type: 'person'; x: number; y: number; width: number; height: number; person: TimelinePerson; period: Period; isFuzzy?: boolean };
 
 export function TimelineCanvas({
   people,
@@ -99,22 +99,25 @@ export function TimelineCanvas({
         row.groups.forEach((group) => {
           const Y_group = group.y; // y-offset of the group within the row
 
-          // 2. Add Generation Lines and Labels
+          // 2. Add Generation Lines and Labels (кроме периода Торы — там оставляем только подпись ветви)
           const groupAbsoluteY = Y_period + Y_row + Y_group;
-          acc.push({
-            id: `${group.id}-line`,
-            type: 'generation_line',
-            x1: block.x,
-            y1: groupAbsoluteY,
-            x2: block.x + block.width,
-            y2: groupAbsoluteY,
-          });
+          if (block.period.id !== 'torah') {
+            acc.push({
+              id: `${group.id}-line`,
+              type: 'generation_line',
+              x1: block.x,
+              y1: groupAbsoluteY,
+              x2: block.x + block.width,
+              y2: groupAbsoluteY,
+            });
+          }
           acc.push({
             id: `${group.id}-label`,
             type: 'generation_label',
             x: block.x + 12,
             y: groupAbsoluteY + 15,
             label: group.label,
+            periodId: block.period.id,
           });
           
           group.personsLayout.forEach((pl) => {
@@ -133,6 +136,7 @@ export function TimelineCanvas({
               height: BAR_TRACK_HEIGHT,
               person,
               period: block.period,
+              isFuzzy: pl.isFuzzy,
             });
           });
         });
@@ -168,7 +172,7 @@ export function TimelineCanvas({
   const personLookup = useMemo(() => {
     const map = new Map<
       string,
-      { person: TimelinePerson; x: number; y: number; width: number; height: number; period: Period }
+      { person: TimelinePerson; x: number; y: number; width: number; height: number; period: Period; isFuzzy?: boolean }
     >();
     nodes.forEach((n) => {
       if (n.type !== 'person') return;
@@ -179,6 +183,7 @@ export function TimelineCanvas({
         width: n.width,
         height: n.height,
         period: n.period,
+        isFuzzy: n.isFuzzy,
       });
     });
     return map;
@@ -341,20 +346,11 @@ export function TimelineCanvas({
                     width={n.width}
                     height={n.height}
                     rx={14}
-                    fill="white"
-                    opacity={0.85}
-                    stroke="rgba(0,0,0,0.04)"
-                    style={{ filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.08))' }}
-                  />
-                  <rect
-                    x={0}
-                    y={0}
-                    width={n.width}
-                    height={n.height}
-                    rx={14}
-                    fill="rgba(255,255,255,0.78)"
+                    fill={color}
+                    opacity={n.period.id === 'torah' ? 0.12 : 0.08}
                     stroke={color}
                     strokeWidth={2}
+                    style={{ filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.05))' }}
                   />
                 </g>
               );
@@ -391,7 +387,13 @@ export function TimelineCanvas({
             
             {/* Generation Labels */}
             {generationLabelNodes.map((n) => (
-              <text key={n.id} x={n.x} y={n.y} className="text-xs font-semibold text-slate-500">
+              <text
+                key={n.id}
+                x={n.x}
+                y={n.y}
+                className="text-xs font-semibold text-slate-500"
+                opacity={n.periodId === 'torah' && n.label.toLowerCase().includes('поколение') ? 0 : 1}
+              >
                 {n.label}
               </text>
             ))}
@@ -401,8 +403,48 @@ export function TimelineCanvas({
               const colors = generateColorSystem(n.person.period);
               const isSelected = selectedPersonSlug === n.person.slug;
               const isDimmed = Boolean(hoveredSlug && hoveredSlug !== n.person.slug);
-              const displayName = n.person.name_ru || n.person.name_en;
+              const isFuzzy = Boolean(n.isFuzzy || !n.person.deathYear || !n.person.birthYear);
+              const displayName = n.person.name_ru || n.person.name_en || n.person.slug;
               const lifespan = n.person.lifespan || `${n.person.birthYear ?? ''}–${n.person.deathYear ?? ''}`;
+              const safeId = n.id.replace(/[^a-zA-Z0-9-_]/g, '_');
+              const gradId = `fuzzy-${safeId}`;
+              const pillGradId = `pill-${safeId}`;
+              const clipId = `clip-${safeId}`;
+              const patternId = `pat-${safeId}`;
+              const wrapName = (name: string, maxChars: number) => {
+                const words = name.split(' ');
+                const lines: string[] = [];
+                let current = '';
+                words.forEach((w) => {
+                  if ((current + ' ' + w).trim().length <= maxChars) {
+                    current = (current + ' ' + w).trim();
+                  } else {
+                    if (current) lines.push(current);
+                    current = w;
+                  }
+                });
+                if (current) lines.push(current);
+                if (lines.length > 2) {
+                  // ограничиваем двумя строками
+                  const first = lines[0];
+                  const rest = lines.slice(1).join(' ');
+                  const truncated = rest.length > maxChars ? rest.slice(0, maxChars - 1) + '…' : rest;
+                  return [first, truncated];
+                }
+                return lines;
+              };
+              const maxChars = Math.max(10, Math.floor(n.width / 7));
+              const nameLines = wrapName(displayName, maxChars);
+              const sub = (n.person.subPeriod || '').toLowerCase();
+              const branchFill =
+                sub.startsWith('preflood_root') ? 'rgba(156, 163, 175, 0.18)' :
+                sub.startsWith('preflood_cain') ? 'rgba(244, 114, 182, 0.18)' :
+                sub.startsWith('preflood_seth') ? 'rgba(52, 211, 153, 0.18)' :
+                sub.startsWith('postflood_root') ? 'rgba(190, 190, 190, 0.18)' :
+                sub.startsWith('postflood_line_shem') || sub.startsWith('flood_line_shem') ? 'rgba(45, 212, 191, 0.15)' :
+                sub.startsWith('postflood_line_ham') || sub.startsWith('flood_line_ham') ? 'rgba(251, 191, 36, 0.15)' :
+                sub.startsWith('postflood_line_japheth') || sub.startsWith('flood_line_japheth') ? 'rgba(96, 165, 250, 0.15)' :
+                undefined;
 
               return (
                 <g 
@@ -413,35 +455,113 @@ export function TimelineCanvas({
                   onMouseEnter={() => setHoveredSlug(n.person.slug)}
                   onMouseLeave={() => setHoveredSlug(null)}
                 >
+                  <defs>
+                    <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.05 : 0.4} />
+                      <stop offset="20%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.7 : 1} />
+                      <stop offset="80%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.7 : 1} />
+                      <stop offset="100%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.05 : 0.4} />
+                    </linearGradient>
+                    <linearGradient id={pillGradId} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="white" stopOpacity="0.18" />
+                      <stop offset="50%" stopColor="white" stopOpacity="0.08" />
+                      <stop offset="100%" stopColor="white" stopOpacity="0" />
+                    </linearGradient>
+                    <clipPath id={clipId}>
+                      <rect x={0} y={0} width={n.width} height={n.height - 6} rx={14} ry={14} />
+                    </clipPath>
+                    <pattern id={patternId} patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+                      <line x1="0" y1="0" x2="0" y2="6" stroke={colors.personBar.normal} strokeWidth="1" strokeOpacity="0.18" />
+                    </pattern>
+                  </defs>
+                  {branchFill && (
+                    <rect
+                      x={0}
+                      y={0}
+                      width={n.width}
+                      height={n.height - 6}
+                      rx={14}
+                      fill={branchFill}
+                      opacity={isDimmed ? 0.18 : 0.35}
+                    />
+                  )}
                   <rect
                     x={0}
                     y={0}
                     width={n.width}
                     height={n.height - 6}
-                    rx={8}
-                    fill={colors.personBar.normal}
+                    rx={14}
+                    fill={isFuzzy ? colors.personBar.estimated : colors.personBar.normal}
                     stroke={isSelected ? colors.periodBase : 'transparent'}
-                    strokeWidth={2}
-                    opacity={isDimmed ? 0.3 : 1}
+                    strokeWidth={isSelected ? 2 : 1.5}
+                    opacity={isDimmed ? 0.35 : 1}
                   />
-                  {lod !== 'low' && n.width > 70 && (() => {
-                      const age = (n.person.deathYear && n.person.birthYear) ? `(~${n.person.deathYear - n.person.birthYear} лет)` : '';
-                      const lifespan = n.person.lifespan || `${n.person.birthYear ?? ''}–${n.person.deathYear ?? ''}`;
-
-                      return (
-                        <text 
-                          x={12}
-                          y={14}
-                          className="text-xs select-none pointer-events-none"
-                          fill={colors.text.onPeriod}
-                          opacity={isDimmed ? 0.35 : 0.95}
-                        >
-                          <tspan x="12" dy="0" className="font-semibold">{n.person.name_ru || n.person.name_en}</tspan>
-                          <tspan x="12" dy="1.2em" className="font-semibold">{n.person.name_he}</tspan>
-                          <tspan x="12" dy="1.2em" className="text-[10px]">{lifespan} {age}</tspan>
-                        </text>
-                      );
-                  })()}
+                  {isFuzzy && (
+                    <rect
+                      x={0}
+                      y={0}
+                      width={n.width}
+                      height={n.height - 6}
+                      rx={14}
+                      fill={`url(#${gradId})`}
+                      opacity={isDimmed ? 0.25 : 0.6}
+                    />
+                  )}
+                  <rect
+                    x={0}
+                    y={0}
+                    width={n.width}
+                    height={n.height - 6}
+                    rx={14}
+                    fill={`url(#${pillGradId})`}
+                    opacity={isDimmed ? 0.18 : 0.22}
+                  />
+                  {isFuzzy && (
+                    <rect
+                      x={0}
+                      y={0}
+                      width={n.width}
+                      height={n.height - 6}
+                      rx={14}
+                      fill={`url(#${patternId})`}
+                      opacity={isDimmed ? 0.14 : 0.24}
+                    />
+                  )}
+                  {lod !== 'low' && n.width > 30 && (
+                    <g clipPath={`url(#${clipId})`}>
+                      {nameLines.map((line, idx) => {
+                        const lineY = (n.height - 6) / 2 - ((nameLines.length - 1) * 10) / 2 + idx * 12;
+                        return (
+                          <g key={`${n.id}-line-${idx}`}>
+                            <text
+                              x={n.width / 2}
+                              y={lineY + 1}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              className="text-[11px] font-semibold select-none pointer-events-none"
+                              fill="rgba(0,0,0,0.35)"
+                            >
+                              {line}
+                            </text>
+                            <text
+                              x={n.width / 2}
+                              y={lineY}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              className="text-[11px] font-semibold select-none pointer-events-none"
+                              fill="#ffffff"
+                              stroke="rgba(0,0,0,0.22)"
+                              strokeWidth={0.5}
+                              paintOrder="stroke"
+                              opacity={isDimmed ? 0.6 : 0.98}
+                            >
+                              {line}
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </g>
+                  )}
                 </g>
               );
             })}
