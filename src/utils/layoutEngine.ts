@@ -64,6 +64,7 @@ const TORAH_COLUMN_WIDTH = TORAH_STEP_PX * 10; // фиксированная ш�
 // Для Шофтим держим компактный шаг: поколение идёт в фикcированном X-шаге, чтобы весь период не растягивался
 const SHOFTIM_STEP_PX = 60;
 const SHOFTIM_BAR_WIDTH = 80;
+const GENERATION_COLUMN_WIDTH = 220;
 
 function resolveGeneration(person: TimelinePerson, period?: Period): number | undefined {
   if (person.generation) return person.generation;
@@ -254,6 +255,13 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
         return g && g > acc ? g : acc;
       }, 0) || 13;
       periodWidth = Math.max(width, SHOFTIM_STEP_PX * Math.max(1, maxGen) + SHOFTIM_BAR_WIDTH);
+    } else if (period.id.startsWith('tannaim') || period.id.startsWith('amoraim')) {
+      const maxGen = periodPeople.reduce((acc, p) => {
+        const g = resolveGeneration(p, period);
+        return g && g > acc ? g : acc;
+      }, 0) || 1;
+      const densityWidth = periodPeople.length * 2;
+      periodWidth = Math.max(width, maxGen * GENERATION_COLUMN_WIDTH + densityWidth);
     } else {
       periodWidth = Math.max(width, MIN_PERIOD_WIDTH);
     }
@@ -324,6 +332,11 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
           groups.push(group);
           groupCursorY += group.height + GROUP_GAP;
         });
+        const maxH = groups.reduce((m, g) => Math.max(m, g.height), 0);
+        if (maxH > 0) {
+          groups = groups.map((g) => ({ ...g, y: 0 }));
+          groupCursorY = maxH;
+        }
 
     } else if (period.id === 'rishonim') {
         const regionLabels: Record<string, string> = {
@@ -377,7 +390,12 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
 
             const label = key === 'unknown' ? 'Неизвестное поколение' : `Поколение ${key}`;
             const ladderOffset = period.id === 'shoftim' ? idx * 8 : 0; // легкий «ступенчатый» сдвиг
-            const group = createGroupLayout(`${period.id}-gen-${key}`, label, generationPeople, groupCursorY + ladderOffset, period, yearToX, periodWidth);
+            const genNumber = Number(key);
+            const xColShift =
+              (period.id.startsWith('tannaim') || period.id.startsWith('amoraim')) && Number.isFinite(genNumber)
+                ? (genNumber - 1) * GENERATION_COLUMN_WIDTH
+                : 0;
+            const group = createGroupLayout(`${period.id}-gen-${key}`, label, generationPeople, groupCursorY + ladderOffset, period, yearToX, periodWidth, xColShift);
             groups.push(group);
             groupCursorY += group.height + GROUP_GAP;
         });

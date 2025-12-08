@@ -940,7 +940,7 @@ const compileSageHighlights = useCallback((items: SageHighlight[]): CompiledSage
           className="pointer-events-none fixed z-40"
           style={{ top: hoverCard.y + 12, left: hoverCard.x, transform: 'translate(-50%, 0)' }}
         >
-          <div className="rounded-md border bg-background px-3 py-2 shadow-lg max-w-sm space-y-2">
+          <div className="rounded-lg border border-border/70 bg-card/95 text-foreground backdrop-blur-sm shadow-2xl max-w-sm space-y-2">
             <div className="text-[10px] uppercase text-muted-foreground tracking-wide">{hoverCard.type}</div>
             {hoverCard.label && <div className="text-sm font-semibold text-foreground">{hoverCard.label}</div>}
             {hoverCard.summary ? (
