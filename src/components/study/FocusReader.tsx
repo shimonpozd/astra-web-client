@@ -1,7 +1,8 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { ChevronLeft, ChevronRight, Compass, Settings } from 'lucide-react';
 
 import { FocusReaderProps, TextSegment } from '../../types/text';
+import { ConceptHighlight, SageHighlight } from '../../types/highlight';
 import { normalizeRefForAPI, parseRefSmart } from '../../utils/refUtils';
 import ContinuousTextFlow from './ContinuousTextFlow';
 import FocusNavOverlay from './nav/FocusNavOverlay';
@@ -10,6 +11,8 @@ import { useSpeechify } from '../../hooks/useSpeechify';
 import { useTTS } from '../../hooks/useTTS';
 import { debugWarn } from '../../utils/debugLogger';
 import { emitGamificationEvent } from '../../contexts/GamificationContext';
+import { fetchConceptHighlights, fetchSageHighlights } from '../../services/highlight';
+import ProfileInspectorModal from './ProfileInspectorModal';
 // import { useKeyboardNavigation } from '../../hooks/useKeyboardNavigation';
 
 const FONT_SIZE_VALUES: Record<string, string> = {
@@ -21,6 +24,17 @@ const FONT_SIZE_VALUES: Record<string, string> = {
 const FOCUS_READER_SETTINGS_KEY = 'focus-reader-font-settings';
 const buildEventId = (verb: string, ref?: string | null, sessionId?: string | null) =>
   ['focus', verb, sessionId || '', ref || ''].join('|');
+
+type CompiledSageHighlight = SageHighlight & { regex: RegExp };
+type CompiledConceptHighlight = ConceptHighlight & { regexes: RegExp[] };
+type HoverCardState = {
+  slug: string;
+  type: 'sage' | 'concept';
+  x: number;
+  y: number;
+  summary?: string | null;
+  label?: string | null;
+};
 
 function formatDisplayRef(ref?: string | null): string {
   if (!ref) return '—';
@@ -95,6 +109,10 @@ const FocusReader = memo(({
   const [hebrewScale, setHebrewScale] = useState(() => initialFontSettings.hebrewScale);
   const [translationScale, setTranslationScale] = useState(() => initialFontSettings.translationScale);
   const [activeTTSRef, setActiveTTSRef] = useState<string | null>(null);
+  const [sageHighlights, setSageHighlights] = useState<CompiledSageHighlight[]>([]);
+  const [conceptHighlights, setConceptHighlights] = useState<CompiledConceptHighlight[]>([]);
+  const [hoverCard, setHoverCard] = useState<HoverCardState | null>(null);
+  const [profileModalSlug, setProfileModalSlug] = useState<string | null>(null);
 
   const activeSegment = useMemo(() => {
     const index = continuousText?.focusIndex ?? 0;
@@ -168,6 +186,157 @@ const FocusReader = memo(({
 
   const sanitizedHebrew = useMemo(() => sanitizeText(hebrewText), [hebrewText, sanitizeText]);
   const sanitizedEnglish = useMemo(() => sanitizeText(englishText), [englishText, sanitizeText]);
+
+const compileSageHighlights = useCallback((items: SageHighlight[]): CompiledSageHighlight[] => {
+    const compiled: CompiledSageHighlight[] = [];
+    const allowed = new Set(['zugot', 'tannaim', 'amoraim']);
+    for (const item of items || []) {
+      if (!item?.regex_pattern || !item.slug) continue;
+      try {
+        const periodRaw = (item.period || '').toLowerCase();
+        const periodBase = (periodRaw.split('_')[0] || periodRaw || 'sage').trim();
+        if (periodBase && !allowed.has(periodBase)) {
+          continue;
+        }
+        const regex = new RegExp(item.regex_pattern, 'gu');
+        compiled.push({ ...item, period: periodRaw || periodBase, regex });
+      } catch (err) {
+        debugWarn('[FocusReader] Invalid sage regex', err);
+      }
+    }
+    return compiled;
+  }, []);
+
+  const compileConceptHighlights = useCallback((items: ConceptHighlight[]): CompiledConceptHighlight[] => {
+    const compiled: CompiledConceptHighlight[] = [];
+    for (const item of items || []) {
+      if (!item?.slug) continue;
+      const regexes: RegExp[] = [];
+      for (const pat of item.search_patterns || []) {
+        if (!pat) continue;
+        try {
+          regexes.push(new RegExp(pat, 'gu'));
+        } catch (err) {
+          debugWarn('[FocusReader] Invalid concept regex', err);
+        }
+      }
+      if (regexes.length) {
+        compiled.push({ ...item, regexes });
+      }
+    }
+    return compiled;
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const [sages, concepts] = await Promise.all([fetchSageHighlights(), fetchConceptHighlights()]);
+        if (!active) return;
+        setSageHighlights(compileSageHighlights(sages));
+        setConceptHighlights(compileConceptHighlights(concepts));
+      } catch (err) {
+        debugWarn('[FocusReader] Failed to load highlight data', err);
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [compileConceptHighlights, compileSageHighlights]);
+
+  const sagesBySlug = useMemo(() => {
+    const map = new Map<string, CompiledSageHighlight>();
+    sageHighlights.forEach((s) => map.set(s.slug, s));
+    return map;
+  }, [sageHighlights]);
+
+  const conceptsBySlug = useMemo(() => {
+    const map = new Map<string, CompiledConceptHighlight>();
+    conceptHighlights.forEach((c) => map.set(c.slug, c));
+    return map;
+  }, [conceptHighlights]);
+
+  const handleHighlightMouseOver = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const target = (event.target as HTMLElement | null)?.closest('.hover-target') as HTMLElement | null;
+    if (!target) return;
+    const slug = target.dataset.slug;
+    const entityType = target.dataset.entityType as 'sage' | 'concept' | undefined;
+    if (!slug || (entityType !== 'sage' && entityType !== 'concept')) return;
+    const rect = target.getBoundingClientRect();
+    const source = entityType === 'sage' ? sagesBySlug.get(slug) : conceptsBySlug.get(slug);
+
+    let summary: string | undefined;
+    let label: string | undefined;
+
+    if (entityType === 'concept') {
+      summary = (source as ConceptHighlight | undefined)?.short_summary_html || undefined;
+      label = (source as ConceptHighlight | undefined)?.term_he || slug;
+    } else {
+      const s = source as CompiledSageHighlight | undefined;
+      label = s?.name_he || s?.name_ru || slug;
+      const lines: string[] = [];
+      if (s?.name_ru) lines.push(`<strong>Имя (RU):</strong> ${s.name_ru}`);
+      if (s?.period_label_ru) {
+        lines.push(`<strong>Эра:</strong> ${s.period_label_ru}`);
+      } else if (s?.period) {
+        const base = (s.period.split('_')[0] || s.period).toLowerCase();
+        const baseLabel = base === 'zugot'
+          ? 'Зугот'
+          : base === 'tannaim'
+            ? 'Таннаим'
+            : base === 'amoraim'
+              ? 'Амораим'
+              : s.period;
+        lines.push(`<strong>Эра:</strong> ${baseLabel}`);
+      }
+      if (s?.generation != null) lines.push(`<strong>Поколение:</strong> ${s.generation}`);
+      if (s?.region) lines.push(`<strong>Регион:</strong> ${s.region}`);
+      if (s?.lifespan) lines.push(`<strong>Годы жизни:</strong> ${s.lifespan}`);
+      if (lines.length) {
+        summary = `<div class="space-y-1">${lines.map((l) => `<div>${l}</div>`).join('')}</div>`;
+      }
+    }
+    setHoverCard({
+      slug,
+      type: entityType,
+      x: rect.left + rect.width / 2,
+      y: rect.top,
+      summary: summary || null,
+      label: label || slug,
+    });
+  }, [conceptsBySlug, sagesBySlug]);
+
+  const handleHighlightMouseOut = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const target = (event.target as HTMLElement | null)?.closest('.hover-target');
+    const related = event.relatedTarget as HTMLElement | null;
+    if (target && related && related.closest('.hover-target')) {
+      return;
+    }
+    setHoverCard(null);
+  }, []);
+
+  const handleHighlightClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const target = (event.target as HTMLElement | null)?.closest('.hover-target') as HTMLElement | null;
+    if (!target) return;
+    const slug = target.dataset.slug;
+    const entityType = target.dataset.entityType as 'sage' | 'concept' | undefined;
+    if (!slug || (entityType !== 'sage' && entityType !== 'concept')) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (entityType === 'sage') {
+      setProfileModalSlug(slug);
+      return;
+    }
+    const path = `/concept/${slug}`;
+    if (onNavigateToRef) {
+      onNavigateToRef(path);
+    } else {
+      window.location.href = path;
+    }
+  }, [onNavigateToRef]);
 
   const isActiveTTS = activeTTSRef === activeSegmentRef && (ttsIsPlaying || isPaused);
   const isCurrentSegmentPlaying = isActiveTTS && ttsIsPlaying;
@@ -677,6 +846,11 @@ const FocusReader = memo(({
             isActive={isActiveTTS}
             ttsIsPlaying={isCurrentSegmentPlaying}
             handlePlayClick={handlePlayClick}
+            sageHighlights={sageHighlights}
+            conceptHighlights={conceptHighlights}
+            onHighlightMouseOver={handleHighlightMouseOver}
+            onHighlightMouseOut={handleHighlightMouseOut}
+            onHighlightClickCapture={handleHighlightClick}
           />
           </div>
         
@@ -761,6 +935,29 @@ const FocusReader = memo(({
           </div>
         )}
       </div>
+      {hoverCard && (
+        <div
+          className="pointer-events-none fixed z-40"
+          style={{ top: hoverCard.y + 12, left: hoverCard.x, transform: 'translate(-50%, 0)' }}
+        >
+          <div className="rounded-md border bg-background px-3 py-2 shadow-lg max-w-sm space-y-2">
+            <div className="text-[10px] uppercase text-muted-foreground tracking-wide">{hoverCard.type}</div>
+            {hoverCard.label && <div className="text-sm font-semibold text-foreground">{hoverCard.label}</div>}
+            {hoverCard.summary ? (
+              <div
+                className="prose prose-sm max-w-none text-foreground"
+                dangerouslySetInnerHTML={{ __html: hoverCard.summary }}
+              />
+            ) : null}
+          </div>
+        </div>
+      )}
+      <ProfileInspectorModal
+        slug={profileModalSlug}
+        open={Boolean(profileModalSlug)}
+        onClose={() => setProfileModalSlug(null)}
+        hideWorkSection
+      />
       <FocusNavOverlay
         open={isNavOpen}
         onClose={() => setIsNavOpen(false)}

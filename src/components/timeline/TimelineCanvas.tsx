@@ -303,7 +303,7 @@ export function TimelineCanvas({
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-background text-foreground">
-      <div className="pointer-events-none absolute inset-0 -z-10 opacity-35 blur-2xl [background:radial-gradient(circle_at_25%_20%,hsl(var(--primary))/18,transparent_45%),radial-gradient(circle_at_80%_10%,hsl(var(--muted-foreground))/14,transparent_40%),radial-gradient(circle_at_40%_70%,hsl(var(--accent))/12,transparent_38%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-25 blur-2xl [background:radial-gradient(circle_at_25%_18%,hsl(var(--muted))/16,transparent_42%),radial-gradient(circle_at_78%_12%,hsl(var(--card))/14,transparent_45%),radial-gradient(circle_at_46%_72%,hsl(var(--border))/18,transparent_50%)]" />
       <div className="absolute left-4 top-4 z-30 flex items-center gap-2 rounded-full border border-border/70 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-md text-foreground">
         <button
           type="button"
@@ -602,14 +602,32 @@ export function TimelineCanvas({
             transform: 'translate(-40%, -10%)',
           }}
         >
-          <PersonCard
-            person={activeDetail.person}
-            layout={{ x: 0, y: 0, width: 160, height: 100, tier: 0, slug: activeDetail.person.slug }}
-            onSelect={onPersonSelect}
-            isSelected={selectedPersonSlug === activeDetail.person.slug}
-            periodColor={getPeriodColor(periods, activeDetail.period.id)}
-            period={activeDetail.period}
-          />
+          <div className="flex flex-col gap-2">
+            <PersonCard
+              person={activeDetail.person}
+              layout={{ x: 0, y: 0, width: 160, height: 100, tier: 0, slug: activeDetail.person.slug }}
+              onSelect={onPersonSelect}
+              isSelected={selectedPersonSlug === activeDetail.person.slug}
+              periodColor={getPeriodColor(periods, activeDetail.period.id)}
+              period={activeDetail.period}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="px-2 py-1 rounded-md text-xs bg-primary text-primary-foreground shadow-sm"
+                onClick={() => onPersonSelect(activeDetail.person)}
+              >
+                Открыть профиль
+              </button>
+              <button
+                type="button"
+                className="px-2 py-1 rounded-md text-xs border border-border/70 bg-background/80 shadow-sm"
+                onClick={() => window.open(`/sage/${activeDetail.person.slug}`, '_blank')}
+              >
+                В новой вкладке
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

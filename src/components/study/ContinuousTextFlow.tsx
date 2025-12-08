@@ -1,10 +1,14 @@
 import React, { memo, forwardRef, useMemo } from 'react';
 import { Languages, Play, Pause } from 'lucide-react';
 import { TextSegment } from '../../types/text';
+import { SageHighlight, ConceptHighlight } from '../../types/highlight';
 import { shouldShowSeparator, getSeparatorText } from '../../utils/referenceUtils';
-import { normalizeRefForAPI, refEquals } from '../../utils/refUtils';
+import { normalizeRefForAPI, refEquals, parseRefSmart } from '../../utils/refUtils';
 import { containsHebrew } from '../../utils/hebrewUtils';
 import { getTextDirection } from '../../utils/textUtils';
+
+type CompiledSageHighlight = SageHighlight & { regex: RegExp };
+type CompiledConceptHighlight = ConceptHighlight & { regexes: RegExp[] };
 
 type ContinuousTextFlowProps = {
   segments: TextSegment[];
@@ -33,6 +37,11 @@ type ContinuousTextFlowProps = {
   onTouchStart?: (e: React.TouchEvent<HTMLDivElement>) => void;
   onTouchMove?: (e: React.TouchEvent<HTMLDivElement>) => void;
   onTouchEnd?: (e: React.TouchEvent<HTMLDivElement>) => void;
+  sageHighlights?: CompiledSageHighlight[];
+  conceptHighlights?: CompiledConceptHighlight[];
+  onHighlightMouseOver?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onHighlightMouseOut?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onHighlightClickCapture?: (e: React.MouseEvent<HTMLDivElement>) => void;
 };
 
 export const ContinuousTextFlow = memo(({
@@ -59,6 +68,11 @@ export const ContinuousTextFlow = memo(({
   onTouchStart,
   onTouchMove,
   onTouchEnd,
+  sageHighlights = [],
+  conceptHighlights = [],
+  onHighlightMouseOver,
+  onHighlightMouseOut,
+  onHighlightClickCapture,
 }: ContinuousTextFlowProps) => {
 
   const safeFocusIndex = Math.min(
@@ -78,6 +92,9 @@ export const ContinuousTextFlow = memo(({
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
+      onMouseOver={onHighlightMouseOver}
+      onMouseOut={onHighlightMouseOut}
+      onClickCapture={onHighlightClickCapture}
     >
       <article className="mx-auto space-y-3 max-w-[600px] w-full">
         {segments.length === 0 ? (
@@ -182,6 +199,8 @@ export const ContinuousTextFlow = memo(({
                         hebrewScale={hebrewScale}
                         translationScale={translationScale}
                         className="w-full"
+                        sageHighlights={sageHighlights}
+                        conceptHighlights={conceptHighlights}
                       />
                     </div>
                   </div>
@@ -218,6 +237,47 @@ type TextSegmentComponentProps = {
   hebrewScale: number;
   translationScale: number;
   className?: string;
+  sageHighlights?: CompiledSageHighlight[];
+  conceptHighlights?: CompiledConceptHighlight[];
+};
+
+const escapeAttr = (value: string) => (value || '').replace(/"/g, '&quot;');
+
+const isTalmudRef = (ref?: string | null) => {
+  if (!ref) return false;
+  const parsed = parseRefSmart(ref);
+  if (parsed?.type === 'talmud') {
+    return true;
+  }
+  // Fallback: daf/amud pattern even if tractate name unknown to parser
+  return /\d+[ab](?::\d+)?$/i.test(ref.trim());
+};
+
+const renderHighlightedText = (
+  text: string,
+  sages: CompiledSageHighlight[] = [],
+  concepts: CompiledConceptHighlight[] = [],
+) => {
+  let html = text || '';
+
+  for (const sage of sages) {
+    const periodRaw = (sage.period || 'sage').toLowerCase();
+    const periodBase = periodRaw.split('_')[0] || 'sage';
+    const colorClass = `highlight-sage-${periodBase}`;
+    html = html.replace(sage.regex, (match) => {
+      return `<span class="highlight-sage ${colorClass} hover-target" data-entity-type="sage" data-slug="${escapeAttr(sage.slug)}">${match}</span>`;
+    });
+  }
+
+  for (const concept of concepts) {
+    for (const rx of concept.regexes || []) {
+      html = html.replace(rx, (match) => {
+        return `<span class="highlight-concept hover-target" data-entity-type="concept" data-slug="${escapeAttr(concept.slug)}">${match}</span>`;
+      });
+    }
+  }
+
+  return html;
 };
 
 const TextSegmentComponent = memo(
@@ -235,6 +295,8 @@ const TextSegmentComponent = memo(
         hebrewScale,
         translationScale,
         className = '',
+        sageHighlights = [],
+        conceptHighlights = [],
       },
       ref,
     ) => {
@@ -247,9 +309,18 @@ const TextSegmentComponent = memo(
         }
         return originalText;
       }, [showTranslation, translatedText, originalText]);
-      
+      const talmudSegment = useMemo(() => isTalmudRef(segment.ref), [segment.ref]);
       const isHebrew = showTranslation ? false : containsHebrew(textToRender);
       const direction = showTranslation ? 'ltr' : getTextDirection(textToRender);
+      const htmlToRender = useMemo(() => {
+        if (isTranslating && showTranslation) {
+          return '.';
+        }
+        if (!showTranslation && talmudSegment) {
+          return renderHighlightedText(textToRender || '', sageHighlights, conceptHighlights);
+        }
+        return textToRender || '';
+      }, [conceptHighlights, isTranslating, sageHighlights, showTranslation, talmudSegment, textToRender]);
 
       return (
         <div
@@ -280,7 +351,7 @@ const TextSegmentComponent = memo(
               lineHeight: isHebrew ? 'var(--lh-he)' : 'var(--lh)',
             }}
              dangerouslySetInnerHTML={{
-               __html: isTranslating && showTranslation ? '…' : (textToRender || ''),
+               __html: htmlToRender,
              }}
           />
         </div>

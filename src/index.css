@@ -781,3 +781,36 @@
   color: hsl(var(--foreground) / .92);
   opacity:.95;
 }
+
+/* FocusReader entity highlights */
+.hover-target {
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  padding: 0 2px;
+  border-radius: 4px;
+}
+.hover-target:hover {
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.55);
+}
+.highlight-sage {
+  background: color-mix(in srgb, #f7d674 26%, transparent);
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.35);
+  color: inherit;
+}
+.highlight-sage-zugot {
+  background: color-mix(in srgb, #f7d674 32%, transparent);
+}
+.highlight-sage-tannaim {
+  background: color-mix(in srgb, #8ec5ff 24%, transparent);
+}
+.highlight-sage-amoraim {
+  background: color-mix(in srgb, #77e2c1 22%, transparent);
+}
+.highlight-sage-achronim {
+  background: color-mix(in srgb, #ff9aa2 22%, transparent);
+}
+.highlight-concept {
+  background: color-mix(in srgb, #c8b8ff 24%, transparent);
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.35);
+  color: inherit;
+}

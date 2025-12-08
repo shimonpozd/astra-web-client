@@ -123,6 +123,7 @@ function RenderProfileHtml({ html }: { html?: string | null }) {
 }
 
 export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = false }: ProfileInspectorModalProps) {
+  const hasHebrew = (value?: string | null) => Boolean(value && /[\u0590-\u05FF]/.test(value));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ProfileResponse | null>(null);
@@ -177,7 +178,7 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
         setDraftGeneration(authorFacts.generation ?? null);
         setDraftPeriodLabel(authorFacts.display?.period_ru || authorFacts.period_ru || '');
         setDraftTitleEn(res.title_en || '');
-        setDraftTitleHe(res.title_he || '');
+        setDraftTitleHe(res.title_he || (hasHebrew(res.title_en) ? res.title_en : ''));
         setDraftTitleRu(authorFacts.display?.name_ru || authorFacts.display?.title_ru || '');
         const birthYear = authorFacts.birth_year ?? authorFacts.lifespan_range?.start;
         const deathYear = authorFacts.death_year ?? authorFacts.lifespan_range?.end;
@@ -215,6 +216,7 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
     if (!slug) return;
     setSaving(true);
     try {
+      const effectiveTitleHe = draftTitleHe || (hasHebrew(draftTitleEn) ? draftTitleEn : '');
       const factsWork = draftFactsWork ? JSON.parse(draftFactsWork) : null;
       const factsAuthor = draftFactsAuthor ? JSON.parse(draftFactsAuthor) : null;
       const splitToList = (value: string) =>
@@ -244,7 +246,7 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
       mergedFacts.author.period_ru = draftPeriodLabel || mergedFacts.author.period_ru;
       // сохраняем имена также в facts (на случай старых данных)
       if (draftTitleEn) mergedFacts.author.title_en = draftTitleEn;
-      if (draftTitleHe) mergedFacts.author.title_he = draftTitleHe;
+      if (effectiveTitleHe) mergedFacts.author.title_he = effectiveTitleHe;
       if (!hideWorkSection) {
         mergedFacts.summary_work_html = draftSummary;
       }
@@ -252,7 +254,7 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
       const res = await api.updateProfile({
         slug,
         title_en: draftTitleEn || undefined,
-        title_he: draftTitleHe || undefined,
+        title_he: effectiveTitleHe || undefined,
         summary_html: draftSummary + draftSummaryAuthor,
         facts: mergedFacts,
       });
@@ -281,6 +283,8 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
       setDraftRegion(authorFacts.region || '');
       setDraftGeneration(authorFacts.generation ?? null);
       setDraftPeriodLabel(authorFacts.display?.period_ru || authorFacts.period_ru || '');
+      setDraftTitleEn(res.title_en || '');
+      setDraftTitleHe(res.title_he || (hasHebrew(res.title_en) ? res.title_en : ''));
       const birthYear = authorFacts.birth_year ?? authorFacts.lifespan_range?.start;
       const deathYear = authorFacts.death_year ?? authorFacts.lifespan_range?.end;
       setDraftBirthYear(birthYear ? String(birthYear) : '');

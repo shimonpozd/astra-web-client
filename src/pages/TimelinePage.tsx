@@ -215,7 +215,7 @@ export default function TimelinePage() {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-900">
+    <div className="h-screen flex flex-col bg-background text-foreground">
       <TopBar />
       <main className="flex-1 relative overflow-hidden">
         <div ref={fullscreenRef} className="absolute inset-0">
@@ -224,7 +224,7 @@ export default function TimelinePage() {
             <motion.div
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              className="absolute top-3 left-1/2 -translate-x-1/2 z-40 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-border/70 rounded-xl shadow-lg px-3 py-2 flex items-center gap-2"
+              className="absolute top-3 left-1/2 -translate-x-1/2 z-40 bg-card/90 backdrop-blur-md border border-border/70 rounded-xl shadow-lg px-3 py-2 flex items-center gap-2"
             >
               <div className="flex items-center gap-1">
                 {(['research', 'explore'] as Mode[]).map((m, idx) => (

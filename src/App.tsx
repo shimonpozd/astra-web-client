@@ -12,6 +12,7 @@ const ProfileProgress = lazy(() => import('./pages/ProfileProgress'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const UserManagementPage = lazy(() => import('./pages/admin/UserManagement'));
 const ProfilesAdminPage = lazy(() => import('./pages/admin/ProfilesAdmin.tsx'));
+const TalmudicConceptsPage = lazy(() => import('./pages/admin/TalmudicConcepts'));
 import { useTextSelectionListener } from './hooks/useTextSelectionListener';
 import { LexiconPanel } from './components/LexiconPanel';
 import { ThemeProvider } from './components/theme-provider';
@@ -186,6 +187,14 @@ function App() {
                           element={
                             <Suspense fallback={null}>
                               <ProfilesAdminPage />
+                            </Suspense>
+                          }
+                        />
+                        <Route
+                          path="concepts"
+                          element={
+                            <Suspense fallback={null}>
+                              <TalmudicConceptsPage />
                             </Suspense>
                           }
                         />
