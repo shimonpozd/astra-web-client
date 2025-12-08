@@ -232,11 +232,12 @@ function createGroupLayout(
         });
         const genKeys = Object.keys(byGen).sort((a, b) => Number(a) - Number(b));
         let maxRows = 0;
-        genKeys.forEach((gKey, colIdx) => {
+        genKeys.forEach((gKey) => {
           const genPeople = byGen[gKey];
           genPeople.forEach((person, rowIdx) => {
             const { start, end } = normalizePersonDates(person, period);
-            const colX = xShift + colIdx * TORAH_STEP_PX + CARD_PADDING_X;
+            const gNum = resolveGeneration(person, period) ?? Number(gKey) || 1;
+            const colX = xShift + (gNum - 1) * TORAH_STEP_PX + CARD_PADDING_X;
             const y = GROUP_HEADER + 10 + rowIdx * (TRACK_HEIGHT + V_MARGIN);
             layouts.push({
               slug: person.slug,
