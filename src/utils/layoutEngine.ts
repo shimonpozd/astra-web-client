@@ -441,6 +441,7 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
           sefarad: 'Сфарад',
           italy: 'Италия',
           north_africa: 'Северная Африка',
+          kairouan: 'Кайруан',
           yemen: 'Йемен',
           egypt: 'Египет',
           other: 'Прочие',

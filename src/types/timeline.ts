@@ -8,6 +8,7 @@ export enum Region {
   SEPHARAD = 'sepharad',
   ITALY = 'italy',
   NORTH_AFRICA = 'north_africa',
+  KAIROUAN = 'kairouan',
   YEMEN = 'yemen',
   EGYPT = 'egypt',
 }

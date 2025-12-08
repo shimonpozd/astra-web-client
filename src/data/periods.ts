@@ -221,6 +221,7 @@ export const PERIODS: Period[] = [
       { id: 'rishonim_sepharad', name_ru: 'Сфарад', region: Region.SEPHARAD },
       { id: 'rishonim_italy', name_ru: 'Италия', region: Region.ITALY },
       { id: 'rishonim_north_africa', name_ru: 'Северная Африка', region: Region.NORTH_AFRICA },
+      { id: 'rishonim_kairouan', name_ru: 'Кайруан', region: Region.KAIROUAN },
       { id: 'rishonim_yemen', name_ru: 'Йемен', region: Region.YEMEN },
       { id: 'rishonim_egypt', name_ru: 'Египет', region: Region.EGYPT },
     ],

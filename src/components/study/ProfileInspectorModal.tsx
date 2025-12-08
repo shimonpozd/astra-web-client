@@ -53,6 +53,7 @@ const ERA_OPTIONS = [
   { value: 'rishonim_sefarad', label: 'Ришоним — Сфарад', generations: 0, period: 'rishonim', region: Region.SEPHARAD },
   { value: 'rishonim_italy', label: 'Ришоним — Италия', generations: 0, period: 'rishonim', region: Region.ITALY },
   { value: 'rishonim_north_africa', label: 'Ришоним — Северная Африка', generations: 0, period: 'rishonim', region: Region.NORTH_AFRICA },
+  { value: 'rishonim_kairouan', label: 'Ришоним — Кайруан', generations: 0, period: 'rishonim', region: Region.KAIROUAN },
   { value: 'rishonim_yemen', label: 'Ришоним — Йемен', generations: 0, period: 'rishonim', region: Region.YEMEN },
   { value: 'rishonim_egypt', label: 'Ришоним — Египет', generations: 0, period: 'rishonim', region: Region.EGYPT },
   { value: 'achronim', label: 'Ахроним', generations: 0, period: 'achronim' },
