@@ -65,6 +65,9 @@ const TORAH_COLUMN_WIDTH = TORAH_STEP_PX * 10; // фиксированная ш�
 const SHOFTIM_STEP_PX = 60;
 const SHOFTIM_BAR_WIDTH = 80;
 const GENERATION_COLUMN_WIDTH = 220;
+const GRID_CARD_WIDTH = 140;
+const GRID_COL_GAP = 40;
+const GRID_COL_WIDTH = GRID_CARD_WIDTH + GRID_COL_GAP;
 
 function resolveGeneration(person: TimelinePerson, period?: Period): number | undefined {
   if (person.generation) return person.generation;
@@ -211,9 +214,58 @@ function createGroupLayout(
     yearToX: (year: number) => number,
     periodWidth: number,
     xShift = 0,
+    opts?: { grid?: boolean; cardWidth?: number; waterfall?: boolean },
 ): GroupLayout {
-    const { layouts, rowsCount } = buildBinPackedLayouts(people, period, yearToX, yearToX(period.startYear), periodWidth, xShift);
-    const groupBodyHeight = rowsCount > 0 ? rowsCount * (TRACK_HEIGHT + V_MARGIN) - V_MARGIN : 0;
+    let layouts: PersonLayout[] = [];
+    let rowsCount = 0;
+
+    if (opts?.grid) {
+      const cardW = opts.cardWidth ?? GRID_CARD_WIDTH;
+      layouts = people.map((person, idx) => {
+        const { start, end } = normalizePersonDates(person, period);
+        return {
+          slug: person.slug,
+          x: xShift + CARD_PADDING_X,
+          y: GROUP_HEADER + 10 + idx * (TRACK_HEIGHT + V_MARGIN),
+          width: cardW,
+          tier: idx,
+          startYear: start,
+          endYear: end,
+          isFuzzy: true,
+        };
+      });
+      rowsCount = layouts.length ? layouts.length : 1;
+    } else if (opts?.waterfall) {
+      // Сортируем по началу периода
+      const sorted = [...people].sort((a, b) => normalizePersonDates(a, period).start - normalizePersonDates(b, period).start);
+      layouts = sorted.map((person, idx) => {
+        const { start, end, isFuzzy } = normalizePersonDates(person, period);
+        const xStart = Math.max(0, yearToX(start) - yearToX(period.startYear) + xShift);
+        const xEnd = Math.min(periodWidth, yearToX(end) - yearToX(period.startYear) + xShift);
+        const width = Math.max(40, xEnd - xStart);
+        return {
+          slug: person.slug,
+          x: xStart,
+          y: GROUP_HEADER + 10 + idx * (TRACK_HEIGHT * 0.7),
+          width,
+          tier: idx,
+          startYear: start,
+          endYear: end,
+          isFuzzy,
+        };
+      });
+      rowsCount = layouts.length * 0.7;
+    } else {
+      const bin = buildBinPackedLayouts(people, period, yearToX, yearToX(period.startYear), periodWidth, xShift);
+      layouts = bin.layouts;
+      rowsCount = bin.rowsCount;
+    }
+
+    const rowHeightPx = opts?.waterfall
+      ? rowsCount * TRACK_HEIGHT + TRACK_HEIGHT
+      : rowsCount * (TRACK_HEIGHT + V_MARGIN);
+
+    const groupBodyHeight = rowsCount > 0 ? rowHeightPx - V_MARGIN : 0;
     const groupHeight = GROUP_HEADER + GROUP_PADDING * 2 + groupBodyHeight;
 
     return {
@@ -255,19 +307,27 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
         return g && g > acc ? g : acc;
       }, 0) || 13;
       periodWidth = Math.max(width, SHOFTIM_STEP_PX * Math.max(1, maxGen) + SHOFTIM_BAR_WIDTH);
-    } else if (period.id.startsWith('tannaim') || period.id.startsWith('amoraim')) {
-      const maxGen = periodPeople.reduce((acc, p) => {
-        const g = resolveGeneration(p, period);
-        return g && g > acc ? g : acc;
-      }, 0) || 1;
-      const densityWidth = periodPeople.length * 2;
-      periodWidth = Math.max(width, maxGen * GENERATION_COLUMN_WIDTH + densityWidth);
+    } else if (period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot') {
+      // Для сеточных поколений держим фактическую историческую ширину, позже подгоним ширину колонок внутрь
+      periodWidth = Math.max(width, MIN_PERIOD_WIDTH);
     } else {
       periodWidth = Math.max(width, MIN_PERIOD_WIDTH);
     }
     
     let groups: GroupLayout[] = [];
     let groupCursorY = 0;
+
+    // вспомогательный размер колонок для grid-периодов
+    const isGridPeriod = period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot';
+    const maxGenForGrid = isGridPeriod
+      ? (periodPeople.reduce((acc, p) => {
+          const g = resolveGeneration(p, period);
+          return g && g > acc ? g : acc;
+        }, 0) || 1)
+      : 1;
+    const gridColWidth = isGridPeriod
+      ? Math.max(120, (periodWidth - GRID_COL_GAP * (Math.max(1, maxGenForGrid) - 1)) / Math.max(1, maxGenForGrid))
+      : GRID_COL_WIDTH;
 
     if (period.id === 'malakhim_divided') {
         const israel = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('israel'));
@@ -282,7 +342,7 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
 
         malakhimGroups.forEach(({label, people: groupPeople}) => {
             if(groupPeople.length === 0) return;
-            const group = createGroupLayout(`${period.id}-${label.toLowerCase()}`, label, groupPeople, groupCursorY, period, yearToX, periodWidth);
+            const group = createGroupLayout(`${period.id}-${label.toLowerCase()}`, label, groupPeople, groupCursorY, period, yearToX, periodWidth, 0, { waterfall: true });
             groups.push(group);
             groupCursorY += group.height + GROUP_GAP;
         });
@@ -328,15 +388,11 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
           if (id.startsWith('postflood')) col = 1;
           if (id === 'patriarchs' || id === 'tribes') col = 2;
           const xOffset = col * TORAH_COLUMN_WIDTH;
-          const group = createGroupLayout(`${period.id}-${id}`, label, list, groupCursorY, period, yearToX, periodWidth, xOffset);
+          const group = createGroupLayout(`${period.id}-${id}`, label, list, groupCursorY, period, yearToX, periodWidth, xOffset, { grid: true, cardWidth: GRID_CARD_WIDTH });
           groups.push(group);
           groupCursorY += group.height + GROUP_GAP;
         });
-        const maxH = groups.reduce((m, g) => Math.max(m, g.height), 0);
-        if (maxH > 0) {
-          groups = groups.map((g) => ({ ...g, y: 0 }));
-          groupCursorY = maxH;
-        }
+        // Колонки остаются на своих вертикалях (каждая линия сама задаёт высоту)
 
     } else if (period.id === 'rishonim') {
         const regionLabels: Record<string, string> = {
@@ -392,13 +448,22 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
             const ladderOffset = period.id === 'shoftim' ? idx * 8 : 0; // легкий «ступенчатый» сдвиг
             const genNumber = Number(key);
             const xColShift =
-              (period.id.startsWith('tannaim') || period.id.startsWith('amoraim')) && Number.isFinite(genNumber)
-                ? (genNumber - 1) * GENERATION_COLUMN_WIDTH
+              (period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot') && Number.isFinite(genNumber)
+                ? (genNumber - 1) * gridColWidth
                 : 0;
-            const group = createGroupLayout(`${period.id}-gen-${key}`, label, generationPeople, groupCursorY + ladderOffset, period, yearToX, periodWidth, xColShift);
+            const isGrid = period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot';
+            const cardWidth = isGrid ? Math.max(100, Math.min(GRID_CARD_WIDTH, gridColWidth - GRID_COL_GAP * 0.5)) : undefined;
+            const group = createGroupLayout(`${period.id}-gen-${key}`, label, generationPeople, groupCursorY + ladderOffset, period, yearToX, periodWidth, xColShift, isGrid ? { grid: true, cardWidth } : undefined);
             groups.push(group);
-            groupCursorY += group.height + GROUP_GAP;
+            groupCursorY = isGrid ? Math.max(groupCursorY, group.height) : groupCursorY + group.height + GROUP_GAP;
         });
+
+        // Если это grid-период (tannaim/amoraim/zugot) — выровнять колонки по одной горизонтали
+        if (period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot') {
+          const maxH = groups.reduce((m, g) => Math.max(m, g.height), 0);
+          groups = groups.map((g) => ({ ...g, y: 0 }));
+          groupCursorY = maxH;
+        }
     }
 
     const rowHeight = groupCursorY > 0 ? groupCursorY - GROUP_GAP : 0;

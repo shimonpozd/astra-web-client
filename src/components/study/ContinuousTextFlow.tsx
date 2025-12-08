@@ -259,6 +259,16 @@ const isTalmudOrMishnahRef = (ref?: string | null) => {
   return /\d+[ab](?::\d+)?$/i.test(ref.trim());
 };
 
+// Применяем замену только к текстовым участкам, не трогая HTML-теги
+const replaceOutsideTags = (html: string, regex: RegExp, replacer: (match: string) => string) => {
+  const parts = html.split(/(<[^>]+>)/g);
+  for (let i = 0; i < parts.length; i += 1) {
+    if (parts[i].startsWith('<')) continue;
+    parts[i] = parts[i].replace(regex, replacer);
+  }
+  return parts.join('');
+};
+
 const renderHighlightedText = (
   text: string,
   sages: CompiledSageHighlight[] = [],
@@ -270,14 +280,14 @@ const renderHighlightedText = (
     const periodRaw = (sage.period || 'sage').toLowerCase();
     const periodBase = periodRaw.split('_')[0] || 'sage';
     const colorClass = `highlight-sage-${periodBase}`;
-    html = html.replace(sage.regex, (match) => {
+    html = replaceOutsideTags(html, sage.regex, (match) => {
       return `<span class="highlight-sage ${colorClass} hover-target" data-entity-type="sage" data-slug="${escapeAttr(sage.slug)}">${match}</span>`;
     });
   }
 
   for (const concept of concepts) {
     for (const rx of concept.regexes || []) {
-      html = html.replace(rx, (match) => {
+      html = replaceOutsideTags(html, rx, (match) => {
         return `<span class="highlight-concept hover-target" data-entity-type="concept" data-slug="${escapeAttr(concept.slug)}">${match}</span>`;
       });
     }
