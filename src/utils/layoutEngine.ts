@@ -167,8 +167,8 @@ function buildBinPackedLayouts(
       xStartRaw = estStartPx;
       xEndRaw = estStartPx + SHOFTIM_BAR_WIDTH;
     } else {
-      xStartRaw = yearToX(start) - xOffset;
-      xEndRaw = yearToX(end) - xOffset;
+      xStartRaw = yearToX(start) - xOffset + xShift;
+      xEndRaw = yearToX(end) - xOffset + xShift;
     }
 
     const xStart_initial = Math.max(0, xStartRaw);
