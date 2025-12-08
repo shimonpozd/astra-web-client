@@ -236,7 +236,8 @@ function createGroupLayout(
           const genPeople = byGen[gKey];
           genPeople.forEach((person, rowIdx) => {
             const { start, end } = normalizePersonDates(person, period);
-            const gNum = resolveGeneration(person, period) ?? Number(gKey) || 1;
+            const resolvedGen = resolveGeneration(person, period);
+            const gNum = (resolvedGen ?? Number(gKey)) || 1;
             const colX = xShift + (gNum - 1) * TORAH_STEP_PX + CARD_PADDING_X;
             const y = GROUP_HEADER + 10 + rowIdx * (TRACK_HEIGHT + V_MARGIN);
             layouts.push({
