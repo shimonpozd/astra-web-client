@@ -90,7 +90,9 @@ function normalizePersonDates(person: TimelinePerson, period?: Period): { start:
     return { start: rawStart, end: rawStart + 40, isFuzzy: true };
   }
   if (rawEnd !== undefined) {
-    return { start: rawEnd - 40, end: rawEnd, isFuzzy: true };
+    // Если знаем только год смерти — фиксируем прямоугольник вправо от точки смерти,
+    // чтобы не растягивать бар далеко в прошлое.
+    return { start: rawEnd, end: rawEnd + 40, isFuzzy: true };
   }
 
   // Спец-логика для Торы: фиксированный шаг по поколениям, чтобы поколение N всегда правее N-1
@@ -277,7 +279,7 @@ function createGroupLayout(
         return {
           slug: person.slug,
           x: xStart,
-          y: GROUP_HEADER + 10 + idx * (TRACK_HEIGHT + V_MARGIN),
+          y: GROUP_HEADER + 10 + idx * (TRACK_HEIGHT * 0.7),
           width,
           tier: idx,
           startYear: start,
@@ -292,7 +294,9 @@ function createGroupLayout(
       rowsCount = bin.rowsCount;
     }
 
-    const rowHeightPx = rowsCount * (TRACK_HEIGHT + V_MARGIN);
+    const rowHeightPx = opts?.waterfall
+      ? rowsCount * (TRACK_HEIGHT * 0.7) + TRACK_HEIGHT
+      : rowsCount * (TRACK_HEIGHT + V_MARGIN);
 
     const groupBodyHeight = rowsCount > 0 ? rowHeightPx - V_MARGIN : 0;
     const groupHeight = GROUP_HEADER + GROUP_PADDING * 2 + groupBodyHeight;
@@ -458,6 +462,47 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
         const group = createGroupLayout(`${period.id}-all`, 'Ахроним', periodPeople, groupCursorY, period, yearToX, periodWidth);
         groups.push(group);
         groupCursorY += group.height + GROUP_GAP;
+
+    } else if (period.id === 'savoraim') {
+        const sura = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('sura'));
+        const pumbedita = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('pumbedita'));
+        const other = periodPeople.filter(
+          (p) => !(p.subPeriod || '').toLowerCase().includes('sura') && !(p.subPeriod || '').toLowerCase().includes('pumbedita'),
+        );
+        const savoraGroups: { label: string; people: TimelinePerson[] }[] = [
+          { label: 'Сура', people: sura },
+          { label: 'Пумбедита', people: pumbedita },
+          { label: 'Прочие', people: other },
+        ];
+        savoraGroups.forEach(({ label, people: list }) => {
+          if (!list.length) return;
+          const group = createGroupLayout(`${period.id}-${label.toLowerCase()}`, label, list, groupCursorY, period, yearToX, periodWidth);
+          groups.push(group);
+          groupCursorY += group.height + GROUP_GAP;
+        });
+
+    } else if (period.id === 'geonim') {
+        const sura = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('sura'));
+        const pumbedita = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('pumbedita'));
+        const israel = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('israel'));
+        const other = periodPeople.filter(
+          (p) =>
+            !(p.subPeriod || '').toLowerCase().includes('sura') &&
+            !(p.subPeriod || '').toLowerCase().includes('pumbedita') &&
+            !(p.subPeriod || '').toLowerCase().includes('israel'),
+        );
+        const gaonGroups: { label: string; people: TimelinePerson[] }[] = [
+          { label: 'Сура', people: sura },
+          { label: 'Пумбедита', people: pumbedita },
+          { label: 'Эрец-Исраэль', people: israel },
+          { label: 'Прочие', people: other },
+        ];
+        gaonGroups.forEach(({ label, people: list }) => {
+          if (!list.length) return;
+          const group = createGroupLayout(`${period.id}-${label.toLowerCase()}`, label, list, groupCursorY, period, yearToX, periodWidth);
+          groups.push(group);
+          groupCursorY += group.height + GROUP_GAP;
+        });
 
     } else {
         const peopleByGeneration: Record<string, TimelinePerson[]> = {};

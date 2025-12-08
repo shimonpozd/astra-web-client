@@ -165,11 +165,20 @@ export const PERIODS: Period[] = [
     startYear: 500,
     endYear: 600,
     color: '#20B2AA',
-    subPeriods: Array.from({ length: 5 }, (_, i) => ({
-      id: `savora_gen${i + 1}`,
-      name_ru: `Поколение ${i + 1}`,
-      generation: i + 1,
-    })),
+    subPeriods: [
+      ...Array.from({ length: 5 }, (_, i) => ({
+        id: `savora_sura_gen${i + 1}`,
+        name_ru: `Сура — Поколение ${i + 1}`,
+        generation: i + 1,
+        region: Region.BABYLONIA,
+      })),
+      ...Array.from({ length: 5 }, (_, i) => ({
+        id: `savora_pumbedita_gen${i + 1}`,
+        name_ru: `Пумбедита — Поколение ${i + 1}`,
+        generation: i + 1,
+        region: Region.BABYLONIA,
+      })),
+    ],
   },
   {
     id: 'geonim',
