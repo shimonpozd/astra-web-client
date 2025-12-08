@@ -243,10 +243,16 @@ type TextSegmentComponentProps = {
 
 const escapeAttr = (value: string) => (value || '').replace(/"/g, '&quot;');
 
-const isTalmudRef = (ref?: string | null) => {
+const isTalmudOrMishnahRef = (ref?: string | null) => {
   if (!ref) return false;
   const parsed = parseRefSmart(ref);
   if (parsed?.type === 'talmud') {
+    return true;
+  }
+  const lower = ref.toLowerCase();
+  // Mishnah-like references: "Mishnah X 2:1" or "משנה"
+  const looksLikeMishnah = lower.includes('mishnah') || lower.includes('mishna') || ref.includes('משנה');
+  if (looksLikeMishnah && /\d+[:.]\d+/.test(ref)) {
     return true;
   }
   // Fallback: daf/amud pattern even if tractate name unknown to parser
@@ -309,7 +315,7 @@ const TextSegmentComponent = memo(
         }
         return originalText;
       }, [showTranslation, translatedText, originalText]);
-      const talmudSegment = useMemo(() => isTalmudRef(segment.ref), [segment.ref]);
+      const talmudSegment = useMemo(() => isTalmudOrMishnahRef(segment.ref), [segment.ref]);
       const isHebrew = showTranslation ? false : containsHebrew(textToRender);
       const direction = showTranslation ? 'ltr' : getTextDirection(textToRender);
       const htmlToRender = useMemo(() => {
