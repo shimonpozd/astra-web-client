@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { TalmudicConcept } from '../../types/highlight';
 import {
+  batchImportConcepts,
   deleteConcept,
   generateConceptContent,
   listConcepts,
@@ -21,6 +22,8 @@ const TalmudicConcepts: React.FC = () => {
   const [current, setCurrent] = useState<TalmudicConcept>(emptyConcept);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isBatching, setIsBatching] = useState(false);
+  const [batchText, setBatchText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const sortedItems = useMemo(
@@ -114,6 +117,31 @@ const TalmudicConcepts: React.FC = () => {
 
   const patternsText = (current.search_patterns || []).join('\n');
 
+  const handleBatchImport = async () => {
+    setError(null);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(batchText);
+      if (!Array.isArray(parsed)) {
+        throw new Error('Ожидается массив объектов');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось распарсить JSON');
+      return;
+    }
+
+    setIsBatching(true);
+    try {
+      await batchImportConcepts(parsed);
+      setBatchText('');
+      await refresh();
+    } catch (err: any) {
+      setError(err?.message || 'Batch import failed');
+    } finally {
+      setIsBatching(false);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -173,6 +201,29 @@ const TalmudicConcepts: React.FC = () => {
         </div>
 
         <div className="col-span-9 border rounded-lg p-4 space-y-4 overflow-y-auto">
+          <div className="border rounded-lg p-3 bg-muted/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold">Batch импорт (JSON массив)</div>
+                <div className="text-xs text-muted-foreground">Поля: term_he (обяз.), slug (опц.), short_summary_html, full_article_html, status (по умолчанию published)</div>
+              </div>
+              <button
+                type="button"
+                className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm disabled:opacity-60"
+                onClick={handleBatchImport}
+                disabled={isBatching}
+              >
+                {isBatching ? 'Импорт...' : 'Импортировать'}
+              </button>
+            </div>
+            <textarea
+              value={batchText}
+              onChange={(e) => setBatchText(e.target.value)}
+              className="w-full rounded-md border px-3 py-2 text-sm font-mono bg-background h-32"
+              placeholder='[\n  { "term_he": "תיקו", "short_summary_html": "<p>...</p>" }\n]'
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <label className="space-y-1">
               <span className="text-sm font-medium">Slug</span>

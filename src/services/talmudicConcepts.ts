@@ -66,3 +66,16 @@ export async function generateConceptContent(term_he: string): Promise<GenerateC
   }
   return (await resp.json()) as GenerateConceptResponse;
 }
+
+export async function batchImportConcepts(items: Array<{ term_he: string; slug?: string; short_summary_html?: string; full_article_html?: string; status?: 'draft' | 'published' }>): Promise<TalmudicConcept[]> {
+  const resp = await authorizedFetch(`${API_BASE}/admin/talmudic_concepts/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(items),
+  });
+  if (!resp.ok) {
+    throw new Error('Batch import failed');
+  }
+  const data = await resp.json();
+  return (data?.items as TalmudicConcept[]) ?? [];
+}
