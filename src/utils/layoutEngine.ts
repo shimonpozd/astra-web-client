@@ -415,7 +415,7 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
     let groups: GroupLayout[] = [];
     let groupCursorY = 0;
     const groupGap = period.id === 'shoftim' || period.id === 'malakhim_divided'
-      ? Math.max(4, GROUP_GAP * 0.35)
+      ? Math.max(6, GROUP_GAP * 0.5) // единый умеренный зазор для обоих периодов
       : GROUP_GAP;
 
     const isGridPeriod = period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot';

@@ -108,6 +108,11 @@ export const PERIODS: Period[] = [
     startYear: -200,
     endYear: 10,
     color: '#5F9EA0',
+    subPeriods: Array.from({ length: 5 }, (_, i) => ({
+      id: `zugot_gen${i + 1}`,
+      name_ru: `Поколение ${i + 1}`,
+      generation: i + 1,
+    })),
   },
   {
     id: 'tannaim_temple',

@@ -63,7 +63,7 @@ export default function ProfilesAdminPage() {
     { value: 'melakhim_divided_israel', label: 'Млахим — Разделённое (Израиль)', generations: 0, period: 'malakhim_divided', subPrefix: 'israel', region: Region.ERETZ_ISRAEL },
     { value: 'melakhim_divided_judah', label: 'Млахим — Разделённое (Иуда)', generations: 0, period: 'malakhim_divided', subPrefix: 'judah', region: Region.ERETZ_ISRAEL },
     { value: 'hasmoneans', label: 'Хашмонаим', generations: 0, period: 'hasmonean' },
-    { value: 'zugot', label: 'Зугот', generations: 0, period: 'zugot' },
+    { value: 'zugot', label: 'Зугот', generations: 5, period: 'zugot', subPrefix: 'zugot_gen' },
     { value: 'tanna_second', label: 'Таннаим (Второй Храм)', generations: 7, period: 'tannaim_temple', subPrefix: 'tanna_temple_gen' },
     { value: 'tanna_post', label: 'Таннаим (после разрушения)', generations: 5, period: 'tannaim_post_temple', subPrefix: 'tanna_post_gen' },
     { value: 'amora_eretz', label: 'Амораим — Эрец Исраэль', generations: 6, period: 'amoraim_israel', subPrefix: 'amora_israel_gen', region: Region.ERETZ_ISRAEL },
