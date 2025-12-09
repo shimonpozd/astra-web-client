@@ -285,7 +285,7 @@ function createGroupLayout(
         return {
           slug: person.slug,
           x: xStart,
-          y: GROUP_HEADER + 10 + idx * stepY,
+          y: GROUP_HEADER + 6 + idx * stepY,
           width,
           tier: idx,
           startYear: start,
@@ -301,7 +301,7 @@ function createGroupLayout(
     }
 
     const rowHeightPx = opts?.waterfall
-      ? rowsCount * (TRACK_HEIGHT * 0.9 + V_MARGIN) + TRACK_HEIGHT * 0.1
+      ? Math.max(0, GROUP_HEADER + GROUP_PADDING * 2 + rowsCount * (TRACK_HEIGHT * 0.9 + V_MARGIN))
       : rowsCount * (TRACK_HEIGHT + V_MARGIN);
 
     const groupBodyHeight = rowsCount > 0 ? rowHeightPx - V_MARGIN : 0;
@@ -401,7 +401,8 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
       const maxGenPeople = periodPeople.reduce((acc, p) => Math.max(acc, resolveGeneration(p, period) ?? 0), 0);
       const maxGenPeriod =
         period.subPeriods?.reduce((acc, sp) => (sp.generation && sp.generation > acc ? sp.generation : acc), 0) || 0;
-      const maxGen = Math.max(maxGenPeople || 0, maxGenPeriod || 0, 1);
+      const fallbackGen = period.id === 'zugot' ? 5 : 1;
+      const maxGen = Math.max(maxGenPeople || 0, maxGenPeriod || 0, fallbackGen);
       return Math.max(maxGen * GRID_COL_WIDTH + GRID_COL_GAP * 2, 700);
     }
     if (period.id === 'rishonim' || period.id === 'achronim') {
@@ -419,9 +420,9 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
     let groups: GroupLayout[] = [];
     let groupCursorY = 0;
     const groupGap = period.id === 'shoftim'
-      ? 6 // компактно для Шофтим
+      ? 4 // еще компактнее для Шофтим
       : period.id === 'malakhim_divided'
-        ? GROUP_GAP // обычный зазор, чтобы waterfall не налезал
+        ? GROUP_GAP
         : GROUP_GAP;
 
     const isGridPeriod = period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot';
@@ -430,7 +431,8 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
           const fromPeople = periodPeople.reduce((acc, p) => Math.max(acc, resolveGeneration(p, period) ?? 0), 0);
           const fromPeriod =
             period.subPeriods?.reduce((acc, sp) => (sp.generation && sp.generation > acc ? sp.generation : acc), 0) || 0;
-          return Math.max(fromPeople || 0, fromPeriod || 0, 1);
+          const fallbackGen = period.id === 'zugot' ? 5 : 1;
+          return Math.max(fromPeople || 0, fromPeriod || 0, fallbackGen);
         })()
       : 1;
     const gridColWidth = isGridPeriod
