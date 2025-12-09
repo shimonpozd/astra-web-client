@@ -276,6 +276,7 @@ function createGroupLayout(
     } else if (opts?.waterfall) {
       // Сортируем по началу периода
       const sorted = [...people].sort((a, b) => normalizePersonDates(a, period).start - normalizePersonDates(b, period).start);
+      const stepY = TRACK_HEIGHT * 0.9 + V_MARGIN;
       layouts = sorted.map((person, idx) => {
         const { start, end, isFuzzy } = normalizePersonDates(person, period);
         const xStart = Math.max(0, yearToX(start) - yearToX(period.startYear) + xShift);
@@ -284,7 +285,7 @@ function createGroupLayout(
         return {
           slug: person.slug,
           x: xStart,
-          y: GROUP_HEADER + 10 + idx * (TRACK_HEIGHT * 0.55),
+          y: GROUP_HEADER + 10 + idx * stepY,
           width,
           tier: idx,
           startYear: start,
@@ -300,7 +301,7 @@ function createGroupLayout(
     }
 
     const rowHeightPx = opts?.waterfall
-      ? rowsCount * (TRACK_HEIGHT * 0.55) + TRACK_HEIGHT
+      ? rowsCount * (TRACK_HEIGHT * 0.9 + V_MARGIN) + TRACK_HEIGHT * 0.1
       : rowsCount * (TRACK_HEIGHT + V_MARGIN);
 
     const groupBodyHeight = rowsCount > 0 ? rowHeightPx - V_MARGIN : 0;
@@ -397,7 +398,10 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
       return Math.max(SHOFTIM_STEP_PX * Math.max(1, maxGen) + SHOFTIM_BAR_WIDTH, 600);
     }
     if (period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot') {
-      const maxGen = periodPeople.reduce((acc, p) => Math.max(acc, resolveGeneration(p, period) ?? 0), 0) || 1;
+      const maxGenPeople = periodPeople.reduce((acc, p) => Math.max(acc, resolveGeneration(p, period) ?? 0), 0);
+      const maxGenPeriod =
+        period.subPeriods?.reduce((acc, sp) => (sp.generation && sp.generation > acc ? sp.generation : acc), 0) || 0;
+      const maxGen = Math.max(maxGenPeople || 0, maxGenPeriod || 0, 1);
       return Math.max(maxGen * GRID_COL_WIDTH + GRID_COL_GAP * 2, 700);
     }
     if (period.id === 'rishonim' || period.id === 'achronim') {
@@ -414,13 +418,20 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
 
     let groups: GroupLayout[] = [];
     let groupCursorY = 0;
-    const groupGap = period.id === 'shoftim' || period.id === 'malakhim_divided'
-      ? Math.max(6, GROUP_GAP * 0.5) // единый умеренный зазор для обоих периодов
-      : GROUP_GAP;
+    const groupGap = period.id === 'shoftim'
+      ? 6 // компактно для Шофтим
+      : period.id === 'malakhim_divided'
+        ? GROUP_GAP // обычный зазор, чтобы waterfall не налезал
+        : GROUP_GAP;
 
     const isGridPeriod = period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot';
     const maxGenForGrid = isGridPeriod
-      ? (periodPeople.reduce((acc, p) => Math.max(acc, resolveGeneration(p, period) ?? 0), 0) || 1)
+      ? (() => {
+          const fromPeople = periodPeople.reduce((acc, p) => Math.max(acc, resolveGeneration(p, period) ?? 0), 0);
+          const fromPeriod =
+            period.subPeriods?.reduce((acc, sp) => (sp.generation && sp.generation > acc ? sp.generation : acc), 0) || 0;
+          return Math.max(fromPeople || 0, fromPeriod || 0, 1);
+        })()
       : 1;
     const gridColWidth = isGridPeriod
       ? Math.max(120, (periodWidth - GRID_COL_GAP * (Math.max(1, maxGenForGrid) - 1)) / Math.max(1, maxGenForGrid))
