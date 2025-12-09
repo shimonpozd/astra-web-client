@@ -187,10 +187,15 @@ const FocusReader = memo(({
   const sanitizedHebrew = useMemo(() => sanitizeText(hebrewText), [hebrewText, sanitizeText]);
   const sanitizedEnglish = useMemo(() => sanitizeText(englishText), [englishText, sanitizeText]);
 
-const compileSageHighlights = useCallback((items: SageHighlight[]): CompiledSageHighlight[] => {
-    const compiled: CompiledSageHighlight[] = [];
+  const compileSageHighlights = useCallback((items: SageHighlight[]): CompiledSageHighlight[] => {
     const allowed = new Set(['zugot', 'tannaim', 'amoraim']);
-    for (const item of items || []) {
+    const sorted = [...(items || [])].sort((a, b) => {
+      const lenA = (a.name_he || a.slug || '').length;
+      const lenB = (b.name_he || b.slug || '').length;
+      return lenB - lenA; // длинные имена первыми, чтобы избегать вложенных матчей
+    });
+    const compiled: CompiledSageHighlight[] = [];
+    for (const item of sorted) {
       if (!item?.regex_pattern || !item.slug) continue;
       try {
         const periodRaw = (item.period || '').toLowerCase();
@@ -208,8 +213,13 @@ const compileSageHighlights = useCallback((items: SageHighlight[]): CompiledSage
   }, []);
 
   const compileConceptHighlights = useCallback((items: ConceptHighlight[]): CompiledConceptHighlight[] => {
+    const sorted = [...(items || [])].sort((a, b) => {
+      const lenA = (a.term_he || a.slug || '').length;
+      const lenB = (b.term_he || b.slug || '').length;
+      return lenB - lenA;
+    });
     const compiled: CompiledConceptHighlight[] = [];
-    for (const item of items || []) {
+    for (const item of sorted) {
       if (!item?.slug) continue;
       const regexes: RegExp[] = [];
       for (const pat of item.search_patterns || []) {

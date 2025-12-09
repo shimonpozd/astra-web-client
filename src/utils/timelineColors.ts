@@ -1,4 +1,4 @@
-import { Period } from '@/types/timeline';
+import { Period, Region, TimelinePerson } from '@/types/timeline';
 
 export interface ColorSystem {
   hue?: number;
@@ -66,4 +66,42 @@ export function generateColorSystem(periodId: string): ColorSystem {
 
 export function getPeriodColor(periods: Period[], periodId: string) {
   return periods.find((p) => p.id === periodId)?.color ?? generateColorSystem(periodId).periodBase;
+}
+
+// --- Region palette for Rishonim ---
+const RISHONIM_REGION_COLORS: Record<string, string> = {
+  [Region.GERMANY]: '#2f9e44', // green
+  [Region.FRANCE]: '#f59f00', // orange
+  [Region.SEPHARAD]: '#228be6', // blue
+  [Region.ITALY]: '#cc5de8', // purple
+  [Region.NORTH_AFRICA]: '#e8590c', // burnt orange
+  [Region.YEMEN]: '#d9480f', // deep red-orange
+  [Region.EGYPT]: '#e67700', // amber
+  [Region.ENGLAND]: '#15aabf', // teal
+  [Region.PROVENCE]: '#e64980', // pink
+  other: '#8892b0', // muted slate
+};
+
+function resolveRishonimRegion(person: TimelinePerson): string {
+  if (person.region) return person.region;
+  const sub = person.subPeriod?.toLowerCase() ?? '';
+  if (sub.includes('german')) return Region.GERMANY;
+  if (sub.includes('france')) return Region.FRANCE;
+  if (sub.includes('sefar') || sub.includes('sefard') || sub.includes('spain')) return Region.SEPHARAD;
+  if (sub.includes('provence')) return Region.PROVENCE;
+  if (sub.includes('england')) return Region.ENGLAND;
+  if (sub.includes('italy')) return Region.ITALY;
+  if (sub.includes('africa')) return Region.NORTH_AFRICA;
+  if (sub.includes('yemen')) return Region.YEMEN;
+  if (sub.includes('egypt')) return Region.EGYPT;
+  return 'other';
+}
+
+export function getPersonColor(person: TimelinePerson, period: Period): string {
+  const pid = period.id.toLowerCase();
+  if (pid.includes('rishonim')) {
+    const regionKey = resolveRishonimRegion(person);
+    return RISHONIM_REGION_COLORS[regionKey] ?? RISHONIM_REGION_COLORS.other;
+  }
+  return getPeriodColor([period], period.id);
 }

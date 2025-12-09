@@ -68,6 +68,9 @@ const GENERATION_COLUMN_WIDTH = 220;
 const GRID_CARD_WIDTH = 140;
 const GRID_COL_GAP = 40;
 const GRID_COL_WIDTH = GRID_CARD_WIDTH + GRID_COL_GAP;
+const HORIZONTAL_GAP = 80;
+const STACK_GAP = 48;
+const SECONDARY_TRACK_OFFSET = 800;
 
 function resolveGeneration(person: TimelinePerson, period?: Period): number | undefined {
   if (person.generation) return person.generation;
@@ -315,235 +318,258 @@ function createGroupLayout(
 }
 
 
-export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): PeriodBlock[] {
+export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlock[] {
+  const periodIndex: Record<string, Period> = {};
+  periods.forEach((p) => { periodIndex[p.id] = p; });
+
+  const PRIMARY_PERIODS = [
+    'torah',
+    'shoftim',
+    'malakhim_united',
+    'malakhim_divided',
+    'anshei_knesset_hagedolah',
+    'zugot',
+    'tannaim_temple',
+    'tannaim_post_temple',
+    'savoraim',
+    'geonim',
+    'rishonim',
+    'achronim',
+  ];
+
+  const STACKED: { id: string; anchor: string }[] = [
+    { id: 'amoraim', anchor: 'tannaim_post_temple' },
+  ];
+
+  const SECONDARY: string[] = ['hasmonean', 'prophets', 'neviim'];
+
+  const resolvePeriod = (id: string): Period | undefined => {
+    if (periodIndex[id]) return periodIndex[id];
+    // synonyms fallback
+    if (id === 'tannaim_pre_temple' && periodIndex['tannaim_temple']) return periodIndex['tannaim_temple'];
+    if (id === 'tannaim_post_temple' && periodIndex['tannaim_post']) return periodIndex['tannaim_post'];
+    if (id === 'malakhim_united' && periodIndex['malakhim']) return periodIndex['malakhim'];
+    if (id === 'malakhim_divided' && periodIndex['malakhim_divided']) return periodIndex['malakhim_divided'];
+    return undefined;
+  };
+
   const peopleByPeriod: Record<string, TimelinePerson[]> = {};
-  periods.forEach(p => { peopleByPeriod[p.id] = [] });
-  people.forEach(p => {
-    if (p.period && peopleByPeriod[p.period]) {
-      peopleByPeriod[p.period].push(p);
-    }
+  periods.forEach((p) => { peopleByPeriod[p.id] = []; });
+  people.forEach((p) => {
+    if (p.period && peopleByPeriod[p.period]) peopleByPeriod[p.period].push(p);
   });
 
-  const unslotted = periods.map(period => {
-    const periodPeople = peopleByPeriod[period.id] ?? [];
-    const x = yearToX(period.startYear);
-    const width = yearToX(period.endYear) - x;
-    let periodWidth: number;
+  const calcWidth = (period: Period, periodPeople: TimelinePerson[]): number => {
+    const span = Math.max(1, period.endYear - period.startYear);
     if (period.id === 'torah') {
-      const maxGen = periodPeople.reduce((acc, p) => {
-        const g = resolveGeneration(p, period);
-        return g && g > acc ? g : acc;
-      }, 0) || 10; // если нет данных, считаем хотя бы 10 шагов
+      const maxGen = periodPeople.reduce((acc, p) => Math.max(acc, resolveGeneration(p, period) ?? 0), 0) || 10;
       const dynamicWidth = TORAH_STEP_PX * (maxGen + 2);
-      periodWidth = Math.max(MIN_PERIOD_WIDTH, Math.max(dynamicWidth, TORAH_COLUMN_WIDTH * 3 + TORAH_STEP_PX * 2));
-    } else if (period.id === 'shoftim') {
-      const maxGen = periodPeople.reduce((acc, p) => {
-        const g = resolveGeneration(p, period);
-        return g && g > acc ? g : acc;
-      }, 0) || 13;
-      periodWidth = Math.max(width, SHOFTIM_STEP_PX * Math.max(1, maxGen) + SHOFTIM_BAR_WIDTH);
-    } else if (period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot') {
-      // Сеточные периоды: ширина контейнера зависит от числа поколений (колонок)
-      const maxGen = periodPeople.reduce((acc, p) => {
-        const g = resolveGeneration(p, period);
-        return g && g > acc ? g : acc;
-      }, 0) || 1;
-      const gridMin = maxGen * GRID_COL_WIDTH + GRID_COL_GAP * 2; // небольшие внешние паддинги
-      periodWidth = Math.max(width, gridMin);
-    } else {
-      periodWidth = Math.max(width, MIN_PERIOD_WIDTH);
+      return Math.max(dynamicWidth, TORAH_COLUMN_WIDTH * 3 + TORAH_STEP_PX * 2);
     }
-    
+    if (period.id === 'shoftim') {
+      const maxGen = periodPeople.reduce((acc, p) => Math.max(acc, resolveGeneration(p, period) ?? 0), 0) || 13;
+      return Math.max(SHOFTIM_STEP_PX * Math.max(1, maxGen) + SHOFTIM_BAR_WIDTH, 600);
+    }
+    if (period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot') {
+      const maxGen = periodPeople.reduce((acc, p) => Math.max(acc, resolveGeneration(p, period) ?? 0), 0) || 1;
+      return Math.max(maxGen * GRID_COL_WIDTH + GRID_COL_GAP * 2, 700);
+    }
+    if (period.id === 'rishonim' || period.id === 'achronim') {
+      return 520;
+    }
+    return Math.max(span * 1.8, 420);
+  };
+
+  const buildBlock = (period: Period, x: number, y: number, widthOverride?: number): PeriodBlock => {
+    const periodPeople = peopleByPeriod[period.id] ?? [];
+    const periodWidth = widthOverride ?? calcWidth(period, periodPeople);
+    const localScale = periodWidth / Math.max(1, period.endYear - period.startYear);
+    const localYearToX = (year: number) => (year - period.startYear) * localScale;
+
     let groups: GroupLayout[] = [];
     let groupCursorY = 0;
 
-    // вспомогательный размер колонок для grid-периодов
     const isGridPeriod = period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot';
     const maxGenForGrid = isGridPeriod
-      ? (periodPeople.reduce((acc, p) => {
-          const g = resolveGeneration(p, period);
-          return g && g > acc ? g : acc;
-        }, 0) || 1)
+      ? (periodPeople.reduce((acc, p) => Math.max(acc, resolveGeneration(p, period) ?? 0), 0) || 1)
       : 1;
     const gridColWidth = isGridPeriod
       ? Math.max(120, (periodWidth - GRID_COL_GAP * (Math.max(1, maxGenForGrid) - 1)) / Math.max(1, maxGenForGrid))
       : GRID_COL_WIDTH;
 
     if (period.id === 'malakhim_divided') {
-        const israel = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('israel'));
-        const judah = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('judah'));
-        const other = periodPeople.filter((p) => !(p.subPeriod || '').toLowerCase().includes('israel') && !(p.subPeriod || '').toLowerCase().includes('judah'));
-        
-        const malakhimGroups: {label: string, people: TimelinePerson[]}[] = [
-            { label: 'Царство Израиль', people: israel },
-            { label: 'Царство Иуда', people: judah },
-            { label: 'Прочие', people: other },
-        ];
+      const israel = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('israel'));
+      const judah = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('judah'));
+      const other = periodPeople.filter((p) => !(p.subPeriod || '').toLowerCase().includes('israel') && !(p.subPeriod || '').toLowerCase().includes('judah'));
+      
+      const malakhimGroups: {label: string, people: TimelinePerson[]}[] = [
+          { label: 'Царство Израиль', people: israel },
+          { label: 'Царство Иуда', people: judah },
+          { label: 'Прочие', people: other },
+      ];
 
-        malakhimGroups.forEach(({label, people: groupPeople}) => {
-            if(groupPeople.length === 0) return;
-            const group = createGroupLayout(`${period.id}-${label.toLowerCase()}`, label, groupPeople, groupCursorY, period, yearToX, periodWidth, 0, { waterfall: true });
-            groups.push(group);
-            groupCursorY += group.height + GROUP_GAP;
-        });
+      malakhimGroups.forEach(({label, people: groupPeople}) => {
+          if(groupPeople.length === 0) return;
+          const group = createGroupLayout(`${period.id}-${label.toLowerCase()}`, label, groupPeople, groupCursorY, period, localYearToX, periodWidth, 0, { waterfall: true });
+          groups.push(group);
+          groupCursorY += group.height + GROUP_GAP;
+      });
 
     } else if (period.id === 'torah') {
-        // Стратегия GENEALOGY упрощенная: одна группа на линию, без деления по поколениям
-        const lineageOrder = [
-          { id: 'preflood_root', label: 'Линия Адама' },
-          { id: 'preflood_cain', label: 'Линия Каина' },
-          { id: 'preflood_seth', label: 'Линия Шета' },
-          { id: 'postflood_root', label: 'Линия Ноя' },
-          { id: 'postflood_line_shem', label: 'Линия Шема' },
-          { id: 'postflood_line_ham', label: 'Линия Хама' },
-          { id: 'postflood_line_japheth', label: 'Линия Яфета' },
-          { id: 'patriarchs', label: 'Эпоха праотцов' },
-          { id: 'tribes', label: '12 колен' },
-          { id: 'other', label: 'Прочие' },
-        ];
-        const buckets: Record<string, TimelinePerson[]> = {};
-        lineageOrder.forEach((l) => { buckets[l.id] = []; });
+      const lineageOrder = [
+        { id: 'preflood_root', label: 'Линия Адама' },
+        { id: 'preflood_cain', label: 'Линия Каина' },
+        { id: 'preflood_seth', label: 'Линия Шета' },
+        { id: 'postflood_root', label: 'Линия Ноя' },
+        { id: 'postflood_line_shem', label: 'Линия Шема' },
+        { id: 'postflood_line_ham', label: 'Линия Хама' },
+        { id: 'postflood_line_japheth', label: 'Линия Яфета' },
+        { id: 'patriarchs', label: 'Эпоха праотцов' },
+        { id: 'tribes', label: '12 колен' },
+        { id: 'other', label: 'Прочие' },
+      ];
+      const buckets: Record<string, TimelinePerson[]> = {};
+      lineageOrder.forEach((l) => { buckets[l.id] = []; });
 
-        periodPeople.forEach((p) => {
-          const sub = (p.subPeriod || '').toLowerCase();
-          const key =
-            sub.startsWith('preflood_root') ? 'preflood_root' :
-            sub.startsWith('preflood_cain') ? 'preflood_cain' :
-            sub.startsWith('preflood_seth') ? 'preflood_seth' :
-            sub.startsWith('postflood_root') ? 'postflood_root' :
-            sub.startsWith('postflood_line_shem') ? 'postflood_line_shem' :
-            sub.startsWith('postflood_line_ham') ? 'postflood_line_ham' :
-            sub.startsWith('postflood_line_japheth') ? 'postflood_line_japheth' :
-            sub.startsWith('patriarchs') ? 'patriarchs' :
-            sub.startsWith('tribe_') ? 'tribes' :
-            'other';
-          if (!buckets[key]) buckets[key] = [];
-          buckets[key].push(p);
-        });
+      periodPeople.forEach((p) => {
+        const sub = (p.subPeriod || '').toLowerCase();
+        const key =
+          sub.startsWith('preflood_root') ? 'preflood_root' :
+          sub.startsWith('preflood_cain') ? 'preflood_cain' :
+          sub.startsWith('preflood_seth') ? 'preflood_seth' :
+          sub.startsWith('postflood_root') ? 'postflood_root' :
+          sub.startsWith('postflood_line_shem') ? 'postflood_line_shem' :
+          sub.startsWith('postflood_line_ham') ? 'postflood_line_ham' :
+          sub.startsWith('postflood_line_japheth') ? 'postflood_line_japheth' :
+          sub.startsWith('patriarchs') ? 'patriarchs' :
+          sub.startsWith('tribe_') ? 'tribes' :
+          'other';
+        if (!buckets[key]) buckets[key] = [];
+        buckets[key].push(p);
+      });
 
-        lineageOrder.forEach(({id, label}) => {
-          const list = buckets[id] || [];
-          if (!list.length) return;
-          let col = 0;
-          if (id.startsWith('postflood')) col = 1;
-          if (id === 'patriarchs' || id === 'tribes') col = 2;
-          const xOffset = col * TORAH_COLUMN_WIDTH;
-          const group = createGroupLayout(`${period.id}-${id}`, label, list, groupCursorY, period, yearToX, periodWidth, xOffset, { grid: true, cardWidth: GRID_CARD_WIDTH, columnByGeneration: true });
-          groups.push(group);
-          groupCursorY += group.height + GROUP_GAP;
-        });
+      lineageOrder.forEach(({id, label}) => {
+        const list = buckets[id] || [];
+        if (!list.length) return;
+        let col = 0;
+        if (id.startsWith('postflood')) col = 1;
+        if (id === 'patriarchs' || id === 'tribes') col = 2;
+        const xOffset = col * TORAH_COLUMN_WIDTH;
+        const group = createGroupLayout(`${period.id}-${id}`, label, list, 0, period, localYearToX, periodWidth, xOffset, { grid: true, cardWidth: GRID_CARD_WIDTH, columnByGeneration: true });
+        groups.push(group);
+        groupCursorY = Math.max(groupCursorY, group.height);
+      });
     } else if (period.id === 'rishonim') {
-        const regionLabels: Record<string, string> = {
-          germany: 'Германия',
-          france: 'Франция',
-          england: 'Англия',
-          provence: 'Прованс',
-          sefarad: 'Сфарад',
-          italy: 'Италия',
-          north_africa: 'Северная Африка',
-          kairouan: 'Кайруан',
-          yemen: 'Йемен',
-          egypt: 'Египет',
-          other: 'Прочие',
-        };
-        const buckets: Record<string, TimelinePerson[]> = {};
-        Object.keys(regionLabels).forEach((k) => { buckets[k] = []; });
-        periodPeople.forEach((p) => {
-          const key = (p.region as string) || 'other';
-          if (!buckets[key]) buckets[key] = [];
-          buckets[key].push(p);
-        });
-        Object.entries(regionLabels).forEach(([key, label]) => {
-          const list = buckets[key] || [];
-          if (!list.length) return;
-          const group = createGroupLayout(`${period.id}-${key}`, label, list, groupCursorY, period, yearToX, periodWidth);
-          groups.push(group);
-          groupCursorY += group.height + GROUP_GAP;
-        });
-
-    } else if (period.id === 'achronim') {
-        const group = createGroupLayout(`${period.id}-all`, 'Ахроним', periodPeople, groupCursorY, period, yearToX, periodWidth);
+      const regionLabels: Record<string, string> = {
+        germany: 'Германия',
+        france: 'Франция',
+        england: 'Англия',
+        provence: 'Прованс',
+        sefarad: 'Сфарад',
+        italy: 'Италия',
+        north_africa: 'Северная Африка',
+        kairouan: 'Кайруан',
+        yemen: 'Йемен',
+        egypt: 'Египет',
+        other: 'Прочие',
+      };
+      const buckets: Record<string, TimelinePerson[]> = {};
+      Object.keys(regionLabels).forEach((k) => { buckets[k] = []; });
+      periodPeople.forEach((p) => {
+        const key = (p.region as string) || 'other';
+        if (!buckets[key]) buckets[key] = [];
+        buckets[key].push(p);
+      });
+      Object.entries(regionLabels).forEach(([key, label]) => {
+        const list = buckets[key] || [];
+        if (!list.length) return;
+        const group = createGroupLayout(`${period.id}-${key}`, label, list, groupCursorY, period, localYearToX, periodWidth);
         groups.push(group);
         groupCursorY += group.height + GROUP_GAP;
+      });
+
+    } else if (period.id === 'achronim') {
+      const group = createGroupLayout(`${period.id}-all`, 'Ахроним', periodPeople, groupCursorY, period, localYearToX, periodWidth);
+      groups.push(group);
+      groupCursorY += group.height + GROUP_GAP;
 
     } else if (period.id === 'savoraim') {
-        const sura = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('sura'));
-        const pumbedita = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('pumbedita'));
-        const other = periodPeople.filter(
-          (p) => !(p.subPeriod || '').toLowerCase().includes('sura') && !(p.subPeriod || '').toLowerCase().includes('pumbedita'),
-        );
-        const savoraGroups: { label: string; people: TimelinePerson[] }[] = [
-          { label: 'Сура', people: sura },
-          { label: 'Пумбедита', people: pumbedita },
-          { label: 'Прочие', people: other },
-        ];
-        savoraGroups.forEach(({ label, people: list }) => {
-          if (!list.length) return;
-          const group = createGroupLayout(`${period.id}-${label.toLowerCase()}`, label, list, groupCursorY, period, yearToX, periodWidth);
-          groups.push(group);
-          groupCursorY += group.height + GROUP_GAP;
-        });
+      const sura = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('sura'));
+      const pumbedita = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('pumbedita'));
+      const other = periodPeople.filter(
+        (p) => !(p.subPeriod || '').toLowerCase().includes('sura') && !(p.subPeriod || '').toLowerCase().includes('pumbedita'),
+      );
+      const savoraGroups: { label: string; people: TimelinePerson[] }[] = [
+        { label: 'Сура', people: sura },
+        { label: 'Пумбедита', people: pumbedita },
+        { label: 'Прочие', people: other },
+      ];
+      savoraGroups.forEach(({ label, people: list }) => {
+        if (!list.length) return;
+        const group = createGroupLayout(`${period.id}-${label.toLowerCase()}`, label, list, groupCursorY, period, localYearToX, periodWidth);
+        groups.push(group);
+        groupCursorY += group.height + GROUP_GAP;
+      });
 
     } else if (period.id === 'geonim') {
-        const sura = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('sura'));
-        const pumbedita = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('pumbedita'));
-        const israel = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('israel'));
-        const other = periodPeople.filter(
-          (p) =>
-            !(p.subPeriod || '').toLowerCase().includes('sura') &&
-            !(p.subPeriod || '').toLowerCase().includes('pumbedita') &&
-            !(p.subPeriod || '').toLowerCase().includes('israel'),
-        );
-        const gaonGroups: { label: string; people: TimelinePerson[] }[] = [
-          { label: 'Сура', people: sura },
-          { label: 'Пумбедита', people: pumbedita },
-          { label: 'Эрец-Исраэль', people: israel },
-          { label: 'Прочие', people: other },
-        ];
-        gaonGroups.forEach(({ label, people: list }) => {
-          if (!list.length) return;
-          const group = createGroupLayout(`${period.id}-${label.toLowerCase()}`, label, list, groupCursorY, period, yearToX, periodWidth);
-          groups.push(group);
-          groupCursorY += group.height + GROUP_GAP;
-        });
+      const sura = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('sura'));
+      const pumbedita = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('pumbedita'));
+      const israel = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('israel'));
+      const other = periodPeople.filter(
+        (p) =>
+          !(p.subPeriod || '').toLowerCase().includes('sura') &&
+          !(p.subPeriod || '').toLowerCase().includes('pumbedita') &&
+          !(p.subPeriod || '').toLowerCase().includes('israel'),
+      );
+      const gaonGroups: { label: string; people: TimelinePerson[] }[] = [
+        { label: 'Сура', people: sura },
+        { label: 'Пумбедита', people: pumbedita },
+        { label: 'Эрец-Исраэль', people: israel },
+        { label: 'Прочие', people: other },
+      ];
+      gaonGroups.forEach(({ label, people: list }) => {
+        if (!list.length) return;
+        const group = createGroupLayout(`${period.id}-${label.toLowerCase()}`, label, list, groupCursorY, period, localYearToX, periodWidth);
+        groups.push(group);
+        groupCursorY += group.height + GROUP_GAP;
+      });
 
     } else {
-        const peopleByGeneration: Record<string, TimelinePerson[]> = {};
-        periodPeople.forEach(p => {
-            const gen = resolveGeneration(p) ?? 'unknown';
-            if (!peopleByGeneration[gen]) peopleByGeneration[gen] = [];
-            peopleByGeneration[gen].push(p);
-        });
+      const peopleByGeneration: Record<string, TimelinePerson[]> = {};
+      periodPeople.forEach(p => {
+          const gen = resolveGeneration(p) ?? 'unknown';
+          if (!peopleByGeneration[gen]) peopleByGeneration[gen] = [];
+          peopleByGeneration[gen].push(p);
+      });
 
-        const generationKeys = Object.keys(peopleByGeneration).sort((a, b) => {
-            if (a === 'unknown') return 1; if (b === 'unknown') return -1;
-            return Number(a) - Number(b);
-        });
+      const generationKeys = Object.keys(peopleByGeneration).sort((a, b) => {
+          if (a === 'unknown') return 1; if (b === 'unknown') return -1;
+          return Number(a) - Number(b);
+      });
 
-        generationKeys.forEach((key, idx) => {
-            const generationPeople = peopleByGeneration[key];
-            if (generationPeople.length === 0) return;
+      generationKeys.forEach((key, idx) => {
+          const generationPeople = peopleByGeneration[key];
+          if (generationPeople.length === 0) return;
 
-            const label = key === 'unknown' ? 'Неизвестное поколение' : `Поколение ${key}`;
-            const ladderOffset = period.id === 'shoftim' ? 0 : idx * 8; // для Шофтим не смещаем группы, чтобы они не налезали вертикально
-            const genNumber = Number(key);
-            const xColShift =
-              (period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot') && Number.isFinite(genNumber)
-                ? (genNumber - 1) * gridColWidth
-                : 0;
-            const isGrid = period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot';
-            const cardWidth = isGrid ? Math.max(100, Math.min(GRID_CARD_WIDTH, gridColWidth - GRID_COL_GAP * 0.5)) : undefined;
-            const group = createGroupLayout(`${period.id}-gen-${key}`, label, generationPeople, groupCursorY + ladderOffset, period, yearToX, periodWidth, xColShift, isGrid ? { grid: true, cardWidth } : undefined);
-            groups.push(group);
-            groupCursorY = isGrid ? Math.max(groupCursorY, group.height) : groupCursorY + group.height + GROUP_GAP;
-        });
+          const label = key === 'unknown' ? 'Неизвестное поколение' : `Поколение ${key}`;
+          const ladderOffset = period.id === 'shoftim' ? 0 : idx * 8;
+          const genNumber = Number(key);
+          const xColShift =
+            (period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot') && Number.isFinite(genNumber)
+              ? (genNumber - 1) * gridColWidth
+              : 0;
+          const isGrid = period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot';
+          const cardWidth = isGrid ? Math.max(100, Math.min(GRID_CARD_WIDTH, gridColWidth - GRID_COL_GAP * 0.5)) : undefined;
+          const group = createGroupLayout(`${period.id}-gen-${key}`, label, generationPeople, groupCursorY + ladderOffset, period, localYearToX, periodWidth, xColShift, isGrid ? { grid: true, cardWidth } : undefined);
+          groups.push(group);
+          groupCursorY = isGrid ? Math.max(groupCursorY, group.height) : groupCursorY + group.height + GROUP_GAP;
+      });
 
-        // Если это grid-период (tannaim/amoraim/zugot) — выровнять колонки по одной горизонтали
-        if (period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot') {
-          const maxH = groups.reduce((m, g) => Math.max(m, g.height), 0);
-          groups = groups.map((g) => ({ ...g, y: 0 }));
-          groupCursorY = maxH;
-        }
+      if (period.id.startsWith('tannaim') || period.id.startsWith('amoraim') || period.id === 'zugot') {
+        const maxH = groups.reduce((m, g) => Math.max(m, g.height), 0);
+        groups = groups.map((g) => ({ ...g, y: 0 }));
+        groupCursorY = maxH;
+      }
     }
 
     const rowHeight = groupCursorY > 0 ? groupCursorY - GROUP_GAP : 0;
@@ -562,20 +588,62 @@ export function buildTimelineBlocks({ people, periods, yearToX }: BuildParams): 
       period,
       x,
       width: periodWidth,
-      y: 0, // Y will be assigned next
+      y,
       height: blockHeight,
       rows: [row],
     };
     return periodBlock;
+  };
+
+  const blocks: PeriodBlock[] = [];
+  let cursorX = 0;
+  const baseY = BLOCK_TOP;
+
+  PRIMARY_PERIODS.forEach((pid) => {
+    const per = resolvePeriod(pid);
+    if (!per) return;
+    const block = buildBlock(per, cursorX, baseY);
+    blocks.push(block);
+    cursorX += block.width + HORIZONTAL_GAP;
   });
 
-  const sorted = unslotted.sort((a, b) => a.period.startYear - b.period.startYear);
-  
-  let cursorY = BLOCK_TOP;
-  sorted.forEach((block) => {
-    block.y = cursorY;
-    cursorY += block.height + ROW_GAP;
+  // Stacked (e.g., Amoraim under Tannaim post-temple)
+  STACKED.forEach(({ id, anchor }) => {
+    const per = resolvePeriod(id);
+    const anchorBlock = blocks.find((b) => b.id === anchor);
+    if (!per || !anchorBlock) return;
+    const stacked = buildBlock(per, anchorBlock.x, anchorBlock.y + anchorBlock.height + STACK_GAP, anchorBlock.width);
+    blocks.push(stacked);
   });
 
-  return sorted;
+  // Secondary track: try to align under the nearest/overlapping primary period
+  const primaryBlocks = blocks.filter((b) => PRIMARY_PERIODS.includes(b.id));
+  const findAnchor = (per: Period): PeriodBlock | undefined => {
+    let best: { block: PeriodBlock; score: number } | undefined;
+    primaryBlocks.forEach((b) => {
+      const start = Math.max(b.period.startYear, per.startYear);
+      const end = Math.min(b.period.endYear, per.endYear);
+      const overlap = Math.max(0, end - start);
+      const score = overlap || -Math.abs((per.startYear + per.endYear) / 2 - (b.period.startYear + b.period.endYear) / 2);
+      if (!best || score > best.score) best = { block: b, score };
+    });
+    return best?.block;
+  };
+
+  let secondaryX = 0;
+  SECONDARY.forEach((id) => {
+    const per = resolvePeriod(id);
+    if (!per) return;
+    const anchor = findAnchor(per);
+    if (anchor) {
+      const block = buildBlock(per, anchor.x, anchor.y + anchor.height + STACK_GAP, anchor.width);
+      blocks.push(block);
+    } else {
+      const block = buildBlock(per, secondaryX, baseY + SECONDARY_TRACK_OFFSET);
+      blocks.push(block);
+      secondaryX += block.width + HORIZONTAL_GAP;
+    }
+  });
+
+  return blocks;
 }

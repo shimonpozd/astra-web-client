@@ -14,6 +14,7 @@ interface PersonBarProps {
   showLabel?: boolean;
   isHovered?: boolean;
   isFuzzy?: boolean;
+  barColor?: string;
 }
 
 export function PersonBar({
@@ -29,8 +30,24 @@ export function PersonBar({
   showLabel,
   isHovered,
   isFuzzy,
+  barColor,
 }: PersonBarProps) {
-  const colors = generateColorSystem(person.period);
+  const colorsBase = generateColorSystem(person.period);
+  const baseColor = barColor ?? colorsBase.personBar.normal;
+  const colors = barColor
+    ? {
+        ...colorsBase,
+        periodBase: barColor,
+        personBar: {
+          ...colorsBase.personBar,
+          normal: barColor,
+          hover: barColor,
+          selected: barColor,
+          verified: barColor,
+          estimated: barColor,
+        },
+      }
+    : colorsBase;
   const estimated = isFuzzy || person.lifespan_range?.estimated || !person.deathYear;
   const isVerified = Boolean(person.is_verified);
   const displayName = person.name_ru || (person as any).display?.name_ru || person.name_en || person.slug;
@@ -48,10 +65,10 @@ export function PersonBar({
     >
       <defs>
         <linearGradient id={`gradient-${person.slug}`} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.05 : 0.6} />
-          <stop offset="20%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.7 : 0.95} />
-          <stop offset="80%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.7 : 0.95} />
-          <stop offset="100%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.05 : 0.6} />
+          <stop offset="0%" stopColor={baseColor} stopOpacity={isFuzzy ? 0.05 : 0.6} />
+          <stop offset="20%" stopColor={baseColor} stopOpacity={isFuzzy ? 0.7 : 0.95} />
+          <stop offset="80%" stopColor={baseColor} stopOpacity={isFuzzy ? 0.7 : 0.95} />
+          <stop offset="100%" stopColor={baseColor} stopOpacity={isFuzzy ? 0.05 : 0.6} />
         </linearGradient>
         <linearGradient id={`shine-${person.slug}`} x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="white" stopOpacity={0.35} />
@@ -67,7 +84,7 @@ export function PersonBar({
         width={width}
         height={height - 6}
         rx={10}
-        fill={colors.personBar.normal}
+        fill={baseColor}
         opacity={isFuzzy ? 0.25 : 0.4}
       />
 

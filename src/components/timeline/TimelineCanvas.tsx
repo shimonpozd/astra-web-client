@@ -3,12 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Period, TimelinePerson } from '@/types/timeline';
 import { buildTimelineBlocks, PeriodBlock } from '@/utils/layoutEngine';
-import { getPeriodColor, generateColorSystem } from '@/utils/timelineColors';
+import { getPeriodColor, generateColorSystem, getPersonColor } from '@/utils/timelineColors';
 import { useTimelineNavigation } from '@/hooks/useTimelineNavigation';
 import { Minimap } from './Minimap';
 import { PersonCard } from './Timeline';
-import { buildTickMarks } from '@/utils/dateCalculations';
-import { TimelineAxis } from './TimelineAxis';
 
 type LOD = 'low' | 'medium' | 'high';
 
@@ -28,9 +26,20 @@ const BAR_TRACK_HEIGHT = 56;
 type RenderNode =
   | { id: string; type: 'period_bg'; x: number; y: number; width: number; height: number; period: Period }
   | { id: string; type: 'period_label'; x: number; y: number; period: Period }
-  | { id: string; type: 'generation_line'; x1: number; y1: number; x2: number; y2: number; }
+  | { id: string; type: 'generation_line'; x1: number; y1: number; x2: number; y2: number }
   | { id: string; type: 'generation_label'; x: number; y: number; label: string; periodId: string }
-  | { id: string; type: 'person'; x: number; y: number; width: number; height: number; person: TimelinePerson; period: Period; isFuzzy?: boolean };
+  | {
+      id: string;
+      type: 'person';
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      person: TimelinePerson;
+      period: Period;
+      isFuzzy?: boolean;
+      color?: string;
+    };
 
 export function TimelineCanvas({
   people,
@@ -141,6 +150,7 @@ export function TimelineCanvas({
               person,
               period: block.period,
               isFuzzy: pl.isFuzzy,
+              color: getPersonColor(person, block.period),
             });
           });
         });
@@ -153,12 +163,6 @@ export function TimelineCanvas({
     () => (blocks.length ? Math.max(...blocks.map((b) => b.y + b.height)) + 240 : 800),
     [blocks],
   );
-
-  const ticks = useMemo(() => {
-    const span = Math.abs(maxYear - minYear);
-    const step = span > 2000 ? 200 : span > 1200 ? 100 : 50;
-    return buildTickMarks(minYear, maxYear, step);
-  }, [maxYear, minYear]);
 
   const periodBgNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'period_bg' }> => n.type === 'period_bg'), [nodes]);
   const periodLabelNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'period_label' }> => n.type === 'period_label'), [nodes]);
@@ -176,7 +180,7 @@ export function TimelineCanvas({
   const personLookup = useMemo(() => {
     const map = new Map<
       string,
-      { person: TimelinePerson; x: number; y: number; width: number; height: number; period: Period; isFuzzy?: boolean }
+      { person: TimelinePerson; x: number; y: number; width: number; height: number; period: Period; isFuzzy?: boolean; color?: string }
     >();
     nodes.forEach((n) => {
       if (n.type !== 'person') return;
@@ -188,6 +192,7 @@ export function TimelineCanvas({
         height: n.height,
         period: n.period,
         isFuzzy: n.isFuzzy,
+        color: n.color,
       });
     });
     return map;
@@ -227,11 +232,6 @@ export function TimelineCanvas({
       y: point.y * transform.scale + transform.y,
     }),
     [transform],
-  );
-
-  const yearToScreenX = useCallback(
-    (year: number) => transform.x + (year - minYear) * BASE_PX_PER_YEAR * transform.scale,
-    [minYear, transform.x, transform.scale],
   );
 
   const fitToScreen = useCallback(() => {
@@ -412,7 +412,21 @@ export function TimelineCanvas({
 
             {/* People */}
             {personNodes.map((n) => {
-              const colors = generateColorSystem(n.person.period);
+              const colorsBase = generateColorSystem(n.person.period);
+              const colors = n.color
+                ? {
+                    ...colorsBase,
+                    periodBase: n.color,
+                    personBar: {
+                      ...colorsBase.personBar,
+                      normal: n.color,
+                      hover: n.color,
+                      selected: n.color,
+                      estimated: n.color,
+                      verified: n.color,
+                    },
+                  }
+                : colorsBase;
               const isSelected = selectedPersonSlug === n.person.slug;
               const isDimmed = Boolean(hoveredSlug && hoveredSlug !== n.person.slug);
               const isFuzzy = Boolean(n.isFuzzy || !n.person.deathYear || !n.person.birthYear);
@@ -581,14 +595,6 @@ export function TimelineCanvas({
 
         </svg>
       </div>
-
-      <svg
-        className="pointer-events-none absolute bottom-0 left-0 right-0"
-        height={80}
-        width="100%"
-      >
-        <TimelineAxis ticks={ticks} yearToX={yearToScreenX} height={40} />
-      </svg>
 
       {activeDetail && lod === 'high' && activeDetailScreen && (
         <div
