@@ -22,8 +22,11 @@ function buildQuery(filters?: Partial<FilterState>): string {
     params.set('q', filters.searchQuery);
   }
   if (filters.dateRange) {
-    params.set('start', String(filters.dateRange[0]));
-    params.set('end', String(filters.dateRange[1]));
+    const [from, to] = filters.dateRange;
+    if (Number.isFinite(from) && Number.isFinite(to)) {
+      params.set('start', String(from));
+      params.set('end', String(to));
+    }
   }
 
   const qs = params.toString();
