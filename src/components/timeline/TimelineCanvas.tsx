@@ -2,7 +2,7 @@ import React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Period, TimelinePerson } from '@/types/timeline';
-import { buildTimelineBlocks, PeriodBlock } from '@/utils/layoutEngine';
+import { ALL_COLLAPSED, buildTimelineBlocks, PeriodBlock } from '@/utils/layoutEngine';
 import { getPeriodColor, generateColorSystem, getPersonColor } from '@/utils/timelineColors';
 import { useTimelineNavigation } from '@/hooks/useTimelineNavigation';
 import { Minimap } from './Minimap';
@@ -51,7 +51,7 @@ export function TimelineCanvas({
   onPersonSelect,
   selectedPersonSlug,
 }: TimelineCanvasProps) {
-  const [activePeriodId, setActivePeriodId] = useState<string | null>(null);
+  const [activePeriodId, setActivePeriodId] = useState<string | null>(ALL_COLLAPSED);
   const viewportRef = useRef<HTMLDivElement>(null);
   const pointerRef = useRef<{ active: boolean; lastX: number; lastY: number; lastT: number; vx: number; vy: number }>({
     active: false,
@@ -360,8 +360,8 @@ export function TimelineCanvas({
                   className="cursor-pointer"
                   onClick={() =>
                     setActivePeriodId((prev) => {
-                      if (prev === n.period.id) return '__ALL_COLLAPSED__';
-                      if (prev === '__ALL_COLLAPSED__' && n.collapsed) return n.period.id;
+                      if (prev === n.period.id) return ALL_COLLAPSED;
+                      if (prev === ALL_COLLAPSED && n.collapsed) return n.period.id;
                       return n.period.id;
                     })
                   }
@@ -422,6 +422,7 @@ export function TimelineCanvas({
                     opacity={n.period.id === 'torah' ? 0.12 : 0.08}
                     stroke={color}
                     strokeWidth={2}
+                    className="pointer-events-none"
                     style={{ filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.05))' }}
                   />
                 </g>

@@ -39,13 +39,14 @@ export interface PeriodBlock {
   rows: RowLayout[];
 }
 
+export const ALL_COLLAPSED = '__ALL_COLLAPSED__';
+
 interface BuildParams {
   people: TimelinePerson[];
   periods: Period[];
   yearToX: (year: number) => number;
   activePeriodId?: string;
 }
-const ALL_COLLAPSED = '__ALL_COLLAPSED__';
 
 // Layout constants
 const TRACK_HEIGHT = 56;
@@ -59,6 +60,7 @@ const BLOCK_PADDING_Y = 20;
 const MIN_PERIOD_WIDTH = 0;
 const BLOCK_TOP = 96;
 const MIN_BAR_WIDTH = 120;
+const FUZZY_MIN_BAR_WIDTH = 60;
 const ROW_GAP = 28;
 const CARD_PADDING_X = 12;
 const TORAH_STEP_PX = 150;
@@ -66,7 +68,7 @@ const TORAH_COLUMN_WIDTH = TORAH_STEP_PX * 10; // фиксированная ш�
 // Для Шофтим держим компактный шаг: поколение идёт в фикcированном X-шаге, чтобы весь период не растягивался
 const SHOFTIM_STEP_PX = 60;
 const SHOFTIM_BAR_WIDTH = 80;
-const GRID_TILE_WIDTH = 140;
+const GRID_TILE_WIDTH = 110;
 const GRID_TILE_HEIGHT = 52;
 const GRID_GAP_X = 12;
 const GRID_GAP_Y = 10;
@@ -137,8 +139,6 @@ function buildBinPackedLayouts(
 ): { layouts: PersonLayout[]; rowsCount: number } {
   if (!people.length) return { layouts: [], rowsCount: 0 };
 
-  const minWidthForPeriod = period.id === 'malakhim_divided' ? 40 : MIN_BAR_WIDTH;
-
   const sorted = [...people].sort((a, b) => {
     if (period.id === 'torah') {
       const ga = resolveGeneration(a, period) ?? 0;
@@ -163,6 +163,7 @@ function buildBinPackedLayouts(
 
   sorted.forEach((person) => {
     const { start, end, isFuzzy } = normalizePersonDates(person, period);
+    const minWidthForPeriod = isFuzzy ? FUZZY_MIN_BAR_WIDTH : (period.id === 'malakhim_divided' ? 40 : MIN_BAR_WIDTH);
 
     let xStartRaw: number;
     let xEndRaw: number;
@@ -454,10 +455,8 @@ export function buildTimelineBlocks({ people, periods, activePeriodId }: BuildPa
     }
     if (period.id === 'rishonim' || period.id === 'achronim') {
       const minGridWidth = GRID_COLUMNS * GRID_TILE_WIDTH + (GRID_COLUMNS - 1) * GRID_GAP_X + GROUP_PADDING * 2;
-      const timelineCount = periodPeople.length;
-      const densityFactor = 2.5;
-      const timelineNeed = Math.max(span * 1.8, (timelineCount || 1) * MIN_BAR_WIDTH / densityFactor);
-      return Math.max(minGridWidth, timelineNeed, 520 * 2.5);
+      const timelineNeed = span * 1.4; // плотнее, чтобы не было "огромных" блоков
+      return Math.max(minGridWidth, timelineNeed);
     }
     return Math.max(span * 1.8, 420);
   };
