@@ -559,8 +559,16 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
       };
       const buckets: Record<string, TimelinePerson[]> = {};
       Object.keys(regionLabels).forEach((k) => { buckets[k] = []; });
+      const resolveAchronimRegion = (p: TimelinePerson): string => {
+        const sub = (p.subPeriod || '').toLowerCase();
+        if (sub.startsWith('achronim_early')) return 'early_achronim';
+        if (sub.startsWith('achronim_orthodox')) return 'orthodox';
+        if (sub.startsWith('achronim_israel')) return 'eretz_israel';
+        if (sub.startsWith('achronim_yemen')) return 'yemen';
+        return '';
+      };
       periodPeople.forEach((p) => {
-        const key = (p.region as string) || 'other';
+        const key = (p.region as string) || resolveAchronimRegion(p) || 'other';
         if (!buckets[key]) buckets[key] = [];
         buckets[key].push(p);
       });
