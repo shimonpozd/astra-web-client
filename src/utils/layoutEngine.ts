@@ -557,8 +557,6 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
         yemen: 'Йеменские ахроним',
         other: 'Прочие',
       };
-      const buckets: Record<string, TimelinePerson[]> = {};
-      Object.keys(regionLabels).forEach((k) => { buckets[k] = []; });
       const resolveAchronimRegion = (p: TimelinePerson): string => {
         const sub = (p.subPeriod || '').toLowerCase();
         if (sub.startsWith('achronim_early')) return 'early_achronim';
@@ -567,8 +565,11 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
         if (sub.startsWith('achronim_yemen')) return 'yemen';
         return '';
       };
+      const buckets: Record<string, TimelinePerson[]> = {};
+      Object.keys(regionLabels).forEach((k) => { buckets[k] = []; });
       periodPeople.forEach((p) => {
-        const key = (p.region as string) || resolveAchronimRegion(p) || 'other';
+        // Сначала пытаемся определить группу по subPeriod (эрам Ахроним), затем по region
+        const key = resolveAchronimRegion(p) || (p.region as string) || 'other';
         if (!buckets[key]) buckets[key] = [];
         buckets[key].push(p);
       });
