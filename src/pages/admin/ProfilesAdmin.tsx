@@ -264,6 +264,27 @@ export default function ProfilesAdminPage() {
           />
         </div>
         <div className="flex items-center gap-2">
+          <select
+            className="h-9 rounded-md border border-border/60 bg-background px-2 text-sm"
+            value={newRegion}
+            onChange={(e) => setNewRegion(e.target.value)}
+          >
+            <option value="">Регион не указан</option>
+            <option value="eretz_israel">Эрец-Исраэль</option>
+            <option value="babylonia">Вавилония</option>
+            <option value="germany">Германия</option>
+            <option value="france">Франция</option>
+            <option value="england">Англия</option>
+            <option value="provence">Прованс</option>
+            <option value="sepharad">Сфарад</option>
+            <option value="italy">Италия</option>
+            <option value="north_africa">Северная Африка</option>
+            <option value="kairouan">Кайруан</option>
+            <option value="yemen">Йемен</option>
+            <option value="egypt">Египет</option>
+            <option value="early_achronim">Ранние ахроним</option>
+            <option value="orthodox">Ортодоксальные раввины</option>
+          </select>
           <button
             type="button"
             disabled={!newName || creating}

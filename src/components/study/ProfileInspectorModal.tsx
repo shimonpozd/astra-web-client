@@ -587,6 +587,30 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
                     <div>generation: <span className="font-mono">{draftGeneration ?? '—'}</span></div>
                     <div className="md:col-span-2">period_ru: <span className="font-mono">{draftPeriodLabel || '—'}</span></div>
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Регион</label>
+                    <select
+                      className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+                      value={draftRegion}
+                      onChange={(e) => setDraftRegion(e.target.value)}
+                    >
+                      <option value="">—</option>
+                      <option value="eretz_israel">Эрец-Исраэль</option>
+                      <option value="babylonia">Вавилония</option>
+                      <option value="germany">Германия</option>
+                      <option value="france">Франция</option>
+                      <option value="england">Англия</option>
+                      <option value="provence">Прованс</option>
+                      <option value="sepharad">Сфарад</option>
+                      <option value="italy">Италия</option>
+                      <option value="north_africa">Северная Африка</option>
+                      <option value="kairouan">Кайруан</option>
+                      <option value="yemen">Йемен</option>
+                      <option value="egypt">Египет</option>
+                      <option value="early_achronim">Ранние ахроним</option>
+                      <option value="orthodox">Ортодоксальные раввины</option>
+                    </select>
+                  </div>
                   <div className="grid md:grid-cols-2 gap-2">
                     <div>
                       <label className="block text-xs font-medium text-muted-foreground mb-1">Год рождения</label>
