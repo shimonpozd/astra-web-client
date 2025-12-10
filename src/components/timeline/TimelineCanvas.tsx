@@ -99,7 +99,7 @@ export function TimelineCanvas({
         collapsed,
       });
 
-      // 1. Add Period Background and Label
+      // 1. Add Period Background
       acc.push({
         id: `${block.id}-bg`,
         type: 'period_bg',
@@ -107,13 +107,6 @@ export function TimelineCanvas({
         y: Y_period,
         width: block.width,
         height: block.height,
-        period: block.period,
-      });
-      acc.push({
-        id: `${block.id}-label`,
-        type: 'period_label',
-        x: block.x + 12,
-        y: Y_period + 10,
         period: block.period,
       });
 
@@ -183,7 +176,6 @@ export function TimelineCanvas({
 
   const periodBgNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'period_bg' }> => n.type === 'period_bg'), [nodes]);
   const periodHeaderNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'period_header' }> => n.type === 'period_header'), [nodes]);
-  const periodLabelNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'period_label' }> => n.type === 'period_label'), [nodes]);
   const generationLineNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'generation_line' }> => n.type === 'generation_line'), [nodes]);
   const generationLabelNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'generation_label' }> => n.type === 'generation_label'), [nodes]);
   const personNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'person' }> => n.type === 'person'), [nodes]);
@@ -366,7 +358,13 @@ export function TimelineCanvas({
                   key={n.id}
                   transform={`translate(${n.x}, ${n.y})`}
                   className="cursor-pointer"
-                  onClick={() => setActivePeriodId((prev) => (prev === n.period.id ? null : n.period.id))}
+                  onClick={() =>
+                    setActivePeriodId((prev) => {
+                      if (prev === n.period.id) return '__ALL_COLLAPSED__';
+                      if (prev === '__ALL_COLLAPSED__' && n.collapsed) return n.period.id;
+                      return n.period.id;
+                    })
+                  }
                 >
                   <rect
                     x={0}
@@ -444,26 +442,6 @@ export function TimelineCanvas({
                 strokeOpacity={0.7}
               />
             ))}
-            
-            {/* Period Labels */}
-            {periodLabelNodes.map((n) => {
-              const color = getPeriodColor(periods, n.period.id);
-              return (
-                <g key={n.id} transform={`translate(${n.x}, ${n.y})`}>
-                  <text x={0} y={14} className="text-sm font-bold" fill={color}>
-                    {n.period.name_ru}
-                  </text>
-                  <text
-                    x={0}
-                    y={30}
-                    className="text-[11px] font-semibold text-muted-foreground"
-                    fill="currentColor"
-                  >
-                    {n.period.startYear} — {n.period.endYear}
-                  </text>
-                </g>
-              );
-            })}
             
             {/* Generation Labels */}
             {generationLabelNodes.map((n) => (

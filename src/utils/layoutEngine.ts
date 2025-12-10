@@ -45,6 +45,7 @@ interface BuildParams {
   yearToX: (year: number) => number;
   activePeriodId?: string;
 }
+const ALL_COLLAPSED = '__ALL_COLLAPSED__';
 
 // Layout constants
 const TRACK_HEIGHT = 56;
@@ -451,13 +452,10 @@ export function buildTimelineBlocks({ people, periods, activePeriodId }: BuildPa
       const maxGen = Math.max(maxGenPeople || 0, maxGenPeriod || 0, fallbackGen);
       return Math.max(maxGen * GRID_COL_WIDTH + GRID_COL_GAP * 2, 700);
     }
-    if (period.id === 'rishonim') {
-      return 520 * 2.5;
-    }
-    if (period.id === 'achronim') {
+    if (period.id === 'rishonim' || period.id === 'achronim') {
       const minGridWidth = GRID_COLUMNS * GRID_TILE_WIDTH + (GRID_COLUMNS - 1) * GRID_GAP_X + GROUP_PADDING * 2;
       const timelineCount = periodPeople.length;
-      const densityFactor = 2.5; // чем больше, тем компактнее считаем сетку
+      const densityFactor = 2.5;
       const timelineNeed = Math.max(span * 1.8, (timelineCount || 1) * MIN_BAR_WIDTH / densityFactor);
       return Math.max(minGridWidth, timelineNeed, 520 * 2.5);
     }
@@ -470,7 +468,7 @@ export function buildTimelineBlocks({ people, periods, activePeriodId }: BuildPa
     const localScale = periodWidth / Math.max(1, period.endYear - period.startYear);
     const localYearToX = (year: number) => (year - period.startYear) * localScale;
 
-    if (activePeriodId && period.id !== activePeriodId) {
+    if (activePeriodId && (activePeriodId === ALL_COLLAPSED || period.id !== activePeriodId)) {
       return {
         id: period.id,
         period,
