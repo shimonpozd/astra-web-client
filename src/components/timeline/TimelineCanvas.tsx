@@ -25,6 +25,7 @@ const BAR_TRACK_HEIGHT = 56;
 
 type RenderNode =
   | { id: string; type: 'period_bg'; x: number; y: number; width: number; height: number; period: Period }
+  | { id: string; type: 'period_header'; x: number; y: number; width: number; height: number; period: Period; collapsed: boolean }
   | { id: string; type: 'period_label'; x: number; y: number; period: Period }
   | { id: string; type: 'generation_line'; x1: number; y1: number; x2: number; y2: number }
   | { id: string; type: 'generation_label'; x: number; y: number; label: string; periodId: string }
@@ -50,6 +51,7 @@ export function TimelineCanvas({
   onPersonSelect,
   selectedPersonSlug,
 }: TimelineCanvasProps) {
+  const [activePeriodId, setActivePeriodId] = useState<string | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const pointerRef = useRef<{ active: boolean; lastX: number; lastY: number; lastT: number; vx: number; vy: number }>({
     active: false,
@@ -75,14 +77,27 @@ export function TimelineCanvas({
   const timelineWidth = (maxYear - minYear) * BASE_PX_PER_YEAR;
 
   const blocks: PeriodBlock[] = useMemo(
-    () => buildTimelineBlocks({ people, periods, yearToX }),
-    [people, periods, yearToX],
+    () => buildTimelineBlocks({ people, periods, yearToX, activePeriodId: activePeriodId || undefined }),
+    [people, periods, yearToX, activePeriodId],
   );
 
   const nodes = useMemo<RenderNode[]>(() => {
     const acc: RenderNode[] = [];
     blocks.forEach((block) => {
       const Y_period = block.y;
+      const collapsed = !block.rows.length || block.height <= 50;
+      const headerHeight = Math.min(block.height, 44);
+
+      acc.push({
+        id: `${block.id}-header`,
+        type: 'period_header',
+        x: block.x,
+        y: Y_period,
+        width: block.width,
+        height: headerHeight,
+        period: block.period,
+        collapsed,
+      });
 
       // 1. Add Period Background and Label
       acc.push({
@@ -101,6 +116,8 @@ export function TimelineCanvas({
         y: Y_period + 10,
         period: block.period,
       });
+
+      if (collapsed) return;
 
       block.rows.forEach((row) => {
         const Y_row = row.y; // y-offset of the row within the block
@@ -165,6 +182,7 @@ export function TimelineCanvas({
   );
 
   const periodBgNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'period_bg' }> => n.type === 'period_bg'), [nodes]);
+  const periodHeaderNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'period_header' }> => n.type === 'period_header'), [nodes]);
   const periodLabelNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'period_label' }> => n.type === 'period_label'), [nodes]);
   const generationLineNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'generation_line' }> => n.type === 'generation_line'), [nodes]);
   const generationLabelNodes = useMemo(() => nodes.filter((n): n is Extract<RenderNode, { type: 'generation_label' }> => n.type === 'generation_label'), [nodes]);
@@ -340,6 +358,57 @@ export function TimelineCanvas({
             id="timeline-content-group"
             transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}
           >
+            {/* Period headers (for accordion toggle) */}
+            {periodHeaderNodes.map((n) => {
+              const color = getPeriodColor(periods, n.period.id);
+              return (
+                <g
+                  key={n.id}
+                  transform={`translate(${n.x}, ${n.y})`}
+                  className="cursor-pointer"
+                  onClick={() => setActivePeriodId((prev) => (prev === n.period.id ? null : n.period.id))}
+                >
+                  <rect
+                    x={0}
+                    y={0}
+                    width={n.width}
+                    height={n.height}
+                    rx={10}
+                    fill="hsl(var(--card))"
+                    stroke={color}
+                    strokeWidth={1.5}
+                    opacity={n.collapsed ? 0.85 : 0.95}
+                  />
+                  <text x={12} y={16} className="text-sm font-semibold" fill={color}>
+                    {n.period.name_ru}
+                  </text>
+                  <text x={12} y={30} className="text-[11px] font-medium text-muted-foreground" fill="currentColor">
+                    {n.period.startYear} — {n.period.endYear}
+                  </text>
+                  <rect
+                    x={n.width - 90}
+                    y={8}
+                    width={78}
+                    height={n.height - 16}
+                    rx={8}
+                    fill={color}
+                    opacity={0.12}
+                    stroke={color}
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={n.width - 50}
+                    y={n.height / 2 + 4}
+                    textAnchor="middle"
+                    className="text-[11px] font-semibold"
+                    fill={color}
+                  >
+                    {n.collapsed ? 'Раскрыть' : 'Свернуть'}
+                  </text>
+                </g>
+              );
+            })}
+
             {/* Period backgrounds */}
             {periodBgNodes.map((n) => {
               const color = getPeriodColor(periods, n.period.id);
@@ -412,21 +481,8 @@ export function TimelineCanvas({
 
             {/* People */}
             {personNodes.map((n) => {
-              const colorsBase = generateColorSystem(n.person.period);
-              const colors = n.color
-                ? {
-                    ...colorsBase,
-                    periodBase: n.color,
-                    personBar: {
-                      ...colorsBase.personBar,
-                      normal: n.color,
-                      hover: n.color,
-                      selected: n.color,
-                      estimated: n.color,
-                      verified: n.color,
-                    },
-                  }
-                : colorsBase;
+              const colors = generateColorSystem(n.person.period);
+              const barColor = getPersonColor(n.person, n.period);
               const isSelected = selectedPersonSlug === n.person.slug;
               const isDimmed = Boolean(hoveredSlug && hoveredSlug !== n.person.slug);
               const isFuzzy = Boolean(n.isFuzzy || !n.person.deathYear || !n.person.birthYear);
@@ -486,10 +542,10 @@ export function TimelineCanvas({
                 >
                   <defs>
                     <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.05 : 0.4} />
-                      <stop offset="20%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.7 : 1} />
-                      <stop offset="80%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.7 : 1} />
-                      <stop offset="100%" stopColor={colors.personBar.normal} stopOpacity={isFuzzy ? 0.05 : 0.4} />
+                      <stop offset="0%" stopColor={barColor} stopOpacity={isFuzzy ? 0.05 : 0.4} />
+                      <stop offset="20%" stopColor={barColor} stopOpacity={isFuzzy ? 0.7 : 1} />
+                      <stop offset="80%" stopColor={barColor} stopOpacity={isFuzzy ? 0.7 : 1} />
+                      <stop offset="100%" stopColor={barColor} stopOpacity={isFuzzy ? 0.05 : 0.4} />
                     </linearGradient>
                     <linearGradient id={pillGradId} x1="0%" y1="0%" x2="0%" y2="100%">
                       <stop offset="0%" stopColor="white" stopOpacity="0.18" />
@@ -497,7 +553,7 @@ export function TimelineCanvas({
                       <stop offset="100%" stopColor="white" stopOpacity="0" />
                     </linearGradient>
                     <pattern id={patternId} patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
-                      <line x1="0" y1="0" x2="0" y2="6" stroke={colors.personBar.normal} strokeWidth="1" strokeOpacity="0.18" />
+                      <line x1="0" y1="0" x2="0" y2="6" stroke={barColor} strokeWidth="1" strokeOpacity="0.18" />
                     </pattern>
                   </defs>
                   {branchFill && (
@@ -511,16 +567,16 @@ export function TimelineCanvas({
                       opacity={isDimmed ? 0.18 : 0.35}
                     />
                   )}
-                  <rect
-                    x={0}
-                    y={0}
-                    width={n.width}
-                    height={n.height - 6}
-                    rx={14}
-                    fill={isFuzzy ? colors.personBar.estimated : colors.personBar.normal}
-                    stroke={isSelected ? colors.periodBase : 'transparent'}
-                    strokeWidth={isSelected ? 2 : 1.5}
-                    opacity={isDimmed ? 0.35 : 1}
+                    <rect
+                      x={0}
+                      y={0}
+                      width={n.width}
+                      height={n.height - 6}
+                      rx={14}
+                      fill={isFuzzy ? colors.personBar.estimated : barColor}
+                      stroke={isSelected ? barColor : 'transparent'}
+                      strokeWidth={isSelected ? 2 : 1.5}
+                      opacity={isDimmed ? 0.35 : 1}
                   />
                   {isFuzzy && (
                     <rect

@@ -82,6 +82,13 @@ const RISHONIM_REGION_COLORS: Record<string, string> = {
   other: '#8892b0', // muted slate
 };
 
+const ACHRONIM_SUB_COLORS: Record<string, string> = {
+  early: '#2563eb', // blue
+  orthodox: '#dc2626', // red
+  israel: '#059669', // green
+  other: '#d97706', // amber
+};
+
 function resolveRishonimRegion(person: TimelinePerson): string {
   if (person.region) return person.region;
   const sub = person.subPeriod?.toLowerCase() ?? '';
@@ -103,5 +110,12 @@ export function getPersonColor(person: TimelinePerson, period: Period): string {
     const regionKey = resolveRishonimRegion(person);
     return RISHONIM_REGION_COLORS[regionKey] ?? RISHONIM_REGION_COLORS.other;
   }
+   if (pid.includes('achronim')) {
+     const sub = person.subPeriod?.toLowerCase() ?? '';
+     if (sub.includes('early')) return ACHRONIM_SUB_COLORS.early;
+     if (sub.includes('orthodox')) return ACHRONIM_SUB_COLORS.orthodox;
+     if (sub.includes('israel')) return ACHRONIM_SUB_COLORS.israel;
+     return ACHRONIM_SUB_COLORS.other;
+   }
   return getPeriodColor([period], period.id);
 }

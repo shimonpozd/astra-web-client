@@ -69,7 +69,7 @@ const GRID_TILE_WIDTH = 140;
 const GRID_TILE_HEIGHT = 52;
 const GRID_GAP_X = 12;
 const GRID_GAP_Y = 10;
-const GRID_COLUMNS = 4;
+const GRID_COLUMNS = 8;
 const GENERATION_COLUMN_WIDTH = 220;
 const GRID_CARD_WIDTH = 140;
 const GRID_COL_GAP = 40;
@@ -455,14 +455,11 @@ export function buildTimelineBlocks({ people, periods, activePeriodId }: BuildPa
       return 520 * 2.5;
     }
     if (period.id === 'achronim') {
-      const earlyCount = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('early')).length;
-      const mainCount = Math.max(0, periodPeople.length - earlyCount);
-      const minColWidth = GRID_COLUMNS * GRID_TILE_WIDTH + (GRID_COLUMNS - 1) * GRID_GAP_X + GROUP_PADDING * 2;
-      const densityFactor = 3; // чем больше, тем компактнее считаем сетку
-      const leftNeed = Math.max(minColWidth, Math.ceil((earlyCount || 1) * GRID_TILE_WIDTH / densityFactor));
-      const rightNeed = Math.max(minColWidth, Math.ceil((mainCount || 1) * GRID_TILE_WIDTH / densityFactor));
-      const totalCols = leftNeed + rightNeed + H_MARGIN * 4; // запас между колонками
-      return Math.max(totalCols, Math.max(span * 1.8, 420));
+      const minGridWidth = GRID_COLUMNS * GRID_TILE_WIDTH + (GRID_COLUMNS - 1) * GRID_GAP_X + GROUP_PADDING * 2;
+      const timelineCount = periodPeople.length;
+      const densityFactor = 2.5; // чем больше, тем компактнее считаем сетку
+      const timelineNeed = Math.max(span * 1.8, (timelineCount || 1) * MIN_BAR_WIDTH / densityFactor);
+      return Math.max(minGridWidth, timelineNeed, 520 * 2.5);
     }
     return Math.max(span * 1.8, 420);
   };
@@ -614,43 +611,28 @@ export function buildTimelineBlocks({ people, periods, activePeriodId }: BuildPa
       }
 
     } else if (period.id === 'achronim') {
-      const isEarly = (p: TimelinePerson) => (p.subPeriod || '').toLowerCase().includes('early');
-      const leftPeople = periodPeople.filter(isEarly);
-      const rightPeople = periodPeople.filter((p) => !isEarly(p));
-
       const hasNumericDates = (p: TimelinePerson) => {
         const start = p.birthYear ?? p.lifespan_range?.start ?? p.flouritYear;
         const end = p.deathYear ?? p.lifespan_range?.end;
         return Number.isFinite(start) || Number.isFinite(end);
       };
 
-      const buildHybridColumn = (idPrefix: string, label: string, list: TimelinePerson[], xShift: number) => {
-        let localY = 0;
-        const colGroups: GroupLayout[] = [];
-        const gridPeople = list.filter((p) => !hasNumericDates(p));
-        const timelinePeople = list.filter((p) => hasNumericDates(p));
+      const gridPeople = periodPeople.filter((p) => !hasNumericDates(p));
+      const timelinePeople = periodPeople.filter((p) => hasNumericDates(p));
 
-        if (gridPeople.length) {
-          const grid = createGridGroupLayout(`${idPrefix}-grid`, `${label}: без дат`, gridPeople, localY, xShift, GRID_COLUMNS, GRID_TILE_WIDTH, GRID_TILE_HEIGHT);
-          colGroups.push(grid);
-          localY += grid.height + groupGap;
-        }
+      if (gridPeople.length) {
+        const grid = createGridGroupLayout(`${period.id}-grid`, 'Без дат / сетка', gridPeople, groupCursorY, 0, GRID_COLUMNS, GRID_TILE_WIDTH, GRID_TILE_HEIGHT);
+        groups.push(grid);
+        groupCursorY += grid.height + groupGap;
+        trailingGapUsed = true;
+      }
 
-        if (timelinePeople.length) {
-          const tl = createGroupLayout(`${idPrefix}-timeline`, `${label}: лента`, timelinePeople, localY, period, localYearToX, periodWidth / 2, xShift);
-          colGroups.push(tl);
-          localY += tl.height + groupGap;
-        }
-
-        return { groups: colGroups, height: localY > 0 ? localY - groupGap : 0 };
-      };
-
-      const left = buildHybridColumn(`${period.id}-early`, 'Ранние ахроним', leftPeople, 0);
-      const right = buildHybridColumn(`${period.id}-main`, 'Ахроним', rightPeople, periodWidth / 2);
-
-      groups = [...left.groups, ...right.groups];
-      groupCursorY = Math.max(left.height, right.height);
-      trailingGapUsed = false;
+      if (timelinePeople.length) {
+        const group = createGroupLayout(`${period.id}-timeline`, 'Ахроним', timelinePeople, groupCursorY, period, localYearToX, periodWidth);
+        groups.push(group);
+        groupCursorY += group.height + groupGap;
+        trailingGapUsed = true;
+      }
 
     } else if (period.id === 'savoraim') {
       const sura = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('sura'));
