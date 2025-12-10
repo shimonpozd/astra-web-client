@@ -550,9 +550,27 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
       });
 
     } else if (period.id === 'achronim') {
-      const group = createGroupLayout(`${period.id}-all`, 'Ахроним', periodPeople, groupCursorY, period, localYearToX, periodWidth);
-      groups.push(group);
-      groupCursorY += group.height + groupGap;
+      const regionLabels: Record<string, string> = {
+        early_achronim: 'Ранние ахроним',
+        orthodox: 'Ортодоксальные раввины',
+        eretz_israel: 'Ахроним Израиля',
+        yemen: 'Йеменские ахроним',
+        other: 'Прочие',
+      };
+      const buckets: Record<string, TimelinePerson[]> = {};
+      Object.keys(regionLabels).forEach((k) => { buckets[k] = []; });
+      periodPeople.forEach((p) => {
+        const key = (p.region as string) || 'other';
+        if (!buckets[key]) buckets[key] = [];
+        buckets[key].push(p);
+      });
+      Object.entries(regionLabels).forEach(([key, label]) => {
+        const list = buckets[key] || [];
+        if (!list.length) return;
+        const group = createGroupLayout(`${period.id}-${key}`, label, list, groupCursorY, period, localYearToX, periodWidth);
+        groups.push(group);
+        groupCursorY += group.height + groupGap;
+      });
 
     } else if (period.id === 'savoraim') {
       const sura = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('sura'));

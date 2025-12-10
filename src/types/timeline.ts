@@ -11,6 +11,8 @@ export enum Region {
   KAIROUAN = 'kairouan',
   YEMEN = 'yemen',
   EGYPT = 'egypt',
+  EARLY_ACHRONIM = 'early_achronim',
+  ORTHODOX = 'orthodox',
 }
 
 export interface SubPeriod {

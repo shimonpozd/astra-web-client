@@ -83,7 +83,10 @@ export default function ProfilesAdminPage() {
     { value: 'rishonim_kairouan', label: 'Ришоним — Кайруан', generations: 0, period: 'rishonim', region: Region.KAIROUAN },
     { value: 'rishonim_yemen', label: 'Ришоним — Йемен', generations: 0, period: 'rishonim', region: Region.YEMEN },
     { value: 'rishonim_egypt', label: 'Ришоним — Египет', generations: 0, period: 'rishonim', region: Region.EGYPT },
-    { value: 'achronim', label: 'Ахроним', generations: 0, period: 'achronim' },
+    { value: 'achronim_early', label: 'Ахроним — ранние', generations: 0, period: 'achronim', region: Region.EARLY_ACHRONIM, subPrefix: 'achronim_early' },
+    { value: 'achronim_orthodox', label: 'Ахроним — ортодоксальные', generations: 0, period: 'achronim', region: Region.ORTHODOX, subPrefix: 'achronim_orthodox' },
+    { value: 'achronim_israel', label: 'Ахроним — Израиль', generations: 0, period: 'achronim', region: Region.ERETZ_ISRAEL, subPrefix: 'achronim_israel' },
+    { value: 'achronim_yemen', label: 'Ахроним — Йемен', generations: 0, period: 'achronim', region: Region.YEMEN, subPrefix: 'achronim_yemen' },
     { value: 'other', label: 'Другое/не указано', generations: 0, period: '' },
   ];
   const [selectedEra, setSelectedEra] = useState<string>('other');

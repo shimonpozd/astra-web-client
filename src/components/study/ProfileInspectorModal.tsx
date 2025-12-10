@@ -56,7 +56,10 @@ const ERA_OPTIONS = [
   { value: 'rishonim_kairouan', label: 'Ришоним — Кайруан', generations: 0, period: 'rishonim', region: Region.KAIROUAN },
   { value: 'rishonim_yemen', label: 'Ришоним — Йемен', generations: 0, period: 'rishonim', region: Region.YEMEN },
   { value: 'rishonim_egypt', label: 'Ришоним — Египет', generations: 0, period: 'rishonim', region: Region.EGYPT },
-  { value: 'achronim', label: 'Ахроним', generations: 0, period: 'achronim' },
+  { value: 'achronim_early', label: 'Ахроним — ранние', generations: 0, period: 'achronim', region: Region.EARLY_ACHRONIM },
+  { value: 'achronim_orthodox', label: 'Ахроним — ортодоксальные', generations: 0, period: 'achronim', region: Region.ORTHODOX },
+  { value: 'achronim_israel', label: 'Ахроним — Израиль', generations: 0, period: 'achronim', region: Region.ERETZ_ISRAEL },
+  { value: 'achronim_yemen', label: 'Ахроним — Йемен', generations: 0, period: 'achronim', region: Region.YEMEN },
   { value: 'other', label: 'Другое/не указано', generations: 0, period: '' },
 ];
 

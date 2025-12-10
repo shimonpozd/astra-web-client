@@ -237,5 +237,11 @@ export const PERIODS: Period[] = [
     startYear: 1500,
     endYear: 2025,
     color: '#9932CC',
+    subPeriods: [
+      { id: 'achronim_early', name_ru: 'Ранние ахроним', region: Region.EARLY_ACHRONIM },
+      { id: 'achronim_orthodox', name_ru: 'Ортодоксальные раввины', region: Region.ORTHODOX },
+      { id: 'achronim_israel', name_ru: 'Ахроним Израиля', region: Region.ERETZ_ISRAEL },
+      { id: 'achronim_yemen', name_ru: 'Йеменские ахроним', region: Region.YEMEN },
+    ],
   },
 ];
