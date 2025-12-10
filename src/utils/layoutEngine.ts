@@ -405,8 +405,12 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
       const maxGen = Math.max(maxGenPeople || 0, maxGenPeriod || 0, fallbackGen);
       return Math.max(maxGen * GRID_COL_WIDTH + GRID_COL_GAP * 2, 700);
     }
-    if (period.id === 'rishonim' || period.id === 'achronim') {
+    if (period.id === 'rishonim') {
       return 520;
+    }
+    if (period.id === 'achronim') {
+      // запас под две колонки (левая ранние, правая остальные)
+      return 1600;
     }
     return Math.max(span * 1.8, 420);
   };
