@@ -568,18 +568,29 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
       const buckets: Record<string, TimelinePerson[]> = {};
       Object.keys(regionLabels).forEach((k) => { buckets[k] = []; });
       periodPeople.forEach((p) => {
-        // Сначала пытаемся определить группу по subPeriod (эрам Ахроним), затем по region
         const key = resolveAchronimRegion(p) || (p.region as string) || 'other';
         if (!buckets[key]) buckets[key] = [];
         buckets[key].push(p);
       });
-      Object.entries(regionLabels).forEach(([key, label]) => {
+
+      // Две колонки: слева — ранние, справа — все остальные
+      const colWidth = Math.max(periodWidth * 0.5, 400);
+      const columnHeights = [0, 0];
+      const addGroupToColumn = (key: string, label: string, colIndex: number) => {
         const list = buckets[key] || [];
         if (!list.length) return;
-        const group = createGroupLayout(`${period.id}-${key}`, label, list, groupCursorY, period, localYearToX, periodWidth);
+        const xShift = colIndex * colWidth;
+        const group = createGroupLayout(`${period.id}-${key}`, label, list, columnHeights[colIndex], period, localYearToX, periodWidth, xShift);
         groups.push(group);
-        groupCursorY += group.height + groupGap;
+        columnHeights[colIndex] += group.height + groupGap;
+      };
+
+      addGroupToColumn('early_achronim', regionLabels.early_achronim, 0);
+      ['orthodox', 'eretz_israel', 'yemen', 'other'].forEach((k) => {
+        addGroupToColumn(k, regionLabels[k], 1);
       });
+
+      groupCursorY = Math.max(...columnHeights);
 
     } else if (period.id === 'savoraim') {
       const sura = periodPeople.filter((p) => (p.subPeriod || '').toLowerCase().includes('sura'));

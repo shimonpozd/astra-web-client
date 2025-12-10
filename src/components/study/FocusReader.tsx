@@ -950,12 +950,28 @@ const FocusReader = memo(({
           className="pointer-events-none fixed z-40"
           style={{ top: hoverCard.y + 12, left: hoverCard.x, transform: 'translate(-50%, 0)' }}
         >
-          <div className="rounded-lg border border-border/70 bg-card/95 text-foreground backdrop-blur-sm shadow-2xl max-w-sm space-y-2">
-            <div className="text-[10px] uppercase text-muted-foreground tracking-wide">{hoverCard.type}</div>
-            {hoverCard.label && <div className="text-sm font-semibold text-foreground">{hoverCard.label}</div>}
+          <div
+            className="rounded-xl border border-border/60 bg-card/95 text-foreground backdrop-blur-md shadow-2xl max-w-md min-w-[220px] px-4 py-3 space-y-2"
+            style={{
+              boxShadow:
+                '0 14px 30px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.12)',
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {hoverCard.type}
+              </span>
+            </div>
+
+            {hoverCard.label && (
+              <div className="text-base font-semibold leading-tight text-foreground">
+                {hoverCard.label}
+              </div>
+            )}
+
             {hoverCard.summary ? (
               <div
-                className="prose prose-sm max-w-none text-foreground"
+                className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-p:leading-snug prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 dark:prose-invert"
                 dangerouslySetInnerHTML={{ __html: hoverCard.summary }}
               />
             ) : null}
