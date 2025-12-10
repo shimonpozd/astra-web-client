@@ -574,7 +574,8 @@ export function buildTimelineBlocks({ people, periods }: BuildParams): PeriodBlo
       });
 
       // Две колонки: слева — ранние, справа — все остальные
-      const colWidth = Math.max(periodWidth * 0.5, 400);
+      // Чуть больше ширины колонок, чтобы карточки не наезжали (аналогично запасу в Танахе)
+      const colWidth = Math.max(periodWidth * 0.6, 600);
       const columnHeights = [0, 0];
       const addGroupToColumn = (key: string, label: string, colIndex: number) => {
         const list = buckets[key] || [];
