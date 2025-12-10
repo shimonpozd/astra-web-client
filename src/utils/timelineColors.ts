@@ -70,41 +70,39 @@ export function getPeriodColor(periods: Period[], periodId: string) {
 
 // --- Region palette for Rishonim ---
 const RISHONIM_REGION_COLORS: Record<string, string> = {
-  [Region.GERMANY]: '#2f9e44', // green
-  [Region.FRANCE]: '#f59f00', // orange
-  [Region.SEPHARAD]: '#228be6', // blue
-  [Region.ITALY]: '#cc5de8', // purple
-  [Region.NORTH_AFRICA]: '#e8590c', // burnt orange
-  [Region.YEMEN]: '#d9480f', // deep red-orange
-  [Region.EGYPT]: '#e67700', // amber
-  [Region.ENGLAND]: '#15aabf', // teal
-  [Region.PROVENCE]: '#e64980', // pink
-  [Region.KAIROUAN]: '#6366f1', // indigo
-  other: '#8892b0', // muted slate
+  [Region.GERMANY]: '#2f9e44',
+  [Region.FRANCE]: '#f59f00',
+  [Region.SEPHARAD]: '#228be6',
+  [Region.ITALY]: '#cc5de8',
+  [Region.NORTH_AFRICA]: '#e8590c',
+  [Region.YEMEN]: '#d9480f',
+  [Region.EGYPT]: '#e67700',
+  [Region.ENGLAND]: '#15aabf',
+  [Region.PROVENCE]: '#e64980',
+  [Region.KAIROUAN]: '#6366f1',
 };
 
 const ACHRONIM_SUB_COLORS: Record<string, string> = {
-  early: '#2563eb', // blue
-  orthodox: '#dc2626', // red
-  israel: '#059669', // green
-  yemen: '#d97706', // amber
-  other: '#6b7280', // muted slate
+  early: '#2563eb',
+  orthodox: '#dc2626',
+  israel: '#059669',
+  yemen: '#d97706',
 };
 
-function resolveRishonimRegion(person: TimelinePerson): string {
+function resolveRishonimRegion(person: TimelinePerson): string | undefined {
   if (person.region) return person.region;
   const sub = person.subPeriod?.toLowerCase() ?? '';
-  if (sub.includes('germany')) return Region.GERMANY;
-  if (sub.includes('france')) return Region.FRANCE;
-  if (sub.includes('england')) return Region.ENGLAND;
-  if (sub.includes('provence')) return Region.PROVENCE;
-  if (sub.includes('sepharad') || sub.includes('sefarad') || sub.includes('sephard')) return Region.SEPHARAD;
-  if (sub.includes('italy')) return Region.ITALY;
-  if (sub.includes('north_africa') || sub.includes('africa')) return Region.NORTH_AFRICA;
-  if (sub.includes('kairouan')) return Region.KAIROUAN;
-  if (sub.includes('yemen')) return Region.YEMEN;
-  if (sub.includes('egypt')) return Region.EGYPT;
-  return 'other';
+  if (sub.includes('rishonim_germany')) return Region.GERMANY;
+  if (sub.includes('rishonim_france')) return Region.FRANCE;
+  if (sub.includes('rishonim_england')) return Region.ENGLAND;
+  if (sub.includes('rishonim_provence')) return Region.PROVENCE;
+  if (sub.includes('rishonim_sepharad')) return Region.SEPHARAD;
+  if (sub.includes('rishonim_italy')) return Region.ITALY;
+  if (sub.includes('rishonim_north_africa')) return Region.NORTH_AFRICA;
+  if (sub.includes('rishonim_kairouan')) return Region.KAIROUAN;
+  if (sub.includes('rishonim_yemen')) return Region.YEMEN;
+  if (sub.includes('rishonim_egypt')) return Region.EGYPT;
+  return undefined;
 }
 
 export function getPersonColor(person: TimelinePerson, period: Period): string {
@@ -112,28 +110,18 @@ export function getPersonColor(person: TimelinePerson, period: Period): string {
   const pname = period.name_ru?.toLowerCase() ?? '';
   if (pid.includes('rishonim')) {
     const regionKey = resolveRishonimRegion(person);
-    return RISHONIM_REGION_COLORS[regionKey] ?? RISHONIM_REGION_COLORS.other;
+    if (regionKey && RISHONIM_REGION_COLORS[regionKey]) {
+      return RISHONIM_REGION_COLORS[regionKey];
+    }
+    return getPeriodColor([period], period.id);
   }
   if (pid.includes('achronim')) {
-    // сначала пробуем region/subPeriod по вашим подтипам
-    if (person.region === Region.EARLY_ACHRONIM || (person.subPeriod ?? '').toLowerCase().includes('early')) return ACHRONIM_SUB_COLORS.early;
-    if (person.region === Region.ORTHODOX || (person.subPeriod ?? '').toLowerCase().includes('orthodox')) return ACHRONIM_SUB_COLORS.orthodox;
-    if (person.region === Region.ERETZ_ISRAEL || (person.subPeriod ?? '').toLowerCase().includes('israel')) return ACHRONIM_SUB_COLORS.israel;
-    if (person.region === Region.YEMEN || (person.subPeriod ?? '').toLowerCase().includes('yemen')) return ACHRONIM_SUB_COLORS.yemen;
     const sub = person.subPeriod?.toLowerCase() ?? '';
-    const byName = (key: keyof typeof ACHRONIM_SUB_COLORS, hint: string) =>
-      pname.includes(hint) ? ACHRONIM_SUB_COLORS[key] : undefined;
-    if (sub.includes('early')) return ACHRONIM_SUB_COLORS.early;
-    if (sub.includes('orthodox')) return ACHRONIM_SUB_COLORS.orthodox;
-    if (sub.includes('israel')) return ACHRONIM_SUB_COLORS.israel;
-    if (sub.includes('yemen')) return ACHRONIM_SUB_COLORS.yemen;
-    const fromName =
-      byName('early', 'ранние') ||
-      byName('orthodox', 'ортодокс') ||
-      byName('israel', 'израил') ||
-      byName('yemen', 'йемен');
-    if (fromName) return fromName;
-    return ACHRONIM_SUB_COLORS.other;
+    if (person.region === Region.EARLY_ACHRONIM || sub.includes('achronim_early') || pname.includes('ранние')) return ACHRONIM_SUB_COLORS.early;
+    if (person.region === Region.ORTHODOX || sub.includes('achronim_orthodox') || pname.includes('ортодокс')) return ACHRONIM_SUB_COLORS.orthodox;
+    if (person.region === Region.ERETZ_ISRAEL || sub.includes('achronim_israel') || pname.includes('израил')) return ACHRONIM_SUB_COLORS.israel;
+    if (person.region === Region.YEMEN || sub.includes('achronim_yemen') || pname.includes('йемен')) return ACHRONIM_SUB_COLORS.yemen;
+    return getPeriodColor([period], period.id);
   }
   return getPeriodColor([period], period.id);
 }
