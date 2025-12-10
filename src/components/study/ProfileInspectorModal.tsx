@@ -329,7 +329,10 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
     }
 
     setDraftPeriod(preset.period || '');
-    setDraftRegion(preset.region || '');
+    // Регион не привязываем жёстко к эре, чтобы не перезатирать вручную выбранный
+    if (!preset.region) {
+      setDraftRegion('');
+    }
     setDraftGeneration(generation);
     if (preset.generations && generation) {
       const sub = preset.subPrefix ? `${preset.subPrefix}${generation}` : '';

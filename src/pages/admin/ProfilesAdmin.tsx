@@ -107,7 +107,10 @@ export default function ProfilesAdminPage() {
     }
 
     setNewPeriod(preset.period || '');
-    setNewRegion(preset.region || '');
+    // Регион выбираем вручную, не привязываем к эре, чтобы не перетирать выбор пользователя
+    if (!preset.region) {
+      setNewRegion('');
+    }
     if (preset.generations && generation) {
       const sub = preset.subPrefix ? `${preset.subPrefix}${generation}` : '';
       setNewSubPeriod(sub);
