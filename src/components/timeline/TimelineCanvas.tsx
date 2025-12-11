@@ -577,17 +577,6 @@ export function TimelineCanvas({
                     fill={`url(#${pillGradId})`}
                     opacity={isDimmed ? 0.18 : 0.22}
                   />
-                  {isFuzzy && (
-                    <rect
-                      x={0}
-                      y={0}
-                      width={n.width}
-                      height={n.height - 6}
-                      rx={14}
-                      fill={`url(#${patternId})`}
-                      opacity={isDimmed ? 0.14 : 0.24}
-                    />
-                  )}
                   {lod !== 'low' && n.width > 30 && (
                     <>
                       {nameLines.map((line, idx) => {
