@@ -6,7 +6,7 @@ export const PERIODS: Period[] = [
     name_ru: 'Период Пятикнижия',
     startYear: -3761,
     endYear: -1273,
-    color: '#B5651D',
+    color: '#B08A5A',
     subPeriods: [
       // Эпоха допотопного человечества
       { id: 'preflood_gen1', name_ru: 'Поколение 1', generation: 1 },
@@ -61,35 +61,35 @@ export const PERIODS: Period[] = [
     name_ru: 'Шофтим (Судьи)',
     startYear: -1200,
     endYear: -1020,
-    color: '#8B4513',
+    color: '#8C6A46',
   },
   {
     id: 'neviim',
     name_ru: 'Период Пророков (Невиим)',
     startYear: -800,
     endYear: -400,
-    color: '#A0522D',
+    color: '#A0704A',
   },
   {
     id: 'great_assembly',
     name_ru: 'Период Великого Собрания',
     startYear: -450,
     endYear: -250,
-    color: '#708090',
+    color: '#6E7078',
   },
   {
     id: 'malakhim_united',
     name_ru: 'Единое царство',
     startYear: -1020,
     endYear: -930,
-    color: '#DAA520',
+    color: '#C9A64A',
   },
   {
     id: 'malakhim_divided',
     name_ru: 'Разделённое царство',
     startYear: -930,
     endYear: -586,
-    color: '#CD853F',
+    color: '#A4783F',
     subPeriods: [
       { id: 'israel', name_ru: 'Царство Израиль', region: Region.ERETZ_ISRAEL },
       { id: 'judah', name_ru: 'Царство Иуда', region: Region.ERETZ_ISRAEL },
@@ -100,14 +100,14 @@ export const PERIODS: Period[] = [
     name_ru: 'Хашмонаим',
     startYear: -140,
     endYear: -37,
-    color: '#4682B4',
+    color: '#2D5A78',
   },
   {
     id: 'zugot',
     name_ru: 'Зугот (Пары)',
     startYear: -200,
     endYear: 10,
-    color: '#5F9EA0',
+    color: '#4A7D8C',
     subPeriods: Array.from({ length: 5 }, (_, i) => ({
       id: `zugot_gen${i + 1}`,
       name_ru: `Поколение ${i + 1}`,
@@ -119,7 +119,7 @@ export const PERIODS: Period[] = [
     name_ru: 'Танаим (период Храма)',
     startYear: 10,
     endYear: 70,
-    color: '#6B8E23',
+    color: '#6A8A34',
     subPeriods: Array.from({ length: 7 }, (_, i) => ({
       id: `tanna_temple_gen${i + 1}`,
       name_ru: `Поколение ${i + 1}`,
@@ -131,7 +131,7 @@ export const PERIODS: Period[] = [
     name_ru: 'Танаим (после Храма)',
     startYear: 70,
     endYear: 220,
-    color: '#556B2F',
+    color: '#4F6D2C',
     subPeriods: Array.from({ length: 5 }, (_, i) => ({
       id: `tanna_post_gen${i + 1}`,
       name_ru: `Поколение ${i + 1}`,
@@ -143,7 +143,7 @@ export const PERIODS: Period[] = [
     name_ru: 'Амораим Земли Израиля',
     startYear: 220,
     endYear: 400,
-    color: '#2E8B57',
+    color: '#2B6F59',
     region: Region.ERETZ_ISRAEL,
     subPeriods: Array.from({ length: 6 }, (_, i) => ({
       id: `amora_israel_gen${i + 1}`,
@@ -156,7 +156,7 @@ export const PERIODS: Period[] = [
     name_ru: 'Амораим Вавилона',
     startYear: 220,
     endYear: 500,
-    color: '#3CB371',
+    color: '#3B8F61',
     region: Region.BABYLONIA,
     subPeriods: Array.from({ length: 8 }, (_, i) => ({
       id: `amora_bav_gen${i + 1}`,
@@ -169,7 +169,7 @@ export const PERIODS: Period[] = [
     name_ru: 'Савораим',
     startYear: 500,
     endYear: 600,
-    color: '#20B2AA',
+    color: '#1F7E79',
     subPeriods: [
       ...Array.from({ length: 5 }, (_, i) => ({
         id: `savora_sura_gen${i + 1}`,
@@ -190,7 +190,7 @@ export const PERIODS: Period[] = [
     name_ru: 'Гаоним',
     startYear: 650,
     endYear: 1038,
-    color: '#483D8B',
+    color: '#4B3A7A',
     subPeriods: [
       ...Array.from({ length: 8 }, (_, i) => ({
         id: `gaon_sura_gen${i + 1}`,
@@ -217,7 +217,7 @@ export const PERIODS: Period[] = [
     name_ru: 'Ришоним',
     startYear: 1038,
     endYear: 1492,
-    color: '#8B008B',
+    color: '#7A2F8C',
     subPeriods: [
       { id: 'rishonim_germany', name_ru: 'Германия', region: Region.GERMANY },
       { id: 'rishonim_france', name_ru: 'Франция', region: Region.FRANCE },
@@ -236,7 +236,7 @@ export const PERIODS: Period[] = [
     name_ru: 'Ахроним',
     startYear: 1500,
     endYear: 2025,
-    color: '#9932CC',
+    color: '#8D45C9',
     subPeriods: [
       { id: 'achronim_early', name_ru: 'Ранние ахроним', region: Region.EARLY_ACHRONIM },
       { id: 'achronim_orthodox', name_ru: 'Ортодоксальные раввины', region: Region.ORTHODOX },
