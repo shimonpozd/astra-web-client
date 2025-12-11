@@ -242,6 +242,8 @@ export const PERIODS: Period[] = [
       { id: 'achronim_orthodox', name_ru: 'Ортодоксальные раввины', region: Region.ORTHODOX },
       { id: 'achronim_israel', name_ru: 'Ахроним Израиля', region: Region.ERETZ_ISRAEL },
       { id: 'achronim_yemen', name_ru: 'Йеменские ахроним', region: Region.YEMEN },
+      { id: 'achronim_admorim', name_ru: 'Адморим', region: Region.ADMORIM },
+      { id: 'achronim_religious_zionism', name_ru: 'Раввины религиозного сионизма', region: Region.RELIGIOUS_ZIONISM },
     ],
   },
 ];

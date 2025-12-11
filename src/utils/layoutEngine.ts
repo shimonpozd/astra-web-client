@@ -610,6 +610,26 @@ export function buildTimelineBlocks({ people, periods, activePeriodId }: BuildPa
       }
 
     } else if (period.id === 'achronim') {
+      const regionLabels: Record<string, string> = {
+        early_achronim: 'Ранние ахроним',
+        orthodox: 'Ортодоксальные раввины',
+        eretz_israel: 'Ахроним Израиля',
+        yemen: 'Йеменские ахроним',
+        admorim: 'Адморим',
+        religious_zionism: 'Раввины религиозного сионизма',
+        other: 'Прочие',
+      };
+      const resolveAchronimRegion = (p: TimelinePerson): string => {
+        const sub = (p.subPeriod || '').toLowerCase();
+        if (sub.startsWith('achronim_early')) return 'early_achronim';
+        if (sub.startsWith('achronim_orthodox')) return 'orthodox';
+        if (sub.startsWith('achronim_israel')) return 'eretz_israel';
+        if (sub.startsWith('achronim_yemen')) return 'yemen';
+        if (sub.startsWith('achronim_admorim')) return 'admorim';
+        if (sub.startsWith('achronim_religious_zionism')) return 'religious_zionism';
+        return '';
+      };
+
       const hasNumericDates = (p: TimelinePerson) => {
         const start = p.birthYear ?? p.lifespan_range?.start ?? p.flouritYear;
         const end = p.deathYear ?? p.lifespan_range?.end;
@@ -627,9 +647,44 @@ export function buildTimelineBlocks({ people, periods, activePeriodId }: BuildPa
       }
 
       if (timelinePeople.length) {
-        const group = createGroupLayout(`${period.id}-timeline`, 'Ахроним', timelinePeople, groupCursorY, period, localYearToX, periodWidth);
-        groups.push(group);
-        groupCursorY += group.height + groupGap;
+        const buckets: Record<string, TimelinePerson[]> = {};
+        Object.keys(regionLabels).forEach((k) => { buckets[k] = []; });
+        timelinePeople.forEach((p) => {
+          const key = resolveAchronimRegion(p) || (p.region as string) || 'other';
+          if (!buckets[key]) buckets[key] = [];
+          buckets[key].push(p);
+        });
+
+        // Две колонки: слева ранние, справа остальные
+        const span = Math.max(1, period.endYear - period.startYear);
+        const colWidth = Math.max(periodWidth * 0.6, 700);
+        const colGap = GRID_COL_GAP;
+        const columnHeights = [0, 0];
+        const addGroupToColumn = (key: string, label: string, colIndex: number) => {
+          const list = buckets[key] || [];
+          if (!list.length) return;
+          const xShift = colIndex * (colWidth + colGap);
+          const colYearToX = (year: number) => (year - period.startYear) * (colWidth / span);
+          const group = createGroupLayout(
+            `${period.id}-${key}`,
+            label,
+            list,
+            columnHeights[colIndex],
+            period,
+            colYearToX,
+            colWidth,
+            xShift,
+          );
+          groups.push(group);
+          columnHeights[colIndex] += group.height + groupGap;
+        };
+
+        addGroupToColumn('early_achronim', regionLabels.early_achronim, 0);
+        ['orthodox', 'eretz_israel', 'yemen', 'admorim', 'religious_zionism', 'other'].forEach((k) => {
+          addGroupToColumn(k, regionLabels[k], 1);
+        });
+
+        groupCursorY = Math.max(...columnHeights);
         trailingGapUsed = true;
       }
 

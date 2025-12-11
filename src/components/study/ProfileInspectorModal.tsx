@@ -60,6 +60,8 @@ const ERA_OPTIONS = [
   { value: 'achronim_orthodox', label: 'Ахроним — ортодоксальные', generations: 0, period: 'achronim', region: Region.ORTHODOX },
   { value: 'achronim_israel', label: 'Ахроним — Израиль', generations: 0, period: 'achronim', region: Region.ERETZ_ISRAEL },
   { value: 'achronim_yemen', label: 'Ахроним — Йемен', generations: 0, period: 'achronim', region: Region.YEMEN },
+  { value: 'achronim_admorim', label: 'Ахроним — Адморим', generations: 0, period: 'achronim', region: Region.ADMORIM },
+  { value: 'achronim_religious_zionism', label: 'Ахроним — религиозный сионизм', generations: 0, period: 'achronim', region: Region.RELIGIOUS_ZIONISM },
   { value: 'other', label: 'Другое/не указано', generations: 0, period: '' },
 ];
 
@@ -609,6 +611,8 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
                       <option value="egypt">Египет</option>
                       <option value="early_achronim">Ранние ахроним</option>
                       <option value="orthodox">Ортодоксальные раввины</option>
+                      <option value="admorim">Адморим</option>
+                      <option value="religious_zionism">Религиозный сионизм</option>
                     </select>
                   </div>
                   <div className="grid md:grid-cols-2 gap-2">

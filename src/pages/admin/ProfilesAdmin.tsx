@@ -87,6 +87,8 @@ export default function ProfilesAdminPage() {
     { value: 'achronim_orthodox', label: 'Ахроним — ортодоксальные', generations: 0, period: 'achronim', region: Region.ORTHODOX, subPrefix: 'achronim_orthodox' },
     { value: 'achronim_israel', label: 'Ахроним — Израиль', generations: 0, period: 'achronim', region: Region.ERETZ_ISRAEL, subPrefix: 'achronim_israel' },
     { value: 'achronim_yemen', label: 'Ахроним — Йемен', generations: 0, period: 'achronim', region: Region.YEMEN, subPrefix: 'achronim_yemen' },
+    { value: 'achronim_admorim', label: 'Ахроним — Адморим', generations: 0, period: 'achronim', region: Region.ADMORIM, subPrefix: 'achronim_admorim' },
+    { value: 'achronim_religious_zionism', label: 'Ахроним — религиозный сионизм', generations: 0, period: 'achronim', region: Region.RELIGIOUS_ZIONISM, subPrefix: 'achronim_religious_zionism' },
     { value: 'other', label: 'Другое/не указано', generations: 0, period: '' },
   ];
   const [selectedEra, setSelectedEra] = useState<string>('other');
@@ -284,6 +286,8 @@ export default function ProfilesAdminPage() {
             <option value="egypt">Египет</option>
             <option value="early_achronim">Ранние ахроним</option>
             <option value="orthodox">Ортодоксальные раввины</option>
+            <option value="admorim">Адморим</option>
+            <option value="religious_zionism">Религиозный сионизм</option>
           </select>
           <button
             type="button"
