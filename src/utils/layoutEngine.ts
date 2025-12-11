@@ -459,9 +459,8 @@ export function buildTimelineBlocks({ people, periods, activePeriodId }: BuildPa
     }
     if (period.id === 'rishonim' || period.id === 'achronim') {
       const minGridWidth = GRID_COLUMNS * GRID_TILE_WIDTH + (GRID_COLUMNS - 1) * GRID_GAP_X + GROUP_PADDING * 2;
-      const timelineNeed = span * 1.4; // плотнее, чтобы не было "огромных" блоков
-      const twoColsNeed = ACHRONIM_COL_WIDTH_BASE * 2 + ACHRONIM_COL_GAP;
-      return Math.max(minGridWidth, timelineNeed, twoColsNeed);
+      const compactNeed = minGridWidth + 200; // небольшой запас поверх 8 тайлов
+      return Math.max(minGridWidth, compactNeed);
     }
     return Math.max(span * 1.8, 420);
   };
