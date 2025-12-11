@@ -91,8 +91,10 @@ function resolveGeneration(person: TimelinePerson, period?: Period): number | un
 }
 
 function normalizePersonDates(person: TimelinePerson, period?: Period): { start: number; end: number; isFuzzy: boolean } {
-  const rawStart = person.birthYear ?? person.lifespan_range?.start ?? person.flouritYear;
-  const rawEnd = person.deathYear ?? person.lifespan_range?.end;
+  const rawStartRaw = person.birthYear ?? person.lifespan_range?.start ?? person.flouritYear;
+  const rawEndRaw = person.deathYear ?? person.lifespan_range?.end;
+  const rawStart = rawStartRaw ?? undefined;
+  const rawEnd = rawEndRaw ?? undefined;
   const gen = resolveGeneration(person, period);
 
   if (rawStart !== undefined && rawEnd !== undefined && rawStart < rawEnd) {
