@@ -526,14 +526,6 @@ export function TimelineCanvas({
                       <stop offset="80%" stopColor={barColor} stopOpacity={isFuzzy ? 0.7 : 1} />
                       <stop offset="100%" stopColor={barColor} stopOpacity={isFuzzy ? 0.05 : 0.4} />
                     </linearGradient>
-                    <linearGradient id={pillGradId} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="white" stopOpacity="0.18" />
-                      <stop offset="50%" stopColor="white" stopOpacity="0.08" />
-                      <stop offset="100%" stopColor="white" stopOpacity="0" />
-                    </linearGradient>
-                    <pattern id={patternId} patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
-                      <line x1="0" y1="0" x2="0" y2="6" stroke={barColor} strokeWidth="1" strokeOpacity="0.18" />
-                    </pattern>
                   </defs>
                   {branchFill && (
                     <rect
@@ -568,15 +560,7 @@ export function TimelineCanvas({
                       opacity={isDimmed ? 0.25 : 0.6}
                     />
                   )}
-                  <rect
-                    x={0}
-                    y={0}
-                    width={n.width}
-                    height={n.height - 6}
-                    rx={14}
-                    fill={`url(#${pillGradId})`}
-                    opacity={isDimmed ? 0.18 : 0.22}
-                  />
+                  {/* Убрана верхняя полупрозрачная подсветка для однотонной заливки */}
                   {lod !== 'low' && n.width > 30 && (
                     <>
                       {nameLines.map((line, idx) => {
