@@ -467,10 +467,6 @@ export function TimelineCanvas({
               const isFuzzy = Boolean(n.isFuzzy || !n.person.deathYear || !n.person.birthYear);
               const displayName = n.person.name_ru || n.person.name_en || n.person.slug;
               const lifespan = n.person.lifespan || `${n.person.birthYear ?? ''}–${n.person.deathYear ?? ''}`;
-              const safeId = n.id.replace(/[^a-zA-Z0-9-_]/g, '_');
-              const gradId = `fuzzy-${safeId}`;
-              const pillGradId = `pill-${safeId}`;
-              const patternId = `pat-${safeId}`;
               const wrapName = (name: string, maxChars: number) => {
                 const words = name.split(' ');
                 const lines: string[] = [];
@@ -519,14 +515,6 @@ export function TimelineCanvas({
                   onMouseEnter={() => setHoveredSlug(n.person.slug)}
                   onMouseLeave={() => setHoveredSlug(null)}
                 >
-                  <defs>
-                    <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor={barColor} stopOpacity={isFuzzy ? 0.05 : 0.4} />
-                      <stop offset="20%" stopColor={barColor} stopOpacity={isFuzzy ? 0.7 : 1} />
-                      <stop offset="80%" stopColor={barColor} stopOpacity={isFuzzy ? 0.7 : 1} />
-                      <stop offset="100%" stopColor={barColor} stopOpacity={isFuzzy ? 0.05 : 0.4} />
-                    </linearGradient>
-                  </defs>
                   {branchFill && (
                     <rect
                       x={0}
@@ -538,29 +526,17 @@ export function TimelineCanvas({
                       opacity={isDimmed ? 0.18 : 0.35}
                     />
                   )}
-                    <rect
-                      x={0}
-                      y={0}
-                      width={n.width}
-                      height={n.height - 6}
-                      rx={14}
-                      fill={isFuzzy ? colors.personBar.estimated : barColor}
-                      stroke={isSelected ? barColor : 'transparent'}
-                      strokeWidth={isSelected ? 2 : 1.5}
-                      opacity={isDimmed ? 0.35 : 1}
+                  <rect
+                    x={0}
+                    y={0}
+                    width={n.width}
+                    height={n.height - 6}
+                    rx={14}
+                    fill={barColor}
+                    stroke={isSelected ? barColor : 'transparent'}
+                    strokeWidth={isSelected ? 2 : 1.5}
+                    opacity={isDimmed ? 0.35 : 1}
                   />
-                  {isFuzzy && (
-                    <rect
-                      x={0}
-                      y={0}
-                      width={n.width}
-                      height={n.height - 6}
-                      rx={14}
-                      fill={`url(#${gradId})`}
-                      opacity={isDimmed ? 0.25 : 0.6}
-                    />
-                  )}
-                  {/* Убрана верхняя полупрозрачная подсветка для однотонной заливки */}
                   {lod !== 'low' && n.width > 30 && (
                     <>
                       {nameLines.map((line, idx) => {
