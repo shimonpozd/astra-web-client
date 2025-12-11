@@ -77,6 +77,8 @@ const GENERATION_COLUMN_WIDTH = 220;
 const GRID_CARD_WIDTH = 140;
 const GRID_COL_GAP = 40;
 const GRID_COL_WIDTH = GRID_CARD_WIDTH + GRID_COL_GAP;
+const ACHRONIM_COL_WIDTH_BASE = 900;
+const ACHRONIM_COL_GAP = 80;
 const HORIZONTAL_GAP = 80;
 const STACK_GAP = 48;
 const SECONDARY_TRACK_OFFSET = 800;
@@ -458,7 +460,8 @@ export function buildTimelineBlocks({ people, periods, activePeriodId }: BuildPa
     if (period.id === 'rishonim' || period.id === 'achronim') {
       const minGridWidth = GRID_COLUMNS * GRID_TILE_WIDTH + (GRID_COLUMNS - 1) * GRID_GAP_X + GROUP_PADDING * 2;
       const timelineNeed = span * 1.4; // плотнее, чтобы не было "огромных" блоков
-      return Math.max(minGridWidth, timelineNeed);
+      const twoColsNeed = ACHRONIM_COL_WIDTH_BASE * 2 + ACHRONIM_COL_GAP;
+      return Math.max(minGridWidth, timelineNeed, twoColsNeed);
     }
     return Math.max(span * 1.8, 420);
   };
@@ -657,8 +660,8 @@ export function buildTimelineBlocks({ people, periods, activePeriodId }: BuildPa
 
         // Две колонки: слева ранние, справа остальные
         const span = Math.max(1, period.endYear - period.startYear);
-        const colWidth = Math.max(periodWidth * 0.6, 700);
-        const colGap = GRID_COL_GAP;
+        const colWidth = Math.max(periodWidth * 0.55, ACHRONIM_COL_WIDTH_BASE);
+        const colGap = ACHRONIM_COL_GAP;
         const columnHeights = [0, 0];
         const addGroupToColumn = (key: string, label: string, colIndex: number) => {
           const list = buckets[key] || [];
