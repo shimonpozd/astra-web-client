@@ -13,6 +13,7 @@ const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const UserManagementPage = lazy(() => import('./pages/admin/UserManagement'));
 const ProfilesAdminPage = lazy(() => import('./pages/admin/ProfilesAdmin.tsx'));
 const TalmudicConceptsPage = lazy(() => import('./pages/admin/TalmudicConcepts'));
+const YiddishModePage = lazy(() => import('./features/yiddish/pages/YiddishModePage'));
 import { useTextSelectionListener } from './hooks/useTextSelectionListener';
 import { LexiconPanel } from './components/LexiconPanel';
 import { ThemeProvider } from './components/theme-provider';
@@ -25,6 +26,7 @@ const FocusNavOverlay = lazy(() => import('./components/study/nav/FocusNavOverla
 import { GamificationProvider } from './contexts/GamificationContext';
 import { GamificationToasts } from './components/gamification/GamificationToasts';
 import { LevelUpCelebration } from './components/gamification/LevelUpCelebration';
+import { config } from './config';
 
 function AuthenticatedShell() {
   return (
@@ -124,6 +126,16 @@ function App() {
                         </Suspense>
                       }
                     />
+                    {config.features.yiddishMode ? (
+                      <Route
+                        path="/yiddish"
+                        element={
+                          <Suspense fallback={null}>
+                            <YiddishModePage />
+                          </Suspense>
+                        }
+                      />
+                    ) : null}
                     <Route element={<RequireAuth admin />}>
                       <Route
                         path="/admin"

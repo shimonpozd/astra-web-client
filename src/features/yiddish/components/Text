@@ -1,0 +1,808 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import clsx from 'clsx';
+import { YiddishNote, YiddishParagraph, YiddishToken, YiddishPosTag } from '@/types/yiddish';
+import { HighlightMode, PopupMode } from '../state/yiddishStore';
+
+/**
+ * TypeScript типы для настроек типографики
+ */
+interface TypographySettings {
+  fontSize: number;
+  lineHeight: number;
+  tracking: number;
+  justify: boolean;
+  hyphenation: boolean;
+  ligatures: 'normal' | 'none';
+  opticalSizing: boolean;
+  darkMode: boolean;
+  fontFamily: string;
+}
+
+/**
+ * Типы пропсов компонента TextStudyReader
+ */
+interface TextStudyReaderProps {
+  /** Текст для отображения: строка, массив абзацев или узлы */
+  text?: string | React.ReactNode;
+  /** Отображать панель управления (по умолчанию true) */
+  showControls?: boolean;
+  /** Начальный размер шрифта (по умолчанию 18) */
+  initialFontSize?: number;
+  /** Начальный межстрочный интервал (по умолчанию 1.55) */
+  initialLineHeight?: number;
+  /** Начальный трекинг в em (по умолчанию 0) */
+  initialTracking?: number;
+  /** Начальное выключение (по умолчанию true) */
+  initialJustify?: boolean;
+  /** Начальные переносы (по умолчанию true) */
+  initialHyphenation?: boolean;
+  /** Начальные лигатуры (по умолчанию "normal") */
+  initialLigatures?: 'normal' | 'none';
+  /** Начальный шрифт (по умолчанию "Noto Serif Yiddish") */
+  initialFont?: string;
+  /** Языковая настройка (по умолчанию "yi") */
+  locale?: string;
+  /** Темная тема (наследует prefers-color-scheme) */
+  darkMode?: boolean;
+  /** Сохранять настройки (по умолчанию true) */
+  persistSettings?: boolean;
+  
+  // Существующие пропсы для обратной совместимости
+  paragraphs?: YiddishParagraph[];
+  tokens?: YiddishToken[];
+  notes?: YiddishNote[];
+  highlightMode?: HighlightMode;
+  popupMode?: PopupMode;
+  onTokenSelect?: (token: YiddishToken, rect: DOMRect) => void;
+  onTextSelect?: (text: string) => void;
+  isLoading?: boolean;
+  learnedMap?: Record<string, string[]>;
+  posOverrides?: Record<string, YiddishPosTag>;
+}
+
+/**
+ * Хук для работы с localStorage с синхронизацией между вкладками
+ */
+function useLocalStorage<T>(key: string, initialValue: T) {
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.warn(`Error reading localStorage key "${key}":`, error);
+      return initialValue;
+    }
+  });
+
+  const setValue = useCallback((value: T | ((val: T) => T)) => {
+    try {
+      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      setStoredValue(valueToStore);
+      window.localStorage.setItem(key, JSON.stringify(valueToStore));
+    } catch (error) {
+      console.warn(`Error setting localStorage key "${key}":`, error);
+    }
+  }, [key, storedValue]);
+
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === key && e.newValue !== null) {
+        try {
+          setStoredValue(JSON.parse(e.newValue));
+        } catch (error) {
+          console.warn(`Error parsing localStorage value for key "${key}":`, error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [key]);
+
+  return [storedValue, setValue] as const;
+}
+
+/**
+ * Хук для отслеживания медиа-запросов
+ */
+function useMedia(query: string): boolean {
+  const [matches, setMatches] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia(query).matches;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query);
+    const handler = (event: MediaQueryListEvent) => setMatches(event.matches);
+
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, [query]);
+
+  return matches;
+}
+
+/**
+ * Утилиты для работы с идишским текстом
+ */
+const yiddishUtils = {
+  /** Применение полукруглых кавычек для идиша */
+  applyYiddishQuotes: (text: string): string => {
+    return text
+      .replace(/"([^"]*)"/g, '„$1"')
+      .replace(/'([^']*)'/g, '‚$1\'');
+  },
+  
+  /** Проверка на идишский текст */
+  isYiddishText: (text: string): boolean => {
+    const yiddishRegex = /[\u0590-\u05FF\u05D0-\u05F0]/;
+    return yiddishRegex.test(text);
+  },
+  
+  /** Получение CSS свойств для идишского шрифта */
+  getYiddishFontCSS: (fontFamily: string): string => {
+    return `"${fontFamily}", "Noto Serif", "Times New Roman", serif`;
+  }
+};
+
+/**
+ * Настройки по умолчанию
+ */
+const defaultSettings: TypographySettings = {
+  fontSize: 18,
+  lineHeight: 1.55,
+  tracking: 0,
+  justify: true,
+  hyphenation: true,
+  ligatures: 'normal',
+  opticalSizing: true,
+  darkMode: false,
+  fontFamily: 'Noto Serif Yiddish'
+};
+
+const STORAGE_KEY = 'yiddish-reader-settings';
+
+/**
+ * Улучшенный компонент TextStudyReader с типографическими настройками
+ */
+export const TextStudyReader: React.FC<TextStudyReaderProps> = ({
+  // Новые пропсы
+  text,
+  showControls = true,
+  initialFontSize = 18,
+  initialLineHeight = 1.55,
+  initialTracking = 0,
+  initialJustify = true,
+  initialHyphenation = true,
+  initialLigatures = 'normal',
+  initialFont = 'Noto Serif Yiddish',
+  locale = 'yi',
+  darkMode: propDarkMode,
+  persistSettings = true,
+  
+  // Существующие пропсы
+  paragraphs,
+  tokens,
+  notes,
+  highlightMode = 'none',
+  popupMode = 'hover',
+  onTokenSelect,
+  onTextSelect,
+  isLoading,
+  learnedMap = {},
+  posOverrides
+}) => {
+  // Определение темной темы
+  const systemPrefersDark = useMedia('(prefers-color-scheme: dark)');
+  const [darkMode, setDarkMode] = useLocalStorage('yiddish-reader-dark-mode', 
+    propDarkMode !== undefined ? propDarkMode : systemPrefersDark
+  );
+
+  // Настройки типографики
+  const initialSettings = useMemo(() => ({
+    ...defaultSettings,
+    fontSize: initialFontSize,
+    lineHeight: initialLineHeight,
+    tracking: initialTracking,
+    justify: initialJustify,
+    hyphenation: initialHyphenation,
+    ligatures: initialLigatures,
+    fontFamily: initialFont
+  }), [initialFontSize, initialLineHeight, initialTracking, initialJustify, initialHyphenation, initialLigatures, initialFont]);
+
+  const [settings, setSettings] = useLocalStorage<TypographySettings>(
+    STORAGE_KEY, 
+    persistSettings ? initialSettings : initialSettings
+  );
+
+  // Состояние панели управления
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+
+  // Обработка текста для отображения
+  const processedText = useMemo(() => {
+    if (typeof text === 'string') {
+      return text;
+    }
+    if (Array.isArray(text)) {
+      return text.map(item => {
+        if (item && typeof item === 'object' && 'text' in item) {
+          return (item as YiddishParagraph).text;
+        }
+        return item;
+      }).join('\n\n');
+    }
+    if (paragraphs && paragraphs.length > 0) {
+      return paragraphs.map(p => p.text).join('\n\n');
+    }
+    return '';
+  }, [text, paragraphs]);
+
+  // Обработка горячих клавиш
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey) return;
+      
+      switch (e.key) {
+        case '+':
+        case '=':
+          e.preventDefault();
+          setSettings(prev => ({ ...prev, fontSize: Math.min(28, prev.fontSize + 1) }));
+          break;
+        case '-':
+          e.preventDefault();
+          setSettings(prev => ({ ...prev, fontSize: Math.max(12, prev.fontSize - 1) }));
+          break;
+        case 'j':
+        case 'J':
+          e.preventDefault();
+          setSettings(prev => ({ ...prev, justify: !prev.justify }));
+          break;
+        case 'h':
+        case 'H':
+          e.preventDefault();
+          setSettings(prev => ({ ...prev, hyphenation: !prev.hyphenation }));
+          break;
+        case 'd':
+        case 'D':
+          e.preventDefault();
+          setDarkMode(prev => !prev);
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [setSettings, setDarkMode]);
+
+  // CSS стили для типографики
+  const typographyStyles = useMemo(() => ({
+    fontSize: `${settings.fontSize}px`,
+    lineHeight: settings.lineHeight,
+    letterSpacing: `${settings.tracking}em`,
+    fontFamily: yiddishUtils.getYiddishFontCSS(settings.fontFamily),
+    fontVariantLigatures: settings.ligatures === 'normal' ? 'common-ligatures discretionary-ligatures' as const : 'none' as const,
+    fontKerning: 'normal' as const,
+    fontOpticalSizing: settings.opticalSizing ? ('auto' as const) : ('none' as const),
+    hyphens: settings.hyphenation ? 'auto' : 'manual',
+    WebkitHyphens: settings.hyphenation ? 'auto' : 'manual',
+    textAlign: settings.justify ? 'justify' as const : 'left' as const,
+    textAlignLast: settings.justify ? 'auto' as const : undefined,
+    textJustify: settings.justify ? 'inter-word' as const : undefined,
+    textSpacingTrim: 'both' as const,
+    language: locale,
+    wordBreak: settings.hyphenation ? 'normal' : 'break-word',
+    overflowWrap: 'break-word' as const
+  }), [settings, locale]);
+
+  // Классы для контейнера
+  const containerClasses = clsx(
+    'yiddish-reader-container',
+    {
+      'dark': darkMode,
+      'reader-mode': true
+    }
+  );
+
+  // Классы для текстового контента
+  const textClasses = clsx(
+    'yiddish-text-content',
+    'prose',
+    'max-w-none',
+    {
+      'font-serif': true,
+      'text-justify': settings.justify,
+      'hyphenation-active': settings.hyphenation
+    }
+  );
+
+  // Обработчик изменения настроек
+  const updateSetting = useCallback(<K extends keyof TypographySettings>(
+    key: K, 
+    value: TypographySettings[K]
+  ) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+  }, [setSettings]);
+
+  // Компонент панели управления
+  const SettingsPanel = useCallback(() => {
+    if (!showSettingsPanel) return null;
+
+    return (
+      <div className="settings-panel" role="dialog" aria-label="Настройки типографики">
+        <div className="settings-grid">
+          {/* Размер шрифта */}
+          <div className="setting-group">
+            <label htmlFor="font-size-slider">Размер шрифта: {settings.fontSize}px</label>
+            <input
+              id="font-size-slider"
+              type="range"
+              min="12"
+              max="28"
+              step="1"
+              value={settings.fontSize}
+              onChange={(e) => updateSetting('fontSize', parseInt(e.target.value))}
+              aria-describedby="font-size-help"
+            />
+            <input
+              type="number"
+              min="12"
+              max="28"
+              value={settings.fontSize}
+              onChange={(e) => updateSetting('fontSize', parseInt(e.target.value) || 18)}
+              className="setting-input"
+            />
+            <div id="font-size-help" className="setting-help">Alt + Plus/Minus</div>
+          </div>
+
+          {/* Межстрочный интервал */}
+          <div className="setting-group">
+            <label htmlFor="line-height-slider">Межстрочный интервал: {settings.lineHeight}</label>
+            <input
+              id="line-height-slider"
+              type="range"
+              min="1.2"
+              max="2.0"
+              step="0.05"
+              value={settings.lineHeight}
+              onChange={(e) => updateSetting('lineHeight', parseFloat(e.target.value))}
+            />
+            <input
+              type="number"
+              min="1.2"
+              max="2.0"
+              step="0.05"
+              value={settings.lineHeight}
+              onChange={(e) => updateSetting('lineHeight', parseFloat(e.target.value) || 1.55)}
+              className="setting-input"
+            />
+          </div>
+
+          {/* Трекинг */}
+          <div className="setting-group">
+            <label htmlFor="tracking-slider">Трекинг: {settings.tracking}em</label>
+            <input
+              id="tracking-slider"
+              type="range"
+              min="-0.02"
+              max="0.06"
+              step="0.005"
+              value={settings.tracking}
+              onChange={(e) => updateSetting('tracking', parseFloat(e.target.value))}
+            />
+            <input
+              type="number"
+              min="-0.02"
+              max="0.06"
+              step="0.005"
+              value={settings.tracking}
+              onChange={(e) => updateSetting('tracking', parseFloat(e.target.value) || 0)}
+              className="setting-input"
+            />
+          </div>
+
+          {/* Переключатели */}
+          <div className="toggle-group">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={settings.justify}
+                onChange={(e) => updateSetting('justify', e.target.checked)}
+              />
+              <span>Выключка (Alt+J)</span>
+            </label>
+
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={settings.hyphenation}
+                onChange={(e) => updateSetting('hyphenation', e.target.checked)}
+              />
+              <span>Переносы (Alt+H)</span>
+            </label>
+
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={settings.ligatures === 'normal'}
+                onChange={(e) => updateSetting('ligatures', e.target.checked ? 'normal' : 'none')}
+              />
+              <span>Лигатуры</span>
+            </label>
+
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={settings.opticalSizing}
+                onChange={(e) => updateSetting('opticalSizing', e.target.checked)}
+              />
+              <span>Оптический размер</span>
+            </label>
+
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={darkMode}
+                onChange={(e) => setDarkMode(e.target.checked)}
+              />
+              <span>Тёмная тема (Alt+D)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    );
+  }, [showSettingsPanel, settings, updateSetting, darkMode, setDarkMode]);
+
+  // Существующая логика для работы с токенами (сохранена для обратной совместимости)
+  const posClass: Record<string, string> = {
+    NOUN: 'bg-amber-500/10 text-foreground/90 dark:bg-amber-400/10',
+    VERB: 'bg-emerald-500/10 text-foreground/90 dark:bg-emerald-400/10',
+    ADJ: 'bg-sky-500/10 text-foreground/90 dark:bg-sky-400/10',
+    ADV: 'bg-indigo-500/10 text-foreground/90 dark:bg-indigo-400/10',
+    PRON: 'bg-rose-500/10 text-foreground/90 dark:bg-rose-400/10',
+    PREP: 'bg-lime-500/10 text-foreground/90 dark:bg-lime-400/10',
+    CONJ: 'bg-orange-500/10 text-foreground/90 dark:bg-orange-400/10',
+    PART: 'bg-cyan-500/10 text-foreground/90 dark:bg-cyan-400/10',
+    DET: 'bg-cyan-500/10 text-foreground/90 dark:bg-cyan-400/10',
+    HEB_LOAN: 'bg-yellow-500/10 text-foreground/90 dark:bg-yellow-400/10',
+  };
+
+  function wrapWithTokens(
+    paragraph: YiddishParagraph,
+    tokenList: YiddishToken[],
+    highlightMode: HighlightMode,
+    popupMode: PopupMode,
+    learnedMap: Record<string, string[]>,
+    onTokenSelect?: (token: YiddishToken, rect: DOMRect) => void,
+  ) {
+    if (!tokenList.length) {
+      return <span>{yiddishUtils.applyYiddishQuotes(paragraph.text)}</span>;
+    }
+
+    const sorted = [...tokenList].sort((a, b) => a.start - b.start);
+    const parts: React.ReactNode[] = [];
+    let cursor = 0;
+
+    sorted.forEach((token, idx) => {
+      const safeStart = Math.max(0, token.start);
+      const safeEnd = Math.max(safeStart, token.end);
+      if (safeStart > cursor) {
+        parts.push(<span key={`gap-${idx}`}>{paragraph.text.slice(cursor, safeStart)}</span>);
+      }
+      const surface = paragraph.text.slice(safeStart, safeEnd);
+      const learned = !!learnedMap[token.lemma];
+      const resolvedPos = posOverrides?.[token.lemma] ?? posOverrides?.[token.surface] ?? token.pos;
+      const cls = clsx(
+        'rounded-sm px-0.5 transition-colors cursor-pointer',
+        highlightMode === 'pos' ? (posClass[resolvedPos] ?? 'bg-muted/40 text-foreground') : 'bg-transparent',
+        {
+          'ring-1 ring-amber-400/40 ring-offset-1 ring-offset-background dark:ring-amber-300/30': highlightMode === 'learned' && (token.learned || learned),
+        },
+      );
+
+      const eventProps = {
+        onClick: (e: React.MouseEvent<HTMLSpanElement>) => onTokenSelect?.(token, e.currentTarget.getBoundingClientRect()),
+      };
+
+      parts.push(
+        <span key={`tok-${token.pid}-${token.start}-${token.end}`} className={cls} {...eventProps}>
+          {yiddishUtils.applyYiddishQuotes(surface || paragraph.text.slice(safeStart, safeEnd))}
+        </span>,
+      );
+      cursor = safeEnd;
+    });
+
+    if (cursor < paragraph.text.length) {
+      parts.push(<span key="tail">{paragraph.text.slice(cursor)}</span>);
+    }
+
+    return parts;
+  }
+
+  const tokensByPid = useMemo(() => {
+    if (!tokens) return new Map();
+    const map = new Map<string, YiddishToken[]>();
+    tokens.forEach((t) => {
+      const list = map.get(t.pid) || [];
+      list.push(t);
+      map.set(t.pid, list);
+    });
+    return map;
+  }, [tokens]);
+
+  return (
+    <div className={containerClasses} dir="rtl">
+      {/* CSS стили */}
+      <style>{`
+        .yiddish-reader-container {
+          --reader-max-width: 30ch;
+          --reader-padding: 2rem;
+          --transition-duration: 0.2s;
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          background-color: ${darkMode ? '#1a1a1a' : '#ffffff'};
+          color: ${darkMode ? '#e5e5e5' : '#1a1a1a'};
+          transition: background-color var(--transition-duration), color var(--transition-duration);
+        }
+
+        .yiddish-text-content {
+          flex: 1;
+          overflow: auto;
+          padding: var(--reader-padding);
+          max-width: var(--reader-max-width);
+          margin: 0 auto;
+          font-feature-settings: ${settings.ligatures === 'normal' ? '"liga" 1, "dlig" 1, "calt" 1, "salt" 1' : 'normal'};
+          transition: all var(--transition-duration) ease;
+        }
+
+        .yiddish-text-content p {
+          margin-bottom: 1em;
+          page-break-inside: avoid;
+          orphans: 3;
+          widows: 3;
+        }
+
+        .yiddish-text-content p:last-child {
+          margin-bottom: 0;
+        }
+
+        .hyphenation-active {
+          hyphens: auto;
+          -webkit-hyphens: auto;
+        }
+
+        @media print {
+          .yiddish-reader-container {
+            background: white !important;
+            color: black !important;
+          }
+          
+          .settings-panel {
+            display: none !important;
+          }
+          
+          .yiddish-text-content {
+            max-width: none !important;
+            padding: 0 !important;
+          }
+          
+          .yiddish-text-content p {
+            page-break-inside: avoid;
+            hyphens: auto;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .yiddish-text-content,
+          .yiddish-reader-container {
+            transition: none !important;
+          }
+        }
+
+        .settings-panel {
+          position: sticky;
+          top: 0;
+          background: ${darkMode ? '#2a2a2a' : '#f8f9fa'};
+          border-bottom: 1px solid ${darkMode ? '#444' : '#e0e0e0'};
+          padding: 1rem;
+          z-index: 10;
+        }
+
+        .settings-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1rem;
+          max-width: 800px;
+          margin: 0 auto;
+        }
+
+        .setting-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .setting-group label {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: ${darkMode ? '#e5e5e5' : '#374151'};
+        }
+
+        .setting-input {
+          padding: 0.25rem 0.5rem;
+          border: 1px solid ${darkMode ? '#555' : '#d1d5db'};
+          border-radius: 0.25rem;
+          background: ${darkMode ? '#3a3a3a' : '#ffffff'};
+          color: ${darkMode ? '#e5e5e5' : '#1a1a1a'};
+          font-size: 0.875rem;
+        }
+
+        .setting-help {
+          font-size: 0.75rem;
+          color: ${darkMode ? '#999' : '#6b7280'};
+          font-style: italic;
+        }
+
+        .toggle-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .toggle-label {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+          color: ${darkMode ? '#e5e5e5' : '#374151'};
+        }
+
+        .toggle-label input[type="checkbox"] {
+          transform: scale(1.2);
+        }
+
+        .reader-controls {
+          position: fixed;
+          top: 1rem;
+          right: 1rem;
+          display: flex;
+          gap: 0.5rem;
+          z-index: 20;
+        }
+
+        .reader-button {
+          padding: 0.5rem;
+          border: 1px solid ${darkMode ? '#555' : '#d1d5db'};
+          border-radius: 0.375rem;
+          background: ${darkMode ? '#3a3a3a' : '#ffffff'};
+          color: ${darkMode ? '#e5e5e5' : '#1a1a1a'};
+          cursor: pointer;
+          font-size: 0.875rem;
+          transition: all var(--transition-duration);
+        }
+
+        .reader-button:hover {
+          background: ${darkMode ? '#4a4a4a' : '#f3f4f6'};
+        }
+
+        .reader-button:focus {
+          outline: 2px solid #3b82f6;
+          outline-offset: 2px;
+        }
+
+        @media (max-width: 768px) {
+          .yiddish-text-content {
+            --reader-padding: 1rem;
+          }
+          
+          .settings-grid {
+            grid-template-columns: 1fr;
+          }
+          
+          .reader-controls {
+            position: relative;
+            top: auto;
+            right: auto;
+            justify-content: center;
+            margin-bottom: 1rem;
+          }
+        }
+      `}</style>
+
+      {/* Панель управления */}
+      {showControls && (
+        <div className="reader-controls">
+          <button
+            className="reader-button"
+            onClick={() => setShowSettingsPanel(!showSettingsPanel)}
+            aria-expanded={showSettingsPanel}
+            aria-controls="settings-panel"
+            title="Настройки типографики (Alt+S)"
+          >
+            ⚙️ Настройки
+          </button>
+        </div>
+      )}
+
+      {/* Панель настроек */}
+      <SettingsPanel />
+
+      {/* Основной контент */}
+      <div
+        className={textClasses}
+        style={typographyStyles}
+        dir="rtl"
+        onMouseUp={() => {
+          if (onTextSelect) {
+            const sel = window.getSelection();
+            const text = sel ? sel.toString().trim() : '';
+            if (text) {
+              onTextSelect(text);
+            }
+          }
+        }}
+        aria-live="polite"
+        aria-label="Текст для изучения"
+      >
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">Загрузка сихи...</div>
+        ) : null}
+
+        {!isLoading && !processedText ? (
+          <div className="text-sm text-muted-foreground">Сиха не выбрана или нет текста.</div>
+        ) : null}
+
+        {processedText && paragraphs && paragraphs.length > 0 ? (
+          <div className="space-y-4">
+            {paragraphs.map((p) => {
+              const list = tokensByPid.get(p.pid) || [];
+              return (
+                <div key={p.pid} className="rounded-lg border border-border/50 bg-card/50 p-4 shadow-sm">
+                  <div className="text-xs text-muted-foreground mb-2 flex items-center gap-2">
+                    <span className="font-semibold">¶ {p.pid}</span>
+                    <span className="h-px flex-1 bg-border" dir="ltr" />
+                    <span className="text-[11px]">tokens: {list.length}</span>
+                  </div>
+                  <p className="break-words" style={{ marginBottom: `${settings.lineHeight}em` }}>
+                    {wrapWithTokens(p, list, highlightMode, popupMode, learnedMap, onTokenSelect)}
+                  </p>
+                  {notes
+                    ?.filter((n) => n.anchor.pid === p.pid)
+                    .map((note) => (
+                      <div key={note.note_id} className="mt-3 text-sm text-muted-foreground" dir="ltr">
+                        <span className="font-semibold mr-2">[{note.note_id}]</span>
+                        <span dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                      </div>
+                    ))}
+                </div>
+              );
+            })}
+          </div>
+        ) : processedText ? (
+          <div className="whitespace-pre-wrap">
+            {typeof processedText === 'string' 
+              ? yiddishUtils.applyYiddishQuotes(processedText)
+              : String(processedText)
+            }
+          </div>
+        ) : null}
+      </div>
+
+      {/* Информация о горячих клавишах */}
+      {showControls && (
+        <div 
+          className="text-xs text-muted-foreground p-4 text-center border-t"
+          style={{ 
+            borderColor: darkMode ? '#444' : '#e0e0e0',
+            backgroundColor: darkMode ? '#2a2a2a' : '#f8f9fa'
+          }}
+        >
+          <div>Горячие клавиши: Alt + Plus/Minus (размер шрифта) | Alt + J (выключка) | Alt + H (переносы) | Alt + D (тема)</div>
+        </div>
+      )}
+    </div>
+  );
+};

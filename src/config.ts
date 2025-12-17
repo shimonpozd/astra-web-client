@@ -8,11 +8,15 @@ const cleanJoin = (base: string, path: string) => {
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '/api'
 const adminBase = import.meta.env.VITE_ADMIN_BASE_URL ?? '/admin'
 const wsBase = import.meta.env.VITE_WS_BASE_URL ?? null
+const yiddishModeEnabled = (import.meta.env.VITE_FEATURE_YIDDISH_MODE ?? 'true') === 'true'
 
 export const config = {
   apiBaseUrl: apiBase,
   adminBaseUrl: adminBase,
   websocketBaseUrl: wsBase,
+  features: {
+    yiddishMode: yiddishModeEnabled,
+  },
   apiUrl: (path: string) => cleanJoin(apiBase, path),
   adminUrl: (path: string) => cleanJoin(adminBase, path),
   websocketUrl(path: string) {

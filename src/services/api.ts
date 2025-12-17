@@ -2,6 +2,32 @@ import { DocV1 } from '../types/text';
 import { debugLog } from '../utils/debugLogger';
 import { config } from '../config';
 import { authorizedFetch } from '../lib/authorizedFetch';
+import type {
+  YiddishAttestationRequest,
+  YiddishAttestationResponse,
+  YiddishExamStartResponse,
+  YiddishQueueEntry,
+  YiddishQueueUpdateRequest,
+  YiddishQueueUpdateResponse,
+  YiddishSichaListItem,
+  YiddishSichaMeta,
+  YiddishSichaResponse,
+  YiddishTtsRequest,
+  YiddishTtsResponse,
+  YiddishWordCard,
+  YiddishVocabEntry,
+} from '../types/yiddish';
+
+const fallbackYiddishList: YiddishSichaListItem[] = [
+  {
+    id: 'ls10_miketz_b',
+    title: 'Likkutei Sichos 10 · Miketz · B',
+    meta: { work: 'Likkutei Sichos', volume: 10, parsha: 'Miketz', section: 'B', lang: 'yi' },
+    progress_read_pct: 0,
+    progress_vocab: 0,
+    last_opened_ts: null,
+  },
+];
 export interface Chat {
   session_id: string;
   name: string;
@@ -505,6 +531,162 @@ async function getBookshelfItems(sessionId: string, ref: string, category?: stri
     console.error('Failed to get bookshelf items:', error);
     throw error;
   }
+}
+
+async function getYiddishSichos(): Promise<YiddishSichaListItem[]> {
+  try {
+    const response = await authorizedFetch(`${API_BASE}/yiddish/sichos`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch yiddish sichos: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return data.items || [];
+  } catch (error) {
+    console.error('Failed to fetch yiddish sichos', error);
+    return fallbackYiddishList;
+  }
+}
+
+async function getYiddishSicha(id: string): Promise<YiddishSichaResponse> {
+  try {
+    const response = await authorizedFetch(`${API_BASE}/yiddish/sicha/${encodeURIComponent(id)}`);
+    if (!response.ok) {
+      const message = await response.text().catch(() => response.statusText);
+      throw new Error(`Failed to fetch yiddish sicha ${id}: ${message}`);
+    }
+    return response.json();
+  } catch (err) {
+    console.warn('Falling back to static yiddish sicha', err);
+    // Static demo fallback (served from /public/yiddish)
+    const res = await fetch('/yiddish/page_0001.json');
+    if (!res.ok) {
+      throw err instanceof Error ? err : new Error('Failed to fetch yiddish sicha');
+    }
+    const data = await res.json();
+    return {
+      id: data.sicha_id || 'ls10_miketz_b',
+      meta: data.meta,
+      paragraphs: data.paragraphs,
+      tokens: data.tokens || [],
+      notes: data.notes || [],
+      learned_map: {},
+    };
+  }
+}
+
+async function postYiddishAttestation(payload: YiddishAttestationRequest): Promise<YiddishAttestationResponse> {
+  const response = await authorizedFetch(`${API_BASE}/yiddish/attestation`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to save attestation: ${message}`);
+  }
+  return response.json();
+}
+
+async function updateYiddishQueue(payload: YiddishQueueUpdateRequest): Promise<YiddishQueueUpdateResponse> {
+  const response = await authorizedFetch(`${API_BASE}/yiddish/queue`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to update queue: ${message}`);
+  }
+  return response.json();
+}
+
+async function startYiddishExam(entries: YiddishQueueEntry[]): Promise<YiddishExamStartResponse> {
+  const response = await authorizedFetch(`${API_BASE}/yiddish/exam/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lemmas: entries }),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to start exam: ${message}`);
+  }
+  return response.json();
+}
+
+async function getYiddishVocab(lemma: string): Promise<YiddishVocabEntry | null> {
+  const response = await authorizedFetch(`${API_BASE}/yiddish/vocab/${encodeURIComponent(lemma)}`);
+  if (!response.ok) {
+    console.warn('Vocab not found or failed', response.statusText);
+    return null;
+  }
+  return response.json();
+}
+
+
+async function getYiddishWordCard(params: {
+  word: string;
+  context?: string;
+  lemma_guess?: string;
+  pos_guess?: string;
+  ui_lang?: string;
+  include_evidence?: boolean;
+  include_llm_output?: boolean;
+  force_refresh?: boolean;
+  allow_llm_fallback?: boolean;
+}): Promise<YiddishWordCard | null> {
+  const search = new URLSearchParams({
+    word: params.word,
+  });
+  if (params.context) search.set('context', params.context);
+  if (params.lemma_guess) search.set('lemma_guess', params.lemma_guess);
+  if (params.pos_guess) search.set('pos_guess', params.pos_guess);
+  search.set('ui_lang', params.ui_lang || 'ru');
+  if (params.include_evidence) search.set('include_evidence', '1');
+  if (params.include_llm_output) search.set('include_llm_output', '1');
+  if (params.force_refresh) search.set('force_refresh', '1');
+  if (params.allow_llm_fallback) search.set('allow_llm_fallback', '1');
+
+  const response = await authorizedFetch(`${API_BASE}/yiddish/wordcard?${search.toString()}`);
+  if (!response.ok) {
+    console.warn('Failed to fetch Yiddish wordcard', await response.text().catch(() => response.statusText));
+    return null;
+  }
+  return response.json();
+}
+
+async function postYiddishTts(payload: YiddishTtsRequest): Promise<YiddishTtsResponse> {
+  const response = await authorizedFetch(`${API_BASE}/yiddish/tts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to request TTS: ${message}`);
+  }
+  return response.json();
+}
+
+async function askYiddish(payload: {
+  selected_text: string;
+  sentence_before?: string;
+  sentence_after?: string;
+  meta: YiddishSichaMeta;
+  task?: string;
+  known_lemmas?: Array<{ lemma: string; sense_id?: string }>;
+  anchor?: any;
+  sicha_id?: string;
+}): Promise<{ answer: string; task: string }> {
+  const response = await authorizedFetch(`${API_BASE}/yiddish/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to ask Yiddish agent: ${message}`);
+  }
+  return response.json();
 }
 
 async function getProfile(slug: string): Promise<ProfileResponse> {
@@ -1331,6 +1513,15 @@ export const api = {
   regenerateProfile,
   deleteProfile,
   listProfiles,
+  getYiddishSichos,
+  getYiddishSicha,
+  postYiddishAttestation,
+  updateYiddishQueue,
+  startYiddishExam,
+  getYiddishVocab,
+  getYiddishWordCard,
+  postYiddishTts,
+  askYiddish,
   explainTerm,
   getDailyCalendar,
   createDailySessionLazy,
@@ -1352,8 +1543,11 @@ export const api = {
   adminListUserLoginEvents,
 };
 
-export type { AdminUserSummary, AdminUserSession, AdminUserLoginEvent, ProfileResponse };
-
-
-
-
+export type {
+  AdminUserSummary,
+  AdminUserSession,
+  AdminUserLoginEvent,
+  ProfileResponse,
+  YiddishSichaListItem,
+  YiddishSichaResponse,
+};

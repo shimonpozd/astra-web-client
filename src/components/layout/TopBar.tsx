@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Milestone } from 'lucide-react';
+import { Languages, Milestone } from 'lucide-react';
 
 import { ThemeToggle } from '../ThemeToggle';
 import { useLayout } from '../../contexts/LayoutContext';
@@ -11,6 +11,7 @@ import { LayoutSelector } from './LayoutSelector';
 import { LevelProgressBar } from './LevelProgressBar';
 import { UserMenu } from './UserMenu';
 import { Button } from '../ui/button';
+import { config } from '../../config';
 
 const BASE_LEVEL_XP = 300;
 const LEVEL_GROWTH = 1.18;
@@ -72,6 +73,18 @@ const TopBar: React.FC = () => {
           <Milestone className="w-4 h-4" />
           Таймлайн
         </Button>
+        {config.features.yiddishMode ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => navigate('/yiddish')}
+            className="gap-2 font-semibold shadow-sm"
+          >
+            <Languages className="w-4 h-4" />
+            Yiddish
+          </Button>
+        ) : null}
       </div>
       <div className="flex-1 flex justify-center min-w-0">
         <LevelProgressBar
