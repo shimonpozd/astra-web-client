@@ -70,7 +70,6 @@ export default function YiddishModePage() {
     return map;
   }, [wordcardCache]);
 
-  const wordcardJson = useMemo(() => (wordcard ? JSON.stringify(wordcard, null, 2) : ''), [wordcard]);
   const morphologyShort = useMemo(() => {
     if (!wordcard?.morphology) return '';
     const parts: string[] = [];
@@ -105,6 +104,14 @@ export default function YiddishModePage() {
       setPopover({ token, rect });
     },
     [addRecentWord, selectToken],
+  );
+
+  const handleRecentOpen = useCallback(
+    async (token: YiddishToken) => {
+      await selectToken(token);
+      setIsWordcardOpen(true);
+    },
+    [selectToken],
   );
 
   const sidebarContent = useMemo(() => {
@@ -296,6 +303,7 @@ export default function YiddishModePage() {
                 isAsking={isAsking}
                 onAskQuestion={(question) => askQuestion(question, currentSicha?.meta)}
                 onClearAnswer={clearAskAnswer}
+                onOpenWordcard={handleRecentOpen}
               />
             </aside>
           </div>
@@ -317,28 +325,28 @@ export default function YiddishModePage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-3">
                     <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Основное</div>
-                      <div className="mt-1 text-sm">
-                        <div><span className="font-medium">Слово:</span> {wordcard.word_surface}</div>
-                        <div><span className="font-medium">Лемма:</span> {wordcard.lemma}</div>
-                        <div><span className="font-medium">Транслит:</span> {wordcard.translit_ru}</div>
-                        <div><span className="font-medium">POS:</span> {wordcard.pos_ru_full || wordcard.pos_ru_short}</div>
-                        {wordcard.flags ? (
-                          <div><span className="font-medium">Флаги:</span> needs_review={String(wordcard.flags.needs_review)}; evidence_missing={String(wordcard.flags.evidence_missing)}</div>
-                        ) : null}
-                        {wordcard.sources?.[0]?.title ? (
-                          <div><span className="font-medium">Источник:</span> {wordcard.sources[0].title}</div>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Попап</div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Слово</div>
                       <div className="mt-1 text-sm space-y-1">
-                        {wordcard.popup.gloss_ru_short_list.map((g, idx) => (
-                          <div key={idx}>- {g}</div>
-                        ))}
+                        <div><span className="font-medium">Форма:</span> {wordcard.word_surface}</div>
+                        <div><span className="font-medium">Лемма:</span> {wordcard.lemma}</div>
+                        <div><span className="font-medium">Транслит:</span> {wordcard.translit_ru || '—'}</div>
+                        <div><span className="font-medium">Часть речи:</span> {wordcard.pos_ru_full || wordcard.pos_ru_short || '—'}</div>
+                        <div>
+                          <span className="font-medium">Источник:</span>{' '}
+                          {wordcard.sources?.[0]?.title ? `Wiktionary (${wordcard.sources[0].title})` : 'Wiktionary'}
+                        </div>
                       </div>
                     </div>
+                    {wordcard.popup?.gloss_ru_short_list?.length ? (
+                      <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Коротко</div>
+                        <div className="mt-1 text-sm space-y-1">
+                          {wordcard.popup.gloss_ru_short_list.slice(0, 4).map((g, idx) => (
+                            <div key={idx}>- {g}</div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     {wordcard.grammar ? (
                       <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
                         <div className="text-xs uppercase tracking-wide text-muted-foreground">Грамматика</div>
@@ -379,29 +387,34 @@ export default function YiddishModePage() {
                     ) : null}
                   </div>
                   <div className="space-y-3">
-                    <div className="rounded-lg border border-border/60 bg-muted/30 p-3 max-h-[360px] overflow-auto">
+                    <div className="rounded-lg border border-border/60 bg-muted/30 p-3 max-h-[420px] overflow-auto">
                       <div className="text-xs uppercase tracking-wide text-muted-foreground">Значения</div>
-                      <div className="mt-2 space-y-2 text-sm">
-                        {wordcard.senses.map((sense) => (
-                          <div key={sense.sense_id} className="border-b border-border/50 pb-2 last:border-0 last:pb-0">
-                            <div className="font-medium">{sense.gloss_ru_short}</div>
-                            <div className="text-xs text-muted-foreground">{sense.source_gloss_en}</div>
-                            <div className="text-sm">{sense.gloss_ru_full}</div>
-                            {sense.usage_hints_ru?.length ? (
-                              <div className="text-xs text-muted-foreground">Подсказки: {sense.usage_hints_ru.join('; ')}</div>
-                            ) : null}
-                            {sense.examples?.length ? (
-                              <div className="text-xs text-muted-foreground">Пример: {sense.examples[0].yi} / {sense.examples[0].ru}</div>
-                            ) : null}
-                          </div>
-                        ))}
+                      <div className="mt-2 space-y-3 text-sm">
+                        {wordcard.senses.length === 0 ? (
+                          <div className="text-xs text-muted-foreground">Нет значений.</div>
+                        ) : (
+                          wordcard.senses.map((sense, idx) => (
+                            <div key={sense.sense_id} className="border-b border-border/50 pb-3 last:border-0 last:pb-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">{idx + 1}</span>
+                                <span className="font-medium">{sense.gloss_ru_short}</span>
+                              </div>
+                              {sense.gloss_ru_full ? (
+                                <div className="text-sm">{sense.gloss_ru_full}</div>
+                              ) : null}
+                              {sense.usage_hints_ru?.length ? (
+                                <div className="text-xs text-muted-foreground">Подсказки: {sense.usage_hints_ru.join('; ')}</div>
+                              ) : null}
+                              {sense.source_gloss_en ? (
+                                <div className="text-xs text-muted-foreground">EN: {sense.source_gloss_en}</div>
+                              ) : null}
+                              {sense.examples?.length ? (
+                                <div className="text-xs text-muted-foreground">Пример: {sense.examples[0].yi} / {sense.examples[0].ru}</div>
+                              ) : null}
+                            </div>
+                          ))
+                        )}
                       </div>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Raw JSON</div>
-                      <pre className="mt-2 max-h-[260px] overflow-auto whitespace-pre-wrap text-xs">
-                        {wordcardJson}
-                      </pre>
                     </div>
                   </div>
                 </div>

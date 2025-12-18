@@ -234,6 +234,23 @@ export interface AdminUserLoginEvent {
   created_at: string;
 }
 
+export interface AdminYiddishWordcardItem {
+  lemma: string;
+  word_surface?: string | null;
+  pos_default?: string | null;
+  ui_lang?: string;
+  version?: number;
+  retrieved_at?: string | null;
+  translit_ru?: string | null;
+  glosses?: string[];
+}
+
+export interface AdminYiddishWordcardListResponse {
+  ok: boolean;
+  total: number;
+  items: AdminYiddishWordcardItem[];
+}
+
 interface ChatHistoryResponse {
   history: Message[];
 }
@@ -876,6 +893,67 @@ async function adminDeleteUserApiKey(userId: string, keyId: string): Promise<voi
     const message = await response.text().catch(() => 'Failed to delete API key');
     throw new Error(message || 'Failed to delete API key');
   }
+}
+
+async function adminListYiddishWordcards(params?: {
+  prefix?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+  ui_lang?: string;
+  version?: number;
+}): Promise<AdminYiddishWordcardListResponse> {
+  const search = new URLSearchParams();
+  if (params?.prefix) search.set('prefix', params.prefix);
+  if (params?.q) search.set('q', params.q);
+  if (params?.limit) search.set('limit', String(params.limit));
+  if (params?.offset) search.set('offset', String(params.offset));
+  if (params?.ui_lang) search.set('ui_lang', params.ui_lang);
+  if (params?.version) search.set('version', String(params.version));
+  const qs = search.toString();
+  const response = await authorizedFetch(`${API_BASE}/admin/yiddish/wordcards${qs ? `?${qs}` : ''}`);
+  if (!response.ok) {
+    const message = await response.text().catch(() => 'Failed to fetch wordcards');
+    throw new Error(message || 'Failed to fetch wordcards');
+  }
+  return response.json();
+}
+
+async function adminGetYiddishWordcard(
+  lemma: string,
+  params?: { ui_lang?: string; version?: number },
+): Promise<{ ok: boolean; data: YiddishWordCard; evidence?: any }> {
+  const search = new URLSearchParams();
+  if (params?.ui_lang) search.set('ui_lang', params.ui_lang);
+  if (params?.version) search.set('version', String(params.version));
+  const qs = search.toString();
+  const response = await authorizedFetch(`${API_BASE}/admin/yiddish/wordcards/${encodeURIComponent(lemma)}${qs ? `?${qs}` : ''}`);
+  if (!response.ok) {
+    const message = await response.text().catch(() => 'Failed to fetch wordcard');
+    throw new Error(message || 'Failed to fetch wordcard');
+  }
+  return response.json();
+}
+
+async function adminUpdateYiddishWordcard(
+  lemma: string,
+  payload: { data: YiddishWordCard; evidence?: any },
+  params?: { ui_lang?: string; version?: number },
+): Promise<{ ok: boolean; data: YiddishWordCard }> {
+  const search = new URLSearchParams();
+  if (params?.ui_lang) search.set('ui_lang', params.ui_lang);
+  if (params?.version) search.set('version', String(params.version));
+  const qs = search.toString();
+  const response = await authorizedFetch(`${API_BASE}/admin/yiddish/wordcards/${encodeURIComponent(lemma)}${qs ? `?${qs}` : ''}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => 'Failed to update wordcard');
+    throw new Error(message || 'Failed to update wordcard');
+  }
+  return response.json();
 }
 
 
@@ -1541,12 +1619,17 @@ export const api = {
   adminListUserSessions,
   adminRevokeSession,
   adminListUserLoginEvents,
+  adminListYiddishWordcards,
+  adminGetYiddishWordcard,
+  adminUpdateYiddishWordcard,
 };
 
 export type {
   AdminUserSummary,
   AdminUserSession,
   AdminUserLoginEvent,
+  AdminYiddishWordcardItem,
+  AdminYiddishWordcardListResponse,
   ProfileResponse,
   YiddishSichaListItem,
   YiddishSichaResponse,

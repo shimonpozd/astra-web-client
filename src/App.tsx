@@ -13,6 +13,7 @@ const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const UserManagementPage = lazy(() => import('./pages/admin/UserManagement'));
 const ProfilesAdminPage = lazy(() => import('./pages/admin/ProfilesAdmin.tsx'));
 const TalmudicConceptsPage = lazy(() => import('./pages/admin/TalmudicConcepts'));
+const YiddishWordcardsAdmin = lazy(() => import('./pages/admin/YiddishWordcards'));
 const YiddishModePage = lazy(() => import('./features/yiddish/pages/YiddishModePage'));
 import { useTextSelectionListener } from './hooks/useTextSelectionListener';
 import { LexiconPanel } from './components/LexiconPanel';
@@ -207,6 +208,14 @@ function App() {
                           element={
                             <Suspense fallback={null}>
                               <TalmudicConceptsPage />
+                            </Suspense>
+                          }
+                        />
+                        <Route
+                          path="yiddish-words"
+                          element={
+                            <Suspense fallback={null}>
+                              <YiddishWordcardsAdmin />
                             </Suspense>
                           }
                         />

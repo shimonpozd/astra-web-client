@@ -1,4 +1,5 @@
 import React from 'react';
+import clsx from 'clsx';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge.tsx';
 import { YiddishToken, YiddishWordCard } from '@/types/yiddish';
@@ -11,6 +12,7 @@ interface RightPanelProps {
   isAsking: boolean;
   onAskQuestion: (question: string) => void;
   onClearAnswer: () => void;
+  onOpenWordcard: (token: YiddishToken) => void;
 }
 
 export const RightPanel: React.FC<RightPanelProps> = ({
@@ -21,6 +23,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   isAsking,
   onAskQuestion,
   onClearAnswer,
+  onOpenWordcard,
 }) => {
   const [questionText, setQuestionText] = React.useState('');
 
@@ -55,6 +58,19 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 
   const canAsk = Boolean(selectedSnippet) && !isAsking;
   const canClear = Boolean(askAnswer) || Boolean(questionText);
+
+  const posCardClass: Record<string, string> = {
+    NOUN: 'border-l-4 border-amber-400/70',
+    VERB: 'border-l-4 border-emerald-400/70',
+    ADJ: 'border-l-4 border-sky-400/70',
+    ADV: 'border-l-4 border-indigo-400/70',
+    PRON: 'border-l-4 border-rose-400/70',
+    PREP: 'border-l-4 border-lime-400/70',
+    CONJ: 'border-l-4 border-orange-400/70',
+    PART: 'border-l-4 border-cyan-400/70',
+    DET: 'border-l-4 border-cyan-400/70',
+    HEB_LOAN: 'border-l-4 border-yellow-400/70',
+  };
 
   const handleAsk = () => {
     if (!canAsk) return;
@@ -116,8 +132,15 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             {recentWords.map((w) => {
               const card = resolveCard(w);
               const glosses = resolveGlosses(card);
+              const posKey = (card?.pos_default || w.pos || '').toUpperCase();
               return (
-                <div key={`${w.pid}-${w.start}-${w.end}`} className="rounded-xl border border-border/70 bg-muted/20 p-3">
+                <div
+                  key={`${w.pid}-${w.start}-${w.end}`}
+                  className={clsx(
+                    'rounded-xl border border-border/70 bg-muted/20 p-3',
+                    posCardClass[posKey] || 'border-l-4 border-transparent',
+                  )}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="text-lg font-semibold">{w.surface}</div>
@@ -138,6 +161,11 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                   ) : (
                     <div className="mt-2 text-xs text-muted-foreground">No data.</div>
                   )}
+                  <div className="mt-3 flex justify-end">
+                    <Button size="sm" variant="secondary" onClick={() => onOpenWordcard(w)}>
+                      Подробнее
+                    </Button>
+                  </div>
                 </div>
               );
             })}
