@@ -97,10 +97,31 @@ export default function YiddishWordcardsAdmin() {
     }
   };
 
-  const handleBatchFile = async (file?: File | null) => {
-    if (!file) return;
-    const text = await file.text();
-    setBatchValue(text);
+  const parseBatchPayload = (payload: any) => {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.items)) return payload.items;
+    return null;
+  };
+
+  const handleBatchFiles = async (files?: FileList | null) => {
+    if (!files || !files.length) return;
+    setBatchResult(null);
+    try {
+      const merged: any[] = [];
+      for (const file of Array.from(files)) {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const items = parseBatchPayload(parsed);
+        if (!items) {
+          throw new Error(`Unsupported JSON structure in ${file.name}`);
+        }
+        merged.push(...items);
+      }
+      setBatchValue(JSON.stringify(merged, null, 2));
+      setBatchResult(`Loaded ${files.length} file(s), ${merged.length} item(s)`);
+    } catch (err: any) {
+      setBatchResult(err.message || 'Failed to read batch files');
+    }
   };
 
   const uploadBatch = async () => {
@@ -108,8 +129,8 @@ export default function YiddishWordcardsAdmin() {
     setBatchResult(null);
     try {
       const parsed = JSON.parse(batchValue);
-      const items = Array.isArray(parsed) ? parsed : parsed.items;
-      if (!Array.isArray(items)) {
+      const items = parseBatchPayload(parsed);
+      if (!items) {
         throw new Error('JSON must be an array or { items: [...] }');
       }
       const res = await api.adminBulkUpsertYiddishWordcards({ items }, { ui_lang: 'ru' });
@@ -228,7 +249,8 @@ export default function YiddishWordcardsAdmin() {
             <Input
               type="file"
               accept=".json,application/json"
-              onChange={(e) => void handleBatchFile(e.currentTarget.files?.[0])}
+              multiple
+              onChange={(e) => void handleBatchFiles(e.currentTarget.files)}
               className="max-w-[240px]"
             />
             <Button size="sm" onClick={uploadBatch} disabled={uploading || !batchValue.trim()}>

@@ -185,6 +185,35 @@ export const useYiddishStore = create<YiddishState>((set, get) => ({
     try {
       const data = await api.getYiddishSicha(id);
       set({ currentSicha: data, selectedSichaId: id });
+      const tokens = data.tokens || [];
+      const lemmaSet = new Set<string>();
+      const surfaceSet = new Set<string>();
+      tokens.forEach((token) => {
+        if (token.lemma) lemmaSet.add(token.lemma);
+        if (token.surface) surfaceSet.add(token.surface);
+      });
+      const keys = Array.from(new Set([...lemmaSet, ...surfaceSet]));
+      if (keys.length) {
+        const batchSize = 400;
+        let nextCache = get().wordcardCache;
+        for (let i = 0; i < keys.length; i += batchSize) {
+          const batch = keys.slice(i, i + batchSize);
+          try {
+            const resp = await api.lookupYiddishWordcards({ lemmas: batch }, { ui_lang: 'ru', version: 1 });
+            if (resp?.items?.length) {
+              resp.items.forEach((card) => {
+                if (!card) return;
+                if (card.lemma) nextCache[card.lemma] = card;
+                if (card.word_surface) nextCache[card.word_surface] = card;
+              });
+            }
+          } catch (err) {
+            console.warn('Wordcard lookup batch failed', err);
+          }
+        }
+        set({ wordcardCache: nextCache });
+        saveWordcardCacheToStorage(nextCache);
+      }
     } catch (err) {
       console.error('Failed to load sicha', err);
       set({ error: 'Failed to load sicha', currentSicha: null });

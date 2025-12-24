@@ -671,6 +671,26 @@ async function getYiddishWordCard(params: {
   return response.json();
 }
 
+async function lookupYiddishWordcards(
+  payload: { lemmas?: string[]; surfaces?: string[] },
+  params?: { ui_lang?: string; version?: number },
+): Promise<{ ok: boolean; items: YiddishWordCard[] }> {
+  const search = new URLSearchParams();
+  if (params?.ui_lang) search.set('ui_lang', params.ui_lang);
+  if (params?.version) search.set('version', String(params.version));
+  const qs = search.toString();
+  const response = await authorizedFetch(`${API_BASE}/yiddish/wordcards/lookup${qs ? `?${qs}` : ''}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => 'Failed to lookup wordcards');
+    throw new Error(message || 'Failed to lookup wordcards');
+  }
+  return response.json();
+}
+
 async function postYiddishTts(payload: YiddishTtsRequest): Promise<YiddishTtsResponse> {
   const response = await authorizedFetch(`${API_BASE}/yiddish/tts`, {
     method: 'POST',
@@ -1638,6 +1658,7 @@ export const api = {
   startYiddishExam,
   getYiddishVocab,
   getYiddishWordCard,
+  lookupYiddishWordcards,
   postYiddishTts,
   askYiddish,
   explainTerm,
