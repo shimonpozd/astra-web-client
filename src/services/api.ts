@@ -918,6 +918,7 @@ async function adminDeleteUserApiKey(userId: string, keyId: string): Promise<voi
 async function adminListYiddishWordcards(params?: {
   prefix?: string;
   q?: string;
+  no_glosses?: boolean;
   limit?: number;
   offset?: number;
   ui_lang?: string;
@@ -926,6 +927,7 @@ async function adminListYiddishWordcards(params?: {
   const search = new URLSearchParams();
   if (params?.prefix) search.set('prefix', params.prefix);
   if (params?.q) search.set('q', params.q);
+  if (params?.no_glosses) search.set('no_glosses', '1');
   if (params?.limit) search.set('limit', String(params.limit));
   if (params?.offset) search.set('offset', String(params.offset));
   if (params?.ui_lang) search.set('ui_lang', params.ui_lang);

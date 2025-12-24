@@ -30,6 +30,7 @@ export default function YiddishWordcardsAdmin() {
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(50);
   const [offset, setOffset] = useState(0);
+  const [noGlossesOnly, setNoGlossesOnly] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +54,7 @@ export default function YiddishWordcardsAdmin() {
       const res = await api.adminListYiddishWordcards({
         prefix: prefix || undefined,
         q: query || undefined,
+        no_glosses: noGlossesOnly || undefined,
         limit,
         offset,
         ui_lang: 'ru',
@@ -190,7 +192,7 @@ export default function YiddishWordcardsAdmin() {
 
   useEffect(() => {
     void loadList();
-  }, [prefix, query, limit, offset]);
+  }, [prefix, query, limit, offset, noGlossesOnly]);
 
   return (
     <div className="space-y-4">
@@ -250,6 +252,18 @@ export default function YiddishWordcardsAdmin() {
             onClick={() => setOffset(offset + limit)}
           >
             Next
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant={noGlossesOnly ? 'default' : 'outline'}
+            onClick={() => {
+              setNoGlossesOnly(!noGlossesOnly);
+              setOffset(0);
+            }}
+          >
+            No glosses
           </Button>
         </div>
       </div>
