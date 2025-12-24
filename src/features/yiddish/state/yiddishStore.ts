@@ -108,12 +108,57 @@ const buildWordcardCacheUpdate = (
   card: YiddishWordCard,
   token?: YiddishToken,
 ) => {
+  const normalizeKey = (value: string | undefined | null) => {
+    if (!value) return '';
+    return value
+      .replace(/[\u0591-\u05C7]/g, '')
+      .replace(/[''''''\u05f3]/g, '');
+  };
+  const setIfSafe = (key: string, next: Record<string, YiddishWordCard>) => {
+    if (!key) return;
+    const existing = next[key];
+    if (!existing) {
+      next[key] = card;
+      return;
+    }
+    if (existing.lemma && card.lemma && existing.lemma === card.lemma) return;
+    if (existing.word_surface && card.word_surface && existing.word_surface === card.word_surface) return;
+  };
+
   const next = { ...cache };
   if (card.lemma) next[card.lemma] = card;
   if (card.word_surface) next[card.word_surface] = card;
   if (token?.lemma) next[token.lemma] = card;
   if (token?.surface) next[token.surface] = card;
+  setIfSafe(normalizeKey(card.lemma), next);
+  setIfSafe(normalizeKey(card.word_surface), next);
+  setIfSafe(normalizeKey(token?.lemma), next);
+  setIfSafe(normalizeKey(token?.surface), next);
   return next;
+};
+
+const resolveCachedWordcard = (
+  cache: Record<string, YiddishWordCard>,
+  token: YiddishToken,
+): YiddishWordCard | null => {
+  const normalizeKey = (value: string | undefined | null) => {
+    if (!value) return '';
+    return value
+      .replace(/[\u0591-\u05C7]/g, '')
+      .replace(/[''''''\u05f3]/g, '');
+  };
+  const direct =
+    (token.surface && cache[token.surface]) ||
+    (token.lemma && cache[token.lemma]) ||
+    null;
+  if (direct) return direct;
+  const normalizedSurface = normalizeKey(token.surface);
+  const normalizedLemma = normalizeKey(token.lemma);
+  return (
+    (normalizedSurface && cache[normalizedSurface]) ||
+    (normalizedLemma && cache[normalizedLemma]) ||
+    null
+  );
 };
 
 const buildVocabFromWordcard = (card: YiddishWordCard, token: YiddishToken): YiddishVocabEntry => {
@@ -199,12 +244,14 @@ export const useYiddishStore = create<YiddishState>((set, get) => ({
         for (let i = 0; i < keys.length; i += batchSize) {
           const batch = keys.slice(i, i + batchSize);
           try {
-            const resp = await api.lookupYiddishWordcards({ lemmas: batch }, { ui_lang: 'ru', version: 1 });
+            const resp = await api.lookupYiddishWordcards(
+              { lemmas: batch, surfaces: batch },
+              { ui_lang: 'ru', version: 1 },
+            );
             if (resp?.items?.length) {
               resp.items.forEach((card) => {
                 if (!card) return;
-                if (card.lemma) nextCache[card.lemma] = card;
-                if (card.word_surface) nextCache[card.word_surface] = card;
+                nextCache = buildWordcardCacheUpdate(nextCache, card);
               });
             }
           } catch (err) {
@@ -228,7 +275,7 @@ export const useYiddishStore = create<YiddishState>((set, get) => ({
 
   async selectToken(token) {
     const cache = get().wordcardCache;
-    const cached = cache[token.lemma];
+    const cached = resolveCachedWordcard(cache, token);
     if (cached) {
       set({
         selectedToken: token,
