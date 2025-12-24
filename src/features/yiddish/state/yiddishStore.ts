@@ -45,6 +45,7 @@ interface YiddishState {
   setPopupMode: (mode: PopupMode) => void;
   setDetailLevel: (level: DetailLevel) => void;
   fetchWordcard: (token: YiddishToken, options?: { forceRefresh?: boolean }) => Promise<void>;
+  applyWordcardUpdate: (card: YiddishWordCard, token?: YiddishToken | null) => void;
   addRecentWord: (token: YiddishToken) => void;
   addToQueue: (entry: YiddishQueueEntry) => Promise<void>;
   removeFromQueue: (entry: YiddishQueueEntry) => Promise<void>;
@@ -314,6 +315,20 @@ export const useYiddishStore = create<YiddishState>((set, get) => ({
     const trimmed = deduped.slice(0, RECENT_LIMIT);
     set({ recentWords: trimmed });
     saveRecentWordsToStorage(trimmed);
+  },
+
+  applyWordcardUpdate(card, token) {
+    const safeToken = token || get().selectedToken || undefined;
+    set((state) => {
+      const normalizedCard = card.morphology === undefined ? { ...card, morphology: null } : card;
+      const nextCache = buildWordcardCacheUpdate(state.wordcardCache, normalizedCard, safeToken || undefined);
+      saveWordcardCacheToStorage(nextCache);
+      return {
+        wordcardCache: nextCache,
+        selectedWordcard: normalizedCard,
+        selectedVocab: safeToken ? buildVocabFromWordcard(normalizedCard, safeToken) : state.selectedVocab,
+      };
+    });
   },
 
   async addToQueue(entry) {

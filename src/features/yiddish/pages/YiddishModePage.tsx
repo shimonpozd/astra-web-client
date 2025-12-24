@@ -56,6 +56,7 @@ export default function YiddishModePage() {
     setPopupMode,
     setDetailLevel,
     fetchWordcard,
+    applyWordcardUpdate,
     addRecentWord,
     askAnswer,
     isAsking,
@@ -143,10 +144,8 @@ export default function YiddishModePage() {
     try {
       const parsed = JSON.parse(adminEditorValue);
       await api.adminUpdateYiddishWordcard(wordcard.lemma, { data: parsed }, { ui_lang: 'ru' });
+      applyWordcardUpdate(parsed, selectedToken);
       setIsAdminEditorOpen(false);
-      if (selectedToken) {
-        await fetchWordcard(selectedToken, { forceRefresh: true });
-      }
     } catch (err: any) {
       setAdminError(err.message || 'Failed to save wordcard');
     } finally {
