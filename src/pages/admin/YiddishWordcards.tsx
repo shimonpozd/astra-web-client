@@ -220,7 +220,9 @@ export default function YiddishWordcardsAdmin() {
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
             <div className="text-sm font-semibold">Batch upload</div>
-            <div className="text-xs text-muted-foreground">Paste JSON array or load file. Items can be wordcards or {data, evidence}.</div>
+            <div className="text-xs text-muted-foreground">
+              Paste JSON array or load file. Items can be wordcards or {'{data, evidence}'}.
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Input
