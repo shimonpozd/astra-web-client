@@ -976,6 +976,24 @@ async function adminUpdateYiddishWordcard(
   return response.json();
 }
 
+async function adminDeleteYiddishWordcard(
+  lemma: string,
+  params?: { ui_lang?: string; version?: number },
+): Promise<{ ok: boolean; deleted: string }> {
+  const search = new URLSearchParams();
+  if (params?.ui_lang) search.set('ui_lang', params.ui_lang);
+  if (params?.version) search.set('version', String(params.version));
+  const qs = search.toString();
+  const response = await authorizedFetch(`${API_BASE}/admin/yiddish/wordcards/${encodeURIComponent(lemma)}${qs ? `?${qs}` : ''}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => 'Failed to delete wordcard');
+    throw new Error(message || 'Failed to delete wordcard');
+  }
+  return response.json();
+}
+
 async function adminCreateYiddishWordcard(
   payload: { data: YiddishWordCard; evidence?: any },
   params?: { ui_lang?: string; version?: number },
@@ -1684,6 +1702,7 @@ export const api = {
   adminGetYiddishWordcard,
   adminUpdateYiddishWordcard,
   adminCreateYiddishWordcard,
+  adminDeleteYiddishWordcard,
   adminBulkUpsertYiddishWordcards,
 };
 

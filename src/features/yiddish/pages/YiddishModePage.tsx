@@ -9,6 +9,9 @@ import type { YiddishPosTag, YiddishToken } from '@/types/yiddish';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { authStorage } from '@/lib/authStorage';
+import { api } from '@/services/api';
 
 const highlightOptions: Array<{ value: HighlightMode; label: string }> = [
   { value: 'off', label: 'Без подсветки' },
@@ -24,6 +27,10 @@ const popupOptions: Array<{ value: PopupMode; label: string }> = [
 export default function YiddishModePage() {
   const [popover, setPopover] = useState<{ token: YiddishToken; rect: DOMRect } | null>(null);
   const [isWordcardOpen, setIsWordcardOpen] = useState(false);
+  const [isAdminEditorOpen, setIsAdminEditorOpen] = useState(false);
+  const [adminEditorValue, setAdminEditorValue] = useState('');
+  const [adminSaving, setAdminSaving] = useState(false);
+  const [adminError, setAdminError] = useState<string | null>(null);
   const {
     highlightMode,
     popupMode,
@@ -57,6 +64,8 @@ export default function YiddishModePage() {
     setSnippet,
     askQuestion,
   } = useYiddishStore();
+
+  const isAdmin = useMemo(() => authStorage.getUser()?.role === 'admin', []);
 
   const knownLemmas = useMemo(() => new Set(Object.keys(wordcardCache || {})), [wordcardCache]);
   const posOverrides = useMemo(() => {
@@ -113,6 +122,37 @@ export default function YiddishModePage() {
     },
     [selectToken],
   );
+
+  const openAdminEditor = useCallback(async () => {
+    if (!wordcard?.lemma) return;
+    setAdminError(null);
+    setAdminSaving(false);
+    try {
+      const res = await api.adminGetYiddishWordcard(wordcard.lemma, { ui_lang: 'ru' });
+      setAdminEditorValue(JSON.stringify(res.data, null, 2));
+      setIsAdminEditorOpen(true);
+    } catch (err: any) {
+      setAdminError(err.message || 'Failed to load wordcard');
+    }
+  }, [wordcard]);
+
+  const saveAdminEditor = useCallback(async () => {
+    if (!wordcard?.lemma) return;
+    setAdminSaving(true);
+    setAdminError(null);
+    try {
+      const parsed = JSON.parse(adminEditorValue);
+      await api.adminUpdateYiddishWordcard(wordcard.lemma, { data: parsed }, { ui_lang: 'ru' });
+      setIsAdminEditorOpen(false);
+      if (selectedToken) {
+        await fetchWordcard(selectedToken, { forceRefresh: true });
+      }
+    } catch (err: any) {
+      setAdminError(err.message || 'Failed to save wordcard');
+    } finally {
+      setAdminSaving(false);
+    }
+  }, [adminEditorValue, fetchWordcard, selectedToken, wordcard]);
 
   const sidebarContent = useMemo(() => {
     if (isLoadingList) {
@@ -318,6 +358,14 @@ export default function YiddishModePage() {
                     </span>
                   ) : null}
                 </DialogTitle>
+                {isAdmin && wordcard?.lemma ? (
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="secondary" onClick={openAdminEditor}>
+                      Edit JSON
+                    </Button>
+                    {adminError ? <span className="text-xs text-red-500">{adminError}</span> : null}
+                  </div>
+                ) : null}
               </DialogHeader>
               {!wordcard ? (
                 <div className="text-sm text-muted-foreground">Нет данных карточки.</div>
@@ -419,6 +467,33 @@ export default function YiddishModePage() {
                   </div>
                 </div>
               )}
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isAdminEditorOpen} onOpenChange={setIsAdminEditorOpen}>
+            <DialogContent className="max-w-4xl w-full">
+              <DialogHeader>
+                <DialogTitle>Admin edit: WordCard JSON</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Textarea
+                  value={adminEditorValue}
+                  onChange={(e) => setAdminEditorValue(e.target.value)}
+                  className="min-h-[360px] font-mono text-xs"
+                  placeholder="WordCard JSON..."
+                />
+                {adminError ? <div className="text-xs text-red-500">{adminError}</div> : null}
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-muted-foreground">{wordcard?.lemma}</div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="secondary" onClick={() => setIsAdminEditorOpen(false)} disabled={adminSaving}>
+                      Close
+                    </Button>
+                    <Button onClick={saveAdminEditor} disabled={adminSaving || !adminEditorValue.trim()}>
+                      {adminSaving ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
         </main>

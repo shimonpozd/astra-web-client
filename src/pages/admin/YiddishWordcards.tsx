@@ -38,6 +38,7 @@ export default function YiddishWordcardsAdmin() {
   const [editorValue, setEditorValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [batchValue, setBatchValue] = useState('');
   const [batchResult, setBatchResult] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -94,6 +95,22 @@ export default function YiddishWordcardsAdmin() {
       setError(err.message || 'Failed to save wordcard');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const deleteEditor = async () => {
+    if (!selectedLemma) return;
+    const confirmed = window.confirm(`Delete wordcard "${selectedLemma}"? This cannot be undone.`);
+    if (!confirmed) return;
+    setDeleting(true);
+    try {
+      await api.adminDeleteYiddishWordcard(selectedLemma, { ui_lang: 'ru' });
+      setEditorOpen(false);
+      await loadList();
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete wordcard');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -340,6 +357,11 @@ export default function YiddishWordcardsAdmin() {
             <div className="flex items-center justify-between">
               <div className="text-xs text-muted-foreground">{isCreating ? 'New wordcard' : selectedLemma}</div>
               <div className="flex items-center gap-2">
+                {!isCreating ? (
+                  <Button variant="destructive" onClick={deleteEditor} disabled={saving || deleting}>
+                    {deleting ? 'Deleting...' : 'Delete'}
+                  </Button>
+                ) : null}
                 <Button variant="secondary" onClick={() => setEditorOpen(false)} disabled={saving}>
                   Close
                 </Button>
