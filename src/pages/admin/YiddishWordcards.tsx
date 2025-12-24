@@ -37,6 +37,10 @@ export default function YiddishWordcardsAdmin() {
   const [selectedLemma, setSelectedLemma] = useState<string | null>(null);
   const [editorValue, setEditorValue] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [batchValue, setBatchValue] = useState('');
+  const [batchResult, setBatchResult] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const totalPages = useMemo(() => (limit ? Math.ceil(total / limit) : 1), [total, limit]);
   const pageIndex = useMemo(() => Math.floor(offset / limit) + 1, [offset, limit]);
@@ -62,6 +66,7 @@ export default function YiddishWordcardsAdmin() {
   };
 
   const openEditor = async (lemma: string) => {
+    setIsCreating(false);
     setSelectedLemma(lemma);
     setEditorOpen(true);
     try {
@@ -74,11 +79,15 @@ export default function YiddishWordcardsAdmin() {
   };
 
   const saveEditor = async () => {
-    if (!selectedLemma) return;
     setSaving(true);
     try {
       const parsed = JSON.parse(editorValue);
-      await api.adminUpdateYiddishWordcard(selectedLemma, { data: parsed }, { ui_lang: 'ru' });
+      if (isCreating) {
+        await api.adminCreateYiddishWordcard({ data: parsed }, { ui_lang: 'ru' });
+      } else {
+        if (!selectedLemma) throw new Error('No lemma selected');
+        await api.adminUpdateYiddishWordcard(selectedLemma, { data: parsed }, { ui_lang: 'ru' });
+      }
       setEditorOpen(false);
       await loadList();
     } catch (err: any) {
@@ -86,6 +95,59 @@ export default function YiddishWordcardsAdmin() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleBatchFile = async (file?: File | null) => {
+    if (!file) return;
+    const text = await file.text();
+    setBatchValue(text);
+  };
+
+  const uploadBatch = async () => {
+    setUploading(true);
+    setBatchResult(null);
+    try {
+      const parsed = JSON.parse(batchValue);
+      const items = Array.isArray(parsed) ? parsed : parsed.items;
+      if (!Array.isArray(items)) {
+        throw new Error('JSON must be an array or { items: [...] }');
+      }
+      const res = await api.adminBulkUpsertYiddishWordcards({ items }, { ui_lang: 'ru' });
+      setBatchResult(`Created: ${res.created}, Updated: ${res.updated}, Errors: ${res.errors.length}`);
+      await loadList();
+    } catch (err: any) {
+      setBatchResult(err.message || 'Failed to upload batch');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const openCreate = () => {
+    setIsCreating(true);
+    setSelectedLemma(null);
+    setEditorValue(
+      JSON.stringify(
+        {
+          schema: 'astra.yiddish.wordcard.v1',
+          lang: 'yi',
+          ui_lang: 'ru',
+          word_surface: '',
+          lemma: '',
+          translit_ru: '',
+          pos_default: '',
+          pos_ru_short: '',
+          pos_ru_full: '',
+          popup: { gloss_ru_short_list: [] },
+          senses: [],
+          flags: { needs_review: true, evidence_missing: true },
+          sources: [],
+          version: 1,
+        },
+        null,
+        2,
+      ),
+    );
+    setEditorOpen(true);
   };
 
   useEffect(() => {
@@ -99,8 +161,9 @@ export default function YiddishWordcardsAdmin() {
           <h2 className="text-xl font-semibold">Yiddish Wordcards</h2>
           <p className="text-sm text-muted-foreground">Browse, filter, and edit stored wordcards.</p>
         </div>
-        <div className="text-sm text-muted-foreground">
-          Total: {total} · Page {pageIndex}/{Math.max(totalPages, 1)}
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Button size="sm" onClick={openCreate}>New WordCard</Button>
+          <span>Total: {total} · Page {pageIndex}/{Math.max(totalPages, 1)}</span>
         </div>
       </div>
 
@@ -151,6 +214,33 @@ export default function YiddishWordcardsAdmin() {
             Next
           </Button>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <div className="text-sm font-semibold">Batch upload</div>
+            <div className="text-xs text-muted-foreground">Paste JSON array or load file. Items can be wordcards or {data, evidence}.</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="file"
+              accept=".json,application/json"
+              onChange={(e) => void handleBatchFile(e.currentTarget.files?.[0])}
+              className="max-w-[240px]"
+            />
+            <Button size="sm" onClick={uploadBatch} disabled={uploading || !batchValue.trim()}>
+              {uploading ? 'Uploading...' : 'Upload'}
+            </Button>
+          </div>
+        </div>
+        <Textarea
+          value={batchValue}
+          onChange={(e) => setBatchValue(e.currentTarget.value)}
+          className="min-h-[180px] font-mono text-xs"
+          placeholder='[{"schema":"astra.yiddish.wordcard.v1",...}]'
+        />
+        {batchResult ? <div className="text-xs text-muted-foreground">{batchResult}</div> : null}
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
@@ -224,7 +314,7 @@ export default function YiddishWordcardsAdmin() {
               placeholder="WordCard JSON..."
             />
             <div className="flex items-center justify-between">
-              <div className="text-xs text-muted-foreground">{selectedLemma}</div>
+              <div className="text-xs text-muted-foreground">{isCreating ? 'New wordcard' : selectedLemma}</div>
               <div className="flex items-center gap-2">
                 <Button variant="secondary" onClick={() => setEditorOpen(false)} disabled={saving}>
                   Close

@@ -956,6 +956,46 @@ async function adminUpdateYiddishWordcard(
   return response.json();
 }
 
+async function adminCreateYiddishWordcard(
+  payload: { data: YiddishWordCard; evidence?: any },
+  params?: { ui_lang?: string; version?: number },
+): Promise<{ ok: boolean; data: YiddishWordCard }> {
+  const search = new URLSearchParams();
+  if (params?.ui_lang) search.set('ui_lang', params.ui_lang);
+  if (params?.version) search.set('version', String(params.version));
+  const qs = search.toString();
+  const response = await authorizedFetch(`${API_BASE}/admin/yiddish/wordcards${qs ? `?${qs}` : ''}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => 'Failed to create wordcard');
+    throw new Error(message || 'Failed to create wordcard');
+  }
+  return response.json();
+}
+
+async function adminBulkUpsertYiddishWordcards(
+  payload: { items: Array<{ data?: YiddishWordCard; evidence?: any } | YiddishWordCard> },
+  params?: { ui_lang?: string; version?: number },
+): Promise<{ ok: boolean; created: number; updated: number; errors: Array<{ index: number; error: string }> }> {
+  const search = new URLSearchParams();
+  if (params?.ui_lang) search.set('ui_lang', params.ui_lang);
+  if (params?.version) search.set('version', String(params.version));
+  const qs = search.toString();
+  const response = await authorizedFetch(`${API_BASE}/admin/yiddish/wordcards/batch${qs ? `?${qs}` : ''}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => 'Failed to upload wordcards');
+    throw new Error(message || 'Failed to upload wordcards');
+  }
+  return response.json();
+}
+
 
 async function explainTerm(term: string, contextText: string, handler: StreamHandler): Promise<void> {
   try {
@@ -1622,6 +1662,8 @@ export const api = {
   adminListYiddishWordcards,
   adminGetYiddishWordcard,
   adminUpdateYiddishWordcard,
+  adminCreateYiddishWordcard,
+  adminBulkUpsertYiddishWordcards,
 };
 
 export type {
