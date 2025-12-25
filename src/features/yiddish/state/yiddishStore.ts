@@ -448,17 +448,10 @@ export const useYiddishStore = create<YiddishState>((set, get) => ({
         });
         return;
       }
-      // fallback to stub vocab
-      const vocab = await api.getYiddishVocab(token.lemma);
-      set({ selectedVocab: vocab });
+      set({ selectedVocab: null });
     } catch (err) {
       console.warn('Failed to load wordcard/vocab', err);
-      try {
-        const vocab = await api.getYiddishVocab(token.lemma);
-        set({ selectedVocab: vocab });
-      } catch (err2) {
-        set({ selectedVocab: null });
-      }
+      set({ selectedVocab: null });
     } finally {
       set({ isLoadingWordcard: false, isLoadingVocab: false });
     }

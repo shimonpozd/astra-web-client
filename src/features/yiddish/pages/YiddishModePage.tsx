@@ -449,8 +449,10 @@ export default function YiddishModePage() {
                               {sense.gloss_ru_full ? (
                                 <div className="text-sm">{sense.gloss_ru_full}</div>
                               ) : null}
-                              {sense.usage_hints_ru?.length ? (
+                              {Array.isArray(sense.usage_hints_ru) && sense.usage_hints_ru.length ? (
                                 <div className="text-xs text-muted-foreground">Подсказки: {sense.usage_hints_ru.join('; ')}</div>
+                              ) : typeof sense.usage_hints_ru === 'string' && sense.usage_hints_ru.trim() ? (
+                                <div className="text-xs text-muted-foreground">Подсказки: {sense.usage_hints_ru}</div>
                               ) : null}
                               {sense.source_gloss_en ? (
                                 <div className="text-xs text-muted-foreground">EN: {sense.source_gloss_en}</div>
