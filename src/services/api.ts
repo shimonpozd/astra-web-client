@@ -6,6 +6,7 @@ import type {
   YiddishAttestationRequest,
   YiddishAttestationResponse,
   YiddishExamStartResponse,
+  YiddishMahjongSession,
   YiddishQueueEntry,
   YiddishQueueUpdateRequest,
   YiddishQueueUpdateResponse,
@@ -626,6 +627,22 @@ async function startYiddishExam(entries: YiddishQueueEntry[]): Promise<YiddishEx
   if (!response.ok) {
     const message = await response.text().catch(() => response.statusText);
     throw new Error(`Failed to start exam: ${message}`);
+  }
+  return response.json();
+}
+
+async function generateYiddishMahjongExam(params?: { min_words?: number; max_words?: number }): Promise<YiddishMahjongSession> {
+  const response = await authorizedFetch(`${API_BASE}/yiddish/exam/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      min_words: params?.min_words,
+      max_words: params?.max_words,
+    }),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to generate mahjong exam: ${message}`);
   }
   return response.json();
 }
@@ -1676,6 +1693,7 @@ export const api = {
   postYiddishAttestation,
   updateYiddishQueue,
   startYiddishExam,
+  generateYiddishMahjongExam,
   getYiddishVocab,
   getYiddishWordCard,
   lookupYiddishWordcards,

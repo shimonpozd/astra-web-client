@@ -13,6 +13,7 @@ interface RightPanelProps {
   onAskQuestion: (question: string) => void;
   onClearAnswer: () => void;
   onOpenWordcard: (token: YiddishToken) => void;
+  onStartMahjong?: () => void;
 }
 
 export const RightPanel: React.FC<RightPanelProps> = ({
@@ -24,6 +25,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   onAskQuestion,
   onClearAnswer,
   onOpenWordcard,
+  onStartMahjong,
 }) => {
   const [questionText, setQuestionText] = React.useState('');
 
@@ -171,6 +173,14 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             })}
           </div>
         )}
+        {onStartMahjong ? (
+          <div className="pt-3 mt-3 border-t border-border/60">
+            <div className="text-xs text-muted-foreground mb-2">Mini review</div>
+            <Button size="sm" className="w-full" onClick={onStartMahjong}>
+              Start Mahjong
+            </Button>
+          </div>
+        ) : null}
       </section>
     </div>
   );

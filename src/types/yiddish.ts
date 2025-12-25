@@ -128,6 +128,21 @@ export interface YiddishExamStartResponse {
   items: YiddishExamItem[];
 }
 
+export type YiddishMahjongTileType = 'yi' | 'ru';
+
+export interface YiddishMahjongTile {
+  id: string;
+  match_id: string;
+  type: YiddishMahjongTileType;
+  content: string;
+  pos?: YiddishPosTag | string;
+}
+
+export interface YiddishMahjongSession {
+  exam_id: string;
+  tiles: YiddishMahjongTile[];
+}
+
 export interface YiddishTtsRequest {
   text: string;
   lang: 'yi';

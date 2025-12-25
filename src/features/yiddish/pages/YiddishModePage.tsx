@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { authStorage } from '@/lib/authStorage';
 import { api } from '@/services/api';
+import { MahjongGame } from '../components/games/mahjong/MahjongGame';
 
 const highlightOptions: Array<{ value: HighlightMode; label: string }> = [
   { value: 'off', label: 'Без подсветки' },
@@ -28,6 +29,7 @@ export default function YiddishModePage() {
   const [popover, setPopover] = useState<{ token: YiddishToken; rect: DOMRect } | null>(null);
   const [isWordcardOpen, setIsWordcardOpen] = useState(false);
   const [showRu, setShowRu] = useState(false);
+  const [isMahjongOpen, setIsMahjongOpen] = useState(false);
   const [isAdminEditorOpen, setIsAdminEditorOpen] = useState(false);
   const [adminEditorValue, setAdminEditorValue] = useState('');
   const [adminSaving, setAdminSaving] = useState(false);
@@ -364,6 +366,7 @@ export default function YiddishModePage() {
                 onAskQuestion={(question) => askQuestion(question, currentSicha?.meta)}
                 onClearAnswer={clearAskAnswer}
                 onOpenWordcard={handleRecentOpen}
+                onStartMahjong={() => setIsMahjongOpen(true)}
               />
             </aside>
           </div>
@@ -489,6 +492,14 @@ export default function YiddishModePage() {
                   </div>
                 </div>
               )}
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isMahjongOpen} onOpenChange={setIsMahjongOpen}>
+            <DialogContent className="max-w-5xl w-full bg-background">
+              <DialogHeader>
+                <DialogTitle>Mahjong Review</DialogTitle>
+              </DialogHeader>
+              <MahjongGame onClose={() => setIsMahjongOpen(false)} />
             </DialogContent>
           </Dialog>
           <Dialog open={isAdminEditorOpen} onOpenChange={setIsAdminEditorOpen}>
