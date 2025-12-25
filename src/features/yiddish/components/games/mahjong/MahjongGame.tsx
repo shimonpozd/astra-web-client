@@ -70,8 +70,10 @@ export const MahjongGame: React.FC<MahjongGameProps> = ({ onClose }) => {
     return Math.round(stats.elapsedMs / 1000);
   }, [stats]);
 
+  const hasTiles = tiles.length > 0;
+
   return (
-    <div className="w-full">
+    <div className="w-full flex flex-col min-h-[70vh]">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
           <div className="text-lg font-semibold">Mahjong Review</div>
@@ -109,14 +111,23 @@ export const MahjongGame: React.FC<MahjongGameProps> = ({ onClose }) => {
         <div className="text-sm text-muted-foreground">Dealing tiles...</div>
       ) : error ? (
         <div className="text-sm text-red-500">{error}</div>
+      ) : !hasTiles ? (
+        <div className="flex-1 flex items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-center text-sm text-muted-foreground dark:border-slate-700 dark:bg-slate-900/40">
+          <div>
+            <div className="font-semibold text-foreground mb-1">No tiles yet</div>
+            <div>Add words to the study queue or open a wordcard to seed data.</div>
+          </div>
+        </div>
       ) : (
-        <MahjongBoard
-          tiles={tiles}
-          selectedId={selectedId}
-          matchedIds={matchedIds}
-          mismatchedIds={mismatchedIds}
-          onTileClick={onTileClick}
-        />
+        <div className="flex-1 flex items-center justify-center">
+          <MahjongBoard
+            tiles={tiles}
+            selectedId={selectedId}
+            matchedIds={matchedIds}
+            mismatchedIds={mismatchedIds}
+            onTileClick={onTileClick}
+          />
+        </div>
       )}
 
       {isComplete && stats ? (

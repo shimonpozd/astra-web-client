@@ -12,10 +12,10 @@ interface MahjongTileProps {
 }
 
 const posClasses: Record<string, string> = {
-  NOUN: 'bg-amber-100 text-amber-800 border-amber-300',
-  VERB: 'bg-sky-100 text-sky-800 border-sky-300',
-  ADJ: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-  DEFAULT: 'bg-slate-100 text-slate-700 border-slate-300',
+  NOUN: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-100 dark:border-amber-700',
+  VERB: 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-900/40 dark:text-sky-100 dark:border-sky-700',
+  ADJ: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-100 dark:border-emerald-700',
+  DEFAULT: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800/60 dark:text-slate-100 dark:border-slate-600',
 };
 
 const tileVariants = {
@@ -81,7 +81,7 @@ export const MahjongTile: React.FC<MahjongTileProps> = ({
         'border-b-[6px] shadow-[0_10px_0_0_rgba(0,0,0,0.12)]',
         'will-change-transform transition-transform',
         colorClass,
-        isLocked ? 'brightness-75 blur-[1px] cursor-not-allowed' : 'cursor-pointer',
+        isLocked ? 'brightness-75 blur-[1px] cursor-not-allowed pointer-events-none' : 'cursor-pointer',
         isSelected ? 'ring-4 ring-offset-2 ring-indigo-400 z-50' : '',
         isMismatched ? 'ring-2 ring-red-400' : '',
       ].join(' ')}

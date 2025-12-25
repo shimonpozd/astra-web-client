@@ -495,7 +495,7 @@ export default function YiddishModePage() {
             </DialogContent>
           </Dialog>
           <Dialog open={isMahjongOpen} onOpenChange={setIsMahjongOpen}>
-            <DialogContent className="max-w-5xl w-full bg-background">
+            <DialogContent className="w-[96vw] h-[92vh] max-w-none bg-background">
               <DialogHeader>
                 <DialogTitle>Mahjong Review</DialogTitle>
               </DialogHeader>

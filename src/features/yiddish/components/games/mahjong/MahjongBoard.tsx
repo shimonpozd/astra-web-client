@@ -92,9 +92,9 @@ export const MahjongBoard: React.FC<MahjongBoardProps> = ({
   const boardHeight = (TILE_H + GAP) * 4 - GAP;
 
   return (
-    <div className="relative mx-auto w-full max-w-[520px]">
-      <div className="relative rounded-2xl border border-slate-200 bg-gradient-to-b from-indigo-50 via-white to-white p-6 shadow-lg">
-        <div className="absolute inset-0 rounded-2xl opacity-40 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:18px_18px]" />
+    <div className="relative mx-auto w-full max-w-[760px]">
+      <div className="relative rounded-2xl border border-slate-200 bg-gradient-to-b from-indigo-50 via-white to-white p-6 shadow-lg dark:border-slate-800 dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
+        <div className="absolute inset-0 rounded-2xl opacity-40 pointer-events-none bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:18px_18px] dark:bg-[radial-gradient(#1f2937_1px,transparent_1px)]" />
         <LayoutGroup>
           <motion.div
             className="relative mx-auto"
