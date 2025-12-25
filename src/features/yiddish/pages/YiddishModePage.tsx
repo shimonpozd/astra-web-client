@@ -27,6 +27,7 @@ const popupOptions: Array<{ value: PopupMode; label: string }> = [
 export default function YiddishModePage() {
   const [popover, setPopover] = useState<{ token: YiddishToken; rect: DOMRect } | null>(null);
   const [isWordcardOpen, setIsWordcardOpen] = useState(false);
+  const [showRu, setShowRu] = useState(false);
   const [isAdminEditorOpen, setIsAdminEditorOpen] = useState(false);
   const [adminEditorValue, setAdminEditorValue] = useState('');
   const [adminSaving, setAdminSaving] = useState(false);
@@ -106,6 +107,7 @@ export default function YiddishModePage() {
   }, [selectedSichaId, loadSicha]);
 
   const currentMeta = currentSicha?.meta;
+  const ruAvailable = currentSicha?.ru_available ?? false;
 
   const handleTokenSelect = useCallback(
     (token: YiddishToken, rect: DOMRect) => {
@@ -115,6 +117,12 @@ export default function YiddishModePage() {
     },
     [addRecentWord, selectToken],
   );
+
+  const handleTokenHoverEnd = useCallback(() => {
+    if (popupMode === 'hover') {
+      setPopover(null);
+    }
+  }, [popupMode]);
 
   const handleRecentOpen = useCallback(
     async (token: YiddishToken) => {
@@ -244,6 +252,16 @@ export default function YiddishModePage() {
                 </Button>
               ))}
             </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={showRu ? 'default' : 'outline'}
+                onClick={() => setShowRu((prev) => !prev)}
+                disabled={!ruAvailable}
+              >
+                Русский
+              </Button>
+            </div>
             <div className="ml-auto flex items-center gap-2">
               <Button
                 size="sm"
@@ -263,16 +281,19 @@ export default function YiddishModePage() {
             <div className="flex-1 min-w-0">
               <TextStudyReader
                 paragraphs={currentSicha?.paragraphs || []}
+                ruParagraphs={currentSicha?.ru_paragraphs || []}
                 tokens={currentSicha?.tokens || []}
                 notes={currentSicha?.notes}
                 highlightMode={highlightMode}
                 popupMode={popupMode}
                 onTokenSelect={handleTokenSelect}
+                onTokenHoverEnd={handleTokenHoverEnd}
                 onTextSelect={setSnippet}
                 isLoading={isLoadingSicha}
                 learnedMap={currentSicha?.learned_map}
                 knownLemmas={knownLemmas}
                 posOverrides={posOverrides}
+                showRu={showRu}
               />
               {popover ? (
                 <Card

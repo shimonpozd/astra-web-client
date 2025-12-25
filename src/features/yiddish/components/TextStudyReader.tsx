@@ -50,16 +50,19 @@ interface TextStudyReaderProps {
   
   // Существующие пропсы для обратной совместимости
   paragraphs?: YiddishParagraph[];
+  ruParagraphs?: YiddishParagraph[];
   tokens?: YiddishToken[];
   notes?: YiddishNote[];
   highlightMode?: HighlightMode;
   popupMode?: PopupMode;
   onTokenSelect?: (token: YiddishToken, rect: DOMRect) => void;
+  onTokenHoverEnd?: () => void;
   onTextSelect?: (text: string) => void;
   isLoading?: boolean;
   learnedMap?: Record<string, string[]>;
   knownLemmas?: Set<string>;
   posOverrides?: Record<string, YiddishPosTag>;
+  showRu?: boolean;
 }
 
 /**
@@ -186,16 +189,19 @@ export const TextStudyReader: React.FC<TextStudyReaderProps> = ({
   
   // Существующие пропсы
   paragraphs,
+  ruParagraphs,
   tokens,
   notes,
   highlightMode = 'off',
   popupMode = 'hover',
   onTokenSelect,
+  onTokenHoverEnd,
   onTextSelect,
   isLoading,
   learnedMap = {},
   knownLemmas,
-  posOverrides
+  posOverrides,
+  showRu = false
 }) => {
   // Определение темной темы
   const systemPrefersDark = useMedia('(prefers-color-scheme: dark)');
@@ -342,9 +348,17 @@ export const TextStudyReader: React.FC<TextStudyReaderProps> = ({
         },
       );
 
-      const eventProps = {
-        onClick: (e: React.MouseEvent<HTMLSpanElement>) => onTokenSelect?.(token, e.currentTarget.getBoundingClientRect()),
-      };
+      const eventProps =
+        popupMode === 'hover'
+          ? {
+              onMouseEnter: (e: React.MouseEvent<HTMLSpanElement>) =>
+                onTokenSelect?.(token, e.currentTarget.getBoundingClientRect()),
+              onMouseLeave: () => onTokenHoverEnd?.(),
+            }
+          : {
+              onClick: (e: React.MouseEvent<HTMLSpanElement>) =>
+                onTokenSelect?.(token, e.currentTarget.getBoundingClientRect()),
+            };
 
       parts.push(
         <span key={`tok-${token.pid}-${token.start}-${token.end}`} className={cls} {...eventProps}>
@@ -371,6 +385,17 @@ export const TextStudyReader: React.FC<TextStudyReaderProps> = ({
     });
     return map;
   }, [tokens]);
+
+  const ruByPid = useMemo(() => {
+    if (!ruParagraphs || ruParagraphs.length === 0) return new Map();
+    const map = new Map<string, YiddishParagraph>();
+    ruParagraphs.forEach((p) => {
+      map.set(p.pid, p);
+    });
+    return map;
+  }, [ruParagraphs]);
+
+  const maxWidthClass = showRu ? 'max-w-[110ch]' : 'max-w-[60ch]';
 
   return (
     <div className="relative h-screen flex flex-col bg-background overflow-hidden">
@@ -417,7 +442,7 @@ export const TextStudyReader: React.FC<TextStudyReaderProps> = ({
             aria-live="polite"
             aria-label="Текст для изучения"
           >
-            <div className="max-w-[60ch] mx-auto p-6">
+            <div className={clsx(maxWidthClass, "mx-auto p-6")}>
               <div
                 className={clsx(
                   "prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-p:leading-snug prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 dark:prose-invert",
@@ -428,7 +453,7 @@ export const TextStudyReader: React.FC<TextStudyReaderProps> = ({
                 )}
                 style={{
                   ...typographyStyles,
-                  maxWidth: '60ch',
+                  maxWidth: showRu ? '110ch' : '60ch',
                   margin: '0 auto',
                   fontFeatureSettings: settings.ligatures === 'normal' ? '"liga" 1, "dlig" 1, "calt" 1, "salt" 1' : 'normal',
                   transition: 'all 0.2s ease',
@@ -454,28 +479,41 @@ export const TextStudyReader: React.FC<TextStudyReaderProps> = ({
                     {paragraphs.map((p, index) => {
                       const list = tokensByPid.get(p.pid) || [];
                       const paragraphNumber = index + 1;
-                      
+                      const ruParagraph = showRu ? ruByPid.get(p.pid) : undefined;
+                      const gridClass = showRu
+                        ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-10'
+                        : '';
+
                       return (
-                        <div key={p.pid} className="mb-6 last:mb-0">
-                          {/* Номер параграфа */}
-                          <div className="text-xs text-muted-foreground mb-2 font-medium">
-                            {paragraphNumber}
-                          </div>
-                          
-                          {/* Текст параграфа */}
-                          <p className="break-words" style={{ marginBottom: `${settings.lineHeight}em` }}>
-                            {wrapWithTokens(p, list, highlightMode as HighlightMode, popupMode, learnedMap, onTokenSelect)}
-                          </p>
-                          
-                          {/* Сноски */}
-                          {notes
-                            ?.filter((n) => n.anchor.pid === p.pid)
-                            .map((note) => (
-                              <div key={note.note_id} className="mt-3 text-sm text-muted-foreground" dir="ltr">
-                                <span className="font-semibold mr-2">[{paragraphNumber}]</span>
-                                <span dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                        <div key={p.pid} className="mb-6 last:mb-0" dir={showRu ? 'ltr' : 'rtl'}>
+                          <div className={gridClass}>
+                            {showRu ? (
+                              <div className="text-[0.95rem] leading-relaxed text-foreground/80" dir="ltr">
+                                {ruParagraph?.text || ''}
                               </div>
-                            ))}
+                            ) : null}
+                            <div dir="rtl">
+                              {/* ????? ????????? */}
+                              <div className="text-xs text-muted-foreground mb-2 font-medium">
+                                {paragraphNumber}
+                              </div>
+
+                              {/* ????? ????????? */}
+                              <p className="break-words" style={{ marginBottom: `${settings.lineHeight}em` }}>
+                                {wrapWithTokens(p, list, highlightMode as HighlightMode, popupMode, learnedMap, onTokenSelect)}
+                              </p>
+
+                              {/* ?????? */}
+                              {notes
+                                ?.filter((n) => n.anchor.pid === p.pid)
+                                .map((note) => (
+                                  <div key={note.note_id} className="mt-3 text-sm text-muted-foreground" dir="ltr">
+                                    <span className="font-semibold mr-2">[{paragraphNumber}]</span>
+                                    <span dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
                         </div>
                       );
                     })}

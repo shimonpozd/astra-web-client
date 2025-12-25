@@ -59,6 +59,8 @@ export interface YiddishSichaResponse {
   id: string;
   meta: YiddishSichaMeta;
   paragraphs: YiddishParagraph[];
+  ru_paragraphs?: YiddishParagraph[];
+  ru_available?: boolean;
   tokens: YiddishToken[];
   notes?: YiddishNote[];
   learned_map?: Record<string, string[]>;
