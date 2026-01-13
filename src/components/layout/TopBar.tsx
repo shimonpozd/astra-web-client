@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Languages, Milestone } from 'lucide-react';
+import { Clock, Languages, Milestone } from 'lucide-react';
 
 import { ThemeToggle } from '../ThemeToggle';
 import { useLayout } from '../../contexts/LayoutContext';
@@ -72,6 +72,16 @@ const TopBar: React.FC = () => {
         >
           <Milestone className="w-4 h-4" />
           Таймлайн
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => navigate('/clock')}
+          className="gap-2 font-semibold shadow-sm"
+        >
+          <Clock className="w-4 h-4" />
+          Часы
         </Button>
         {config.features.yiddishMode ? (
           <Button

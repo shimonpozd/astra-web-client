@@ -164,6 +164,61 @@ export interface Message {
   timestamp: number | Date;
 }
 
+export interface ZmanimMethod {
+  id: string;
+  type: 'time' | 'duration_ms' | 'number';
+  menu_ru?: string | null;
+  title_ru?: string | null;
+  category?: string | null;
+  what_is_it_ru?: string | null;
+  how_calculated_ru?: string | null;
+  bounds_ru?: {
+    start_ru?: string | null;
+    end_ru?: string | null;
+  } | null;
+  returns?: {
+    type?: 'time' | 'duration_ms' | 'number' | string | null;
+    unit_ru?: string | null;
+    meaning_ru?: string | null;
+    error_value?: string | null;
+    error_ru?: string | null;
+  } | null;
+  deprecated?: boolean | null;
+  deprecated_ru?: string | null;
+  attribution?: string | null;
+  authors?: string[] | null;
+  author_primary?: string | null;
+  tags?: string[] | null;
+}
+
+export interface ZmanimMethodsResponse {
+  methods: ZmanimMethod[];
+}
+
+export interface ZmanimCalculatePayload {
+  date: string;
+  timezone: string;
+  location: {
+    name?: string;
+    lat: number;
+    lon: number;
+    elevation_m?: number | null;
+  };
+  methods: string[];
+  use_elevation?: boolean;
+  ateret_torah_sunset_offset?: number | null;
+}
+
+export interface ZmanimCalculateResponse {
+  results: Record<string, string | number | null>;
+  errors?: Record<string, string>;
+}
+
+export interface ElevationResponse {
+  elevation_m: number | null;
+  source?: string;
+}
+
 interface AdminUserApiKey {
   id: string;
   provider: 'openrouter' | 'openai';
@@ -627,6 +682,40 @@ async function startYiddishExam(entries: YiddishQueueEntry[]): Promise<YiddishEx
   if (!response.ok) {
     const message = await response.text().catch(() => response.statusText);
     throw new Error(`Failed to start exam: ${message}`);
+  }
+  return response.json();
+}
+
+async function getZmanimMethods(): Promise<ZmanimMethodsResponse> {
+  const response = await authorizedFetch(`${API_BASE}/zmanim/methods`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch zmanim methods: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function calculateZmanim(payload: ZmanimCalculatePayload): Promise<ZmanimCalculateResponse> {
+  const response = await authorizedFetch(`${API_BASE}/zmanim/calculate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to calculate zmanim: ${message}`);
+  }
+  return response.json();
+}
+
+async function getElevation(lat: number, lon: number): Promise<ElevationResponse> {
+  const response = await authorizedFetch(`${API_BASE}/geo/elevation`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lat, lon }),
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to fetch elevation: ${message}`);
   }
   return response.json();
 }
@@ -1705,6 +1794,9 @@ export const api = {
   markDailyComplete,
   getDailyProgress,
   getDailySegments,
+  getZmanimMethods,
+  calculateZmanim,
+  getElevation,
   getXpProfile,
   postXpEvent,
   getXpHistory,
