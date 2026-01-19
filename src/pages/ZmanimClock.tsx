@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { Switch } from '../components/ui/Switch';
 import { api } from '../services/api';
 import { OpinionsPanel } from '../components/zmanim/OpinionsPanel';
-import { SkyPanorama } from '../components/zmanim/SkyPanorama';
+import { SkyPanorama } from '../components/SkyPanorama';
 import { AstroEventsDialog } from '../components/zmanim/AstroEventsDialog';
 
 type ZmanimMethod = {
@@ -168,6 +168,20 @@ const formatReadableDateTime = (value: Date, timeZone: string) => {
     }).format(value);
   } catch {
     return value.toLocaleString();
+  }
+};
+
+const formatDateWithZone = (value: Date, timeZone: string) => {
+  try {
+    return new Intl.DateTimeFormat('ru-RU', {
+      timeZone,
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      timeZoneName: 'short',
+    }).format(value);
+  } catch {
+    return value.toLocaleDateString();
   }
 };
 
@@ -1004,24 +1018,21 @@ export default function ZmanimClock() {
                 />
               </CardContent>
             </Card>
-            <Card className="min-h-[220px]">
+            <Card className="min-h-[200px]">
               <CardHeader>
                 <CardTitle className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <span>Часы</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-xl border border-border/40 bg-muted/30 p-4">
+              <CardContent className="space-y-1">
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-xl border border-border/40 bg-muted/30 p-3">
                     <div className="text-sm text-muted-foreground">Гражданское время</div>
-                    <div className="mt-2 text-3xl font-semibold tracking-tight font-mono">
+                    <div className="mt-1 text-2xl font-semibold tracking-tight font-mono">
                       {formatClockTime(displayTimestamp, timezone)}
                     </div>
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      {formatClockDate(displayTimestamp, timezone)}
-                    </div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      {formatReadableDateTime(displayTimestamp, timezone)}
+                      {formatDateWithZone(displayTimestamp, timezone)}
                     </div>
                   </div>
                   {(Object.keys(HALACHIC_MODES) as HalachicMode[]).map((modeKey) => {
@@ -1050,12 +1061,12 @@ export default function ZmanimClock() {
                       return formatHebrewDate(displayDate, timezone);
                     })();
                     return (
-                      <div key={modeKey} className="rounded-xl border border-border/40 bg-muted/30 p-4">
+                      <div key={modeKey} className="rounded-xl border border-border/40 bg-muted/30 p-3">
                         <div className="text-sm text-muted-foreground">{config.label}</div>
-                        <div className="mt-2 text-3xl font-semibold tracking-tight font-mono">
+                        <div className="mt-1 text-2xl font-semibold tracking-tight font-mono">
                           {anchors.error ? 'Недоступно' : label}
                         </div>
-                        <div className="mt-2 text-sm text-muted-foreground" dir="rtl">
+                        <div className="mt-1 text-xs text-muted-foreground" dir="rtl">
                           {hebrewDate}
                         </div>
                         {anchors.error ? (
