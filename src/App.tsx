@@ -11,6 +11,8 @@ const PromptEditor = lazy(() => import('./pages/admin/PromptEditor'));
 const ProfileProgress = lazy(() => import('./pages/ProfileProgress'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const ZmanimClock = lazy(() => import('./pages/ZmanimClock'));
+const SederMapPage = lazy(() => import('./pages/SederMapPage'));
+const SederMap2Page = lazy(() => import('./pages/SederMap2Page'));
 const UserManagementPage = lazy(() => import('./pages/admin/UserManagement'));
 const ProfilesAdminPage = lazy(() => import('./pages/admin/ProfilesAdmin.tsx'));
 const TalmudicConceptsPage = lazy(() => import('./pages/admin/TalmudicConcepts'));
@@ -125,6 +127,22 @@ function App() {
                       element={
                         <Suspense fallback={null}>
                           <TimelinePage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/map"
+                      element={
+                        <Suspense fallback={null}>
+                          <SederMapPage />
+                        </Suspense>
+                      }
+                    />
+                    <Route
+                      path="/map2"
+                      element={
+                        <Suspense fallback={null}>
+                          <SederMap2Page />
                         </Suspense>
                       }
                     />

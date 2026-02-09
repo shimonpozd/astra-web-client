@@ -707,6 +707,303 @@ async function calculateZmanim(payload: ZmanimCalculatePayload): Promise<ZmanimC
   return response.json();
 }
 
+async function getSederMap(): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/map`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch seder map: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function getSederNode(nodeId: string): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/node/${encodeURIComponent(nodeId)}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch seder node: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function getSederArticle(articleId: string): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/article/${encodeURIComponent(articleId)}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch seder article: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function getSederArticleSegments(articleId: string): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/article/${encodeURIComponent(articleId)}/segments`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch seder article segments: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function createSederArticle(payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/article`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to create article: ${msg}`);
+  }
+  return response.json();
+}
+
+async function createSederSegments(articleId: string, payload: any[]): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/article/${encodeURIComponent(articleId)}/segments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to create segments: ${msg}`);
+  }
+  return response.json();
+}
+
+async function updateSederSegment(segmentId: string, payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/segment/${encodeURIComponent(segmentId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to update segment: ${msg}`);
+  }
+  return response.json();
+}
+
+async function getSederSegmentVersions(segmentId: string): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/segment/${encodeURIComponent(segmentId)}/versions`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch segment versions: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function restoreSederSegmentVersion(segmentId: string, versionId: string): Promise<any> {
+  const response = await authorizedFetch(
+    `${API_BASE}/seder/segment/${encodeURIComponent(segmentId)}/restore/${encodeURIComponent(versionId)}`,
+    { method: 'POST' },
+  );
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to restore segment version: ${msg}`);
+  }
+  return response.json();
+}
+
+async function upsertSederSegmentLinks(segmentId: string, links: any[]): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/segment/${encodeURIComponent(segmentId)}/links`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(links),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to update segment links: ${msg}`);
+  }
+  return response.json();
+}
+
+async function getSederDefinitions(): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/definitions`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch definitions: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function getSederDefinitionInstances(definitionId: string): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/definition/${encodeURIComponent(definitionId)}/instances`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch definition instances: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function getSederLayouts(): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/layouts`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch layouts: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function getSederDomains(): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/domains`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch domains: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function createSederLayout(payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/layouts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to create layout: ${msg}`);
+  }
+  return response.json();
+}
+
+async function updateSederLayout(layoutId: string, payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/layouts/${encodeURIComponent(layoutId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to update layout: ${msg}`);
+  }
+  return response.json();
+}
+
+async function updateSederDomain(domainId: string, payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/domains/${encodeURIComponent(domainId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to update domain: ${msg}`);
+  }
+  return response.json();
+}
+
+async function createSederDomain(payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/domains`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to create domain: ${msg}`);
+  }
+  return response.json();
+}
+
+async function deleteSederDomain(domainId: string): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/domains/${encodeURIComponent(domainId)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to delete domain: ${msg}`);
+  }
+  return response.json();
+}
+
+async function createSederEdge(payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/edge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to create edge: ${msg}`);
+  }
+  return response.json();
+}
+
+async function deleteSederEdge(edgeId: string): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/edge/${encodeURIComponent(edgeId)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to delete edge: ${msg}`);
+  }
+  return response.json();
+}
+
+async function updateSederNode(nodeId: string, payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/node/${encodeURIComponent(nodeId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to update node: ${msg}`);
+  }
+  return response.json();
+}
+
+async function createSederNode(payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/node`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to create node: ${msg}`);
+  }
+  return response.json();
+}
+
+async function deleteSederNode(nodeId: string): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/node/${encodeURIComponent(nodeId)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to delete node: ${msg}`);
+  }
+  return response.json();
+}
+
+async function createSederNote(payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/note`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to create note: ${msg}`);
+  }
+  return response.json();
+}
+
+async function updateSederNote(noteId: string, payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/note/${encodeURIComponent(noteId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to update note: ${msg}`);
+  }
+  return response.json();
+}
+
+async function deleteSederNote(noteId: string): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/note/${encodeURIComponent(noteId)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to delete note: ${msg}`);
+  }
+  return response.json();
+}
+
 async function getElevation(lat: number, lon: number): Promise<ElevationResponse> {
   const response = await authorizedFetch(`${API_BASE}/geo/elevation`, {
     method: 'POST',
@@ -1796,6 +2093,33 @@ export const api = {
   getDailySegments,
   getZmanimMethods,
   calculateZmanim,
+  getSederMap,
+  getSederNode,
+  getSederArticle,
+  getSederArticleSegments,
+  createSederArticle,
+  createSederSegments,
+  updateSederSegment,
+  getSederSegmentVersions,
+  restoreSederSegmentVersion,
+  upsertSederSegmentLinks,
+  getSederDefinitions,
+  getSederDefinitionInstances,
+  getSederLayouts,
+  getSederDomains,
+  createSederLayout,
+  updateSederLayout,
+  updateSederDomain,
+  createSederDomain,
+  deleteSederDomain,
+  createSederEdge,
+  deleteSederEdge,
+  updateSederNode,
+  createSederNode,
+  deleteSederNode,
+  createSederNote,
+  updateSederNote,
+  deleteSederNote,
   getElevation,
   getXpProfile,
   postXpEvent,

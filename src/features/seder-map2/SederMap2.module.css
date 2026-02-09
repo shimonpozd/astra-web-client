@@ -1,0 +1,460 @@
+.root {
+  width: 100%;
+  height: 100%;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: "Segoe UI", Arial, sans-serif;
+  isolation: isolate;
+}
+
+.frame {
+  width: 100%;
+  height: calc(100% - 64px);
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.panel {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  overflow: hidden;
+  position: relative;
+}
+
+.flow {
+  width: 100%;
+  height: 100%;
+  --node-bg: hsl(var(--card));
+  --node-fg: hsl(var(--foreground));
+  --node-border: hsl(var(--border));
+  --node-solid: #fbf8f2;
+  --map-grid: rgba(0, 0, 0, 0.08);
+  --edge-color: rgba(152, 120, 86, 0.55);
+  --edge-becomes: rgba(96, 74, 166, 0.7);
+  --edge-contains: rgba(31, 122, 76, 0.55);
+  --edge-reference: rgba(107, 114, 128, 0.55);
+  --edge-width: 2px;
+  --node-stage: #315a8d;
+  --node-mechanism: #c0701a;
+  --node-structure: #2f7d56;
+  --node-concept: #6b7280;
+  --node-sefira: #6d4aa8;
+  --node-partzuf: #2f6f8f;
+  --node-meta: #8b5e3c;
+}
+
+:global(.dark) .flow {
+  --node-bg: #1e1a17;
+  --node-fg: #ece6da;
+  --node-border: #3b312c;
+  --node-solid: #1e1a17;
+  --map-grid: rgba(255, 255, 255, 0.08);
+  --edge-color: rgba(236, 230, 218, 0.45);
+  --edge-becomes: rgba(168, 139, 255, 0.75);
+  --edge-contains: rgba(90, 198, 142, 0.6);
+  --edge-reference: rgba(156, 163, 175, 0.55);
+  --edge-width: 2px;
+  --node-stage: #6fb9fd;
+  --node-mechanism: #d18a2a;
+  --node-structure: #4aa374;
+  --node-concept: #9ca3af;
+  --node-sefira: #b38cff;
+  --node-partzuf: #6fb1d1;
+  --node-meta: #b08a66;
+}
+
+.flow :global(.react-flow__edges) {
+  z-index: 15 !important;
+  opacity: 1 !important;
+  display: block !important;
+  visibility: visible !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.flow :global(.react-flow__edges svg) {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.flow :global(.react-flow__edge-path),
+.flow :global(.react-flow__connection-path) {
+  fill: none !important;
+  vector-effect: non-scaling-stroke;
+}
+
+.flow :global(.react-flow__edge) {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.edgeFlow {
+  stroke: var(--edge-color) !important;
+  stroke-width: var(--edge-width) !important;
+  stroke-dasharray: 10 10;
+  animation: flow-dash 2.4s linear infinite;
+}
+
+.edgeBecomes {
+  stroke: var(--edge-becomes) !important;
+  stroke-width: var(--edge-width) !important;
+  stroke-dasharray: 6 6;
+}
+
+.edgeContains {
+  stroke: var(--edge-contains) !important;
+  stroke-width: var(--edge-width) !important;
+  stroke-dasharray: 2 6;
+}
+
+.edgeReference {
+  stroke: var(--edge-reference) !important;
+  stroke-width: var(--edge-width) !important;
+  stroke-dasharray: 1 8;
+}
+
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.flow :global(.react-flow__nodes) {
+  z-index: 30 !important;
+}
+
+.flow :global(.react-flow__node) {
+  opacity: 1 !important;
+  background: transparent !important;
+}
+
+.domainNode {
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.flow :global(.react-flow__background) {
+  z-index: 0 !important;
+  pointer-events: none;
+}
+
+.flow :global(.react-flow__controls) {
+  z-index: 40 !important;
+}
+
+.debug {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #d1c7b8;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.node {
+  min-width: 200px;
+  max-width: 260px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--node-border);
+  background: var(--node-solid) !important;
+  background-color: var(--node-solid) !important;
+  background-image: none !important;
+  opacity: 1;
+  mix-blend-mode: normal;
+  backdrop-filter: none;
+  color: var(--node-fg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  position: relative;
+}
+
+.nodeDragging {
+  transform: scale(1.03);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.18);
+  outline: 2px solid color-mix(in oklab, var(--node-border) 60%, transparent);
+  cursor: grabbing;
+}
+
+.nodeSelected {
+  outline: 2px solid color-mix(in oklab, hsl(var(--foreground)) 25%, transparent);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+}
+
+.noteNode {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #eab308;
+  color: #1f1a17;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.14);
+  min-width: 180px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+}
+
+.labelNode {
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.noteText {
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.domainNode {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  border: 1px solid color-mix(in oklab, var(--node-border) 70%, transparent);
+  background: transparent;
+  padding: 14px;
+  color: hsl(var(--foreground));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, hsl(var(--foreground)) 12%, transparent);
+}
+
+.domainTitle {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.domainDesc {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.domainHe {
+  font-weight: 600;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.domainRu {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.nodeIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--node-fg) 8%, transparent);
+  color: inherit;
+}
+
+.nodeText {
+  display: grid;
+  gap: 4px;
+}
+
+.nodeHe {
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.2px;
+}
+
+.nodeRu {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.nodeType_stage {
+  border-color: color-mix(in oklab, var(--node-stage) 55%, var(--node-border));
+  box-shadow: 0 10px 20px color-mix(in oklab, var(--node-stage) 20%, transparent);
+}
+
+.nodeType_mechanism {
+  border-color: color-mix(in oklab, var(--node-mechanism) 60%, var(--node-border));
+  box-shadow: 0 10px 20px color-mix(in oklab, var(--node-mechanism) 20%, transparent);
+}
+
+.nodeType_structure {
+  border-color: color-mix(in oklab, var(--node-structure) 60%, var(--node-border));
+  box-shadow: 0 10px 20px color-mix(in oklab, var(--node-structure) 20%, transparent);
+}
+
+.nodeType_concept {
+  border-color: color-mix(in oklab, var(--node-concept) 60%, var(--node-border));
+  box-shadow: 0 10px 20px color-mix(in oklab, var(--node-concept) 20%, transparent);
+}
+
+.nodeType_definition {
+  border-color: color-mix(in oklab, var(--node-concept) 60%, var(--node-border));
+  box-shadow: 0 10px 20px color-mix(in oklab, var(--node-concept) 20%, transparent);
+}
+
+.nodeType_sefira {
+  border-color: color-mix(in oklab, var(--node-sefira) 60%, var(--node-border));
+  box-shadow: 0 10px 20px color-mix(in oklab, var(--node-sefira) 18%, transparent);
+}
+
+.nodeType_partzuf {
+  border-color: color-mix(in oklab, var(--node-partzuf) 60%, var(--node-border));
+  box-shadow: 0 10px 20px color-mix(in oklab, var(--node-partzuf) 18%, transparent);
+}
+
+.nodeType_meta {
+  border-style: dashed;
+  border-color: color-mix(in oklab, var(--node-meta) 60%, var(--node-border));
+  box-shadow: 0 10px 20px color-mix(in oklab, var(--node-meta) 18%, transparent);
+}
+
+.nodeType_annotation {
+  border-style: dashed;
+  border-color: color-mix(in oklab, var(--node-meta) 60%, var(--node-border));
+  box-shadow: 0 10px 20px color-mix(in oklab, var(--node-meta) 18%, transparent);
+}
+
+.handle {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  border: none !important;
+  opacity: 0 !important;
+}
+
+.panelEdit .handle {
+  opacity: 0.9 !important;
+  background: hsl(var(--foreground) / 0.35) !important;
+}
+
+.debugLine {
+  display: none;
+}
+
+.sidePanel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 60;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100% - 24px);
+}
+
+.inspector {
+  background: hsl(var(--card) / 0.98);
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  overflow: auto;
+  flex: 1;
+}
+
+.inspectorTitle {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.inspectorEmpty {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.inspectorBody {
+  display: grid;
+  gap: 8px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.fieldInput,
+.fieldTextarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  padding: 6px 8px;
+  font-size: 12px;
+  color: hsl(var(--foreground));
+}
+
+.fieldTextarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.inspectorActions {
+  display: flex;
+  gap: 8px;
+}
+
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: hsl(var(--card) / 0.92);
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+  width: 100%;
+}
+
+.toolbarGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.toolbarButton,
+.toolbarActive {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.toolbarActive {
+  background: hsl(var(--accent));
+  border-color: color-mix(in oklab, hsl(var(--accent)) 70%, hsl(var(--border)));
+}
+
+.toolbarButton:disabled,
+.toolbarActive:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

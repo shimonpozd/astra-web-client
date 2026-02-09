@@ -155,6 +155,21 @@
     max-width: 100%;
   }
 
+  /* React Flow layering */
+  .react-flow__edges {
+    z-index: 5;
+  }
+  .react-flow__nodes {
+    z-index: 10;
+  }
+  .react-flow__handle {
+    pointer-events: auto !important;
+    cursor: crosshair !important;
+  }
+  .react-flow__connection-line {
+    pointer-events: none;
+  }
+
   input,
   button,
   textarea,
@@ -780,6 +795,17 @@
   background: color-mix(in oklab, var(--accent) 12%, transparent);
   color: hsl(var(--foreground) / .92);
   opacity:.95;
+}
+
+/* React Flow debug: force edges visible */
+.react-flow__edge-path,
+.react-flow__connection-path {
+  stroke: hsl(var(--primary)) !important;
+  stroke-width: 2px !important;
+}
+
+.react-flow__edge {
+  pointer-events: visibleStroke;
 }
 
 /* FocusReader entity highlights */
