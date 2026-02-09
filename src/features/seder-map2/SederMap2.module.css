@@ -22,11 +22,30 @@
   border: 1px solid hsl(var(--border));
   overflow: hidden;
   position: relative;
+  display: flex;
+}
+
+.articleColumn {
+  width: 360px;
+  max-width: 360px;
+  height: 100%;
+  border-right: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.canvasColumn {
+  flex: 1;
+  position: relative;
+  height: 100%;
 }
 
 .flow {
   width: 100%;
   height: 100%;
+  position: relative;
+  z-index: 1;
   --node-bg: hsl(var(--card));
   --node-fg: hsl(var(--foreground));
   --node-border: hsl(var(--border));
@@ -135,6 +154,11 @@
 .flow :global(.react-flow__node) {
   opacity: 1 !important;
   background: transparent !important;
+  cursor: grab;
+}
+
+.flow :global(.react-flow__node):active {
+  cursor: grabbing;
 }
 
 .domainNode {
@@ -183,6 +207,7 @@
   gap: 6px;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
   position: relative;
+  cursor: grab;
 }
 
 .nodeDragging {
@@ -207,6 +232,7 @@
   min-height: 60px;
   display: flex;
   align-items: center;
+  cursor: grab;
 }
 
 .labelNode {
@@ -233,6 +259,7 @@
   padding: 14px;
   color: hsl(var(--foreground));
   box-shadow: inset 0 0 0 1px color-mix(in oklab, hsl(var(--foreground)) 12%, transparent);
+  cursor: grab;
 }
 
 .domainTitle {
@@ -337,11 +364,13 @@
   background: transparent !important;
   border: none !important;
   opacity: 0 !important;
+  pointer-events: none;
 }
 
 .panelEdit .handle {
   opacity: 0.9 !important;
   background: hsl(var(--foreground) / 0.35) !important;
+  pointer-events: auto;
 }
 
 .debugLine {
@@ -358,6 +387,232 @@
   flex-direction: column;
   gap: 10px;
   max-height: calc(100% - 24px);
+}
+
+.articlePanel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  overflow: hidden;
+  pointer-events: auto;
+  font-family: "Segoe UI", "Times New Roman", serif;
+}
+
+.articlePanel * {
+  pointer-events: auto;
+}
+
+.articleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: hsl(var(--background));
+  border-bottom: 1px solid hsl(var(--border));
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.langTabs {
+  display: flex;
+  background: color-mix(in oklab, hsl(var(--border)) 70%, transparent);
+  padding: 3px;
+  border-radius: 10px;
+}
+
+.langTab {
+  border: none;
+  background: transparent;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.activeTab {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.actionsRow {
+  display: flex;
+  gap: 8px;
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.iconButton:hover {
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+.saveButton {
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.15);
+}
+
+.saveButton:hover {
+  background: rgba(22, 163, 74, 0.25);
+}
+
+.articleBreadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: hsl(var(--card));
+  border-bottom: 1px solid color-mix(in oklab, hsl(var(--border)) 50%, transparent);
+  overflow-x: auto;
+  white-space: nowrap;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+.breadcrumbItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.breadcrumbItem button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.breadcrumbItem button:hover {
+  color: hsl(var(--foreground));
+  text-decoration: underline;
+}
+
+.breadcrumbSep {
+  opacity: 0.5;
+}
+
+.scroller {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.articleContainer {
+  padding: 20px 24px 40px;
+}
+
+.heroTitle {
+  margin: 0 0 20px 0;
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  letter-spacing: -0.02em;
+}
+
+.articleBody {
+  display: block;
+}
+
+.articleEditor {
+  width: 100%;
+  min-height: 300px;
+  border: none;
+  resize: none;
+  outline: none;
+  font-family: "Menlo", "Monaco", "Courier New", monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: hsl(var(--foreground));
+  background: transparent;
+}
+
+.markdownContent {
+  color: hsl(var(--foreground));
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.markdownContent p {
+  margin-bottom: 1.25em;
+}
+
+.markdownContent h1,
+.markdownContent h2,
+.markdownContent h3 {
+  color: hsl(var(--foreground));
+  font-weight: 700;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  line-height: 1.3;
+}
+
+.markdownContent h2 {
+  font-size: 1.25em;
+  border-bottom: 1px solid color-mix(in oklab, hsl(var(--border)) 60%, transparent);
+  padding-bottom: 0.3em;
+}
+
+.markdownContent h3 {
+  font-size: 1.1em;
+}
+
+.markdownContent ul,
+.markdownContent ol {
+  margin-bottom: 1.25em;
+  padding-left: 1.5em;
+}
+
+.markdownContent li {
+  margin-bottom: 0.5em;
+}
+
+.markdownContent a {
+  color: hsl(217 91% 60%);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.markdownContent a:hover {
+  border-bottom-color: currentColor;
+}
+
+.markdownContent blockquote {
+  border-left: 4px solid color-mix(in oklab, hsl(var(--border)) 70%, transparent);
+  padding-left: 1em;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+  margin: 1.5em 0;
+}
+
+.markdownContent code {
+  background: color-mix(in oklab, hsl(var(--border)) 60%, transparent);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-family: "Menlo", "Monaco", "Courier New", monospace;
 }
 
 .inspector {
@@ -413,6 +668,27 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.copyRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.copyButton {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.copyButton:hover {
+  background: hsl(var(--card));
 }
 
 .inspectorActions {

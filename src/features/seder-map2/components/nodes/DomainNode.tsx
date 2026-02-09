@@ -6,20 +6,18 @@ type DomainData = {
   title_he?: string;
   title_ru?: string;
   description?: string;
-  isDragging?: boolean;
-  isSelected?: boolean;
   isResizable?: boolean;
 };
 
-export default function DomainNode({ data }: NodeProps<DomainData>) {
+export default function DomainNode({ data, selected, dragging }: NodeProps<DomainData>) {
   return (
     <div
-      className={`${styles.domainNode} ${data?.isDragging ? styles.nodeDragging : ''} ${
-        data?.isSelected ? styles.nodeSelected : ''
+      className={`${styles.domainNode} ${dragging ? styles.nodeDragging : ''} ${
+        selected ? styles.nodeSelected : ''
       }`}
     >
       <NodeResizer
-        isVisible={Boolean(data?.isResizable && data?.isSelected)}
+        isVisible={Boolean(data?.isResizable && selected)}
         minWidth={400}
         minHeight={140}
         lineStyle={{ borderColor: 'rgba(14,116,144,0.45)' }}

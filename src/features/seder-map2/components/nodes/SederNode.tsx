@@ -8,15 +8,13 @@ type SederNodeData = {
   title_he?: string;
   title_ru?: string;
   node_type?: string;
-  isDragging?: boolean;
-  isSelected?: boolean;
 };
 
 type Props = NodeProps<SederNodeData> & {
   nodeTypeMap: Map<string, NodeTypeConfig>;
 };
 
-export default function SederNode({ data, nodeTypeMap }: Props) {
+export default function SederNode({ data, nodeTypeMap, selected, dragging }: Props) {
   const nodeType = data?.node_type || 'concept';
   const config = nodeTypeMap.get(nodeType) ?? nodeTypeMap.get('concept');
   const Icon = config?.icon ?? Tag;
@@ -24,8 +22,8 @@ export default function SederNode({ data, nodeTypeMap }: Props) {
   return (
     <div
       className={`${styles.node} ${config ? styles[config.className] : ''} ${
-        data?.isDragging ? styles.nodeDragging : ''
-      } ${data?.isSelected ? styles.nodeSelected : ''}`}
+        dragging ? styles.nodeDragging : ''
+      } ${selected ? styles.nodeSelected : ''}`}
     >
       <Handle type="target" position={Position.Top} className={styles.handle} />
       <div className={styles.nodeIcon}>

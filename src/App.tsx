@@ -11,7 +11,7 @@ const PromptEditor = lazy(() => import('./pages/admin/PromptEditor'));
 const ProfileProgress = lazy(() => import('./pages/ProfileProgress'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const ZmanimClock = lazy(() => import('./pages/ZmanimClock'));
-const SederMapPage = lazy(() => import('./pages/SederMapPage'));
+const SederMapPage = lazy(() => import('./pages/SederMap2Page'));
 const SederMap2Page = lazy(() => import('./pages/SederMap2Page'));
 const UserManagementPage = lazy(() => import('./pages/admin/UserManagement'));
 const ProfilesAdminPage = lazy(() => import('./pages/admin/ProfilesAdmin.tsx'));

@@ -6,21 +6,19 @@ type NoteData = {
   text?: string;
   kind?: 'note' | 'label';
   color?: string;
-  isDragging?: boolean;
-  isSelected?: boolean;
   isResizable?: boolean;
 };
 
-export default function NoteNode({ data }: NodeProps<NoteData>) {
+export default function NoteNode({ data, selected, dragging }: NodeProps<NoteData>) {
   return (
     <div
       className={`${styles.noteNode} ${data?.kind === 'label' ? styles.labelNode : ''} ${
-        data?.isDragging ? styles.nodeDragging : ''
-      } ${data?.isSelected ? styles.nodeSelected : ''}`}
+        dragging ? styles.nodeDragging : ''
+      } ${selected ? styles.nodeSelected : ''}`}
       style={{ backgroundColor: data?.color || undefined }}
     >
       <NodeResizer
-        isVisible={Boolean(data?.isResizable && data?.isSelected)}
+        isVisible={Boolean(data?.isResizable && selected)}
         minWidth={data?.kind === 'label' ? 160 : 200}
         minHeight={data?.kind === 'label' ? 40 : 80}
         lineStyle={{ borderColor: 'rgba(99,102,241,0.45)' }}

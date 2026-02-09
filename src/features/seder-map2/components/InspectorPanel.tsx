@@ -26,6 +26,22 @@ export default function InspectorPanel({
       {!selected ? <div className={styles.inspectorEmpty}>Выберите объект на карте</div> : null}
       {selected?.kind === 'node' ? (
         <div className={styles.inspectorBody}>
+          <label className={styles.fieldLabel}>node:UUID</label>
+          <div className={styles.copyRow}>
+            <input
+              className={styles.fieldInput}
+              value={selected.id}
+              readOnly
+            />
+            <button
+              type="button"
+              className={styles.copyButton}
+              onClick={() => navigator.clipboard?.writeText(`node:${selected.id}`)}
+              title="Copy node:UUID"
+            >
+              Copy
+            </button>
+          </div>
           <label className={styles.fieldLabel}>title_he</label>
           <input className={styles.fieldInput} value={form.title_he} onChange={(e) => onChange({ title_he: e.target.value })} />
           <label className={styles.fieldLabel}>title_ru</label>

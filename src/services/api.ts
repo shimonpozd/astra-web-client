@@ -731,6 +731,19 @@ async function getSederArticle(articleId: string): Promise<any> {
   return response.json();
 }
 
+async function updateSederArticle(articleId: string, payload: any): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/seder/article/${encodeURIComponent(articleId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text().catch(() => response.statusText);
+    throw new Error(`Failed to update article: ${msg}`);
+  }
+  return response.json();
+}
+
 async function getSederArticleSegments(articleId: string): Promise<any> {
   const response = await authorizedFetch(`${API_BASE}/seder/article/${encodeURIComponent(articleId)}/segments`);
   if (!response.ok) {
@@ -2096,6 +2109,7 @@ export const api = {
   getSederMap,
   getSederNode,
   getSederArticle,
+  updateSederArticle,
   getSederArticleSegments,
   createSederArticle,
   createSederSegments,

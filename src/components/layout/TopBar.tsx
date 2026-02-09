@@ -83,16 +83,7 @@ const TopBar: React.FC = () => {
           <Map className="w-4 h-4" />
           Карта
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => navigate('/map2')}
-          className="gap-2 font-semibold shadow-sm"
-        >
-          <Map className="w-4 h-4" />
-          Карта 2
-        </Button>
+        
         <Button
           type="button"
           size="sm"

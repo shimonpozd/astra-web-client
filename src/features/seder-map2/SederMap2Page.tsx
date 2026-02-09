@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -28,6 +28,7 @@ import NoteNode from './components/nodes/NoteNode';
 import DomainNode from './components/nodes/DomainNode';
 import EditToolbar from './components/EditToolbar';
 import InspectorPanel from './components/InspectorPanel';
+import ArticleSidebar from './components/ArticleSidebar';
 
 function VisibleEdge(props: EdgeProps) {
   const [edgePath] = getBezierPath({
@@ -129,7 +130,6 @@ function Map2Canvas() {
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [edgeType, setEdgeType] = useState<'flow' | 'becomes' | 'contains' | 'reference'>('flow');
-  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<SelectedTarget>(null);
   const [form, setForm] = useState<InspectorForm>({
     title_he: '',
@@ -143,8 +143,12 @@ function Map2Canvas() {
     width: '',
     height: '',
   });
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, setCenter } = useReactFlow();
   const snapGrid: [number, number] = [20, 20];
+  const isDraggingRef = useRef(false);
+  const selectedNode = selected?.kind === 'node'
+    ? nodesData.find((n) => String(n.id) === selected.id)
+    : null;
 
   useEffect(() => {
     let mounted = true;
@@ -183,8 +187,6 @@ function Map2Canvas() {
         title_he: node.title_he || '',
         title_ru: node.title_ru || '',
         node_type: node.node_type || 'concept',
-        isDragging: draggingId === String(node.id),
-        isSelected: selected?.kind === 'node' && selected.id === String(node.id),
       },
       style: {
         zIndex: 2,
@@ -201,9 +203,7 @@ function Map2Canvas() {
         text: note.kind === 'label' ? note.title_ru || '' : note.text_ru || '',
         kind: note.kind === 'label' ? 'label' : 'note',
         color: note.color || (note.kind === 'label' ? '#64748b' : '#eab308'),
-        isDragging: draggingId === `note-${note.id}`,
-        isSelected: selected?.kind === 'note' && selected.id === String(note.id),
-        isResizable: editMode && isAdmin,
+        isResizable: false,
       },
       style: {
         width: note.width ?? (note.kind === 'label' ? 220 : 260),
@@ -222,9 +222,7 @@ function Map2Canvas() {
         title_he: domain.title_he || '',
         title_ru: domain.title_ru || domain.id,
         description: domain.description || '',
-        isDragging: draggingId === `domain-${domain.id}`,
-        isSelected: selected?.kind === 'domain' && selected.id === String(domain.id),
-        isResizable: editMode && isAdmin,
+        isResizable: false,
       },
       style: {
         width: domain.width ?? 900,
@@ -233,13 +231,33 @@ function Map2Canvas() {
       },
     }));
     return [...domainItems, ...noteItems, ...nodeItems];
-  }, [nodesData, notesData, domainsData, draggingId, selected, editMode, isAdmin]);
+  }, [nodesData, notesData, domainsData]);
 
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(mapToFlowNodes);
 
   useEffect(() => {
+    if (isDraggingRef.current) return;
     setFlowNodes(mapToFlowNodes);
   }, [mapToFlowNodes, setFlowNodes]);
+
+  useEffect(() => {
+    setFlowNodes((prev) =>
+      prev.map((node) => {
+        const nodeId = String(node.id);
+        const isResizableNow =
+          editMode &&
+          isAdmin &&
+          (nodeId.startsWith('note-') || nodeId.startsWith('domain-'));
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            isResizable: isResizableNow,
+          },
+        };
+      }),
+    );
+  }, [editMode, isAdmin, setFlowNodes]);
 
   const edges: Edge[] = useMemo(() => {
     const nodeIds = new Set(nodesData.map((node) => String(node.id)));
@@ -315,7 +333,6 @@ function Map2Canvas() {
 
   const handleNodeDragStop = (_: unknown, node: FlowNode) => {
     if (!editMode || !isAdmin) return;
-    setDraggingId(null);
     const nextX = node.position.x;
     const nextY = node.position.y;
     const nextW = typeof node.width === 'number' ? node.width : undefined;
@@ -352,14 +369,52 @@ function Map2Canvas() {
     });
   };
 
-  const handleNodeDragStart = (_: unknown, node: FlowNode) => {
+  const handleNodeDragStart = () => {
     if (!editMode || !isAdmin) return;
-    setDraggingId(String(node.id));
+    isDraggingRef.current = true;
+  };
+
+  const handleNodeDragEnd = (evt: unknown, node: FlowNode) => {
+    handleNodeDragStop(evt, node);
+    // Let React Flow finish internal updates before resyncing external state.
+    setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 80);
+  };
+
+  const selectNodeData = (nodeData: MapNode) => {
+    setSelected({ kind: 'node', id: String(nodeData.id) });
+    setForm((prev) => ({
+      ...prev,
+      title_he: nodeData.title_he || '',
+      title_ru: nodeData.title_ru || '',
+      node_type: nodeData.node_type || 'concept',
+      domain_id: nodeData.domain_id || '',
+      spine_parent_id: nodeData.spine_parent_id || '',
+      definition_id: nodeData.definition_id || '',
+    }));
+  };
+
+  const selectNodeById = (nodeId: string) => {
+    const nodeData = nodesData.find((n) => String(n.id) === String(nodeId));
+    if (!nodeData) return;
+    selectNodeData(nodeData);
+  };
+
+  const handleNavigateToNode = (nodeId: string) => {
+    selectNodeById(nodeId);
+    const flowNode = flowNodes.find((n) => n.id === String(nodeId));
+    if (flowNode) {
+      const { x, y } = flowNode.position;
+      setCenter(x + 120, y + 60, { zoom: 0.9, duration: 400 });
+    }
   };
 
   const handleSelect = (_: unknown, node: FlowNode) => {
-    if (!isAdmin) return;
     const nodeId = String(node.id);
+    if (!isAdmin && (nodeId.startsWith('note-') || nodeId.startsWith('domain-'))) {
+      return;
+    }
     if (nodeId.startsWith('note-')) {
       const noteId = nodeId.slice(5);
       const note = notesData.find((n) => String(n.id) === noteId);
@@ -387,16 +442,14 @@ function Map2Canvas() {
       return;
     }
     const nodeData = nodesData.find((n) => String(n.id) === nodeId);
-    setSelected({ kind: 'node', id: nodeId });
-    setForm((prev) => ({
-      ...prev,
-      title_he: nodeData?.title_he || '',
-      title_ru: nodeData?.title_ru || '',
-      node_type: nodeData?.node_type || 'concept',
-      domain_id: nodeData?.domain_id || '',
-      spine_parent_id: nodeData?.spine_parent_id || '',
-      definition_id: nodeData?.definition_id || '',
-    }));
+    if (nodeData) {
+      selectNodeData(nodeData);
+      const flowNode = flowNodes.find((n) => n.id === String(nodeData.id));
+      if (flowNode) {
+        const { x, y } = flowNode.position;
+        setCenter(x + 120, y + 60, { zoom: 0.9, duration: 350 });
+      }
+    }
   };
 
   const handlePaneClick = () => {
@@ -415,7 +468,20 @@ function Map2Canvas() {
         definition_id: form.definition_id || null,
       };
       const updated = await api.updateSederNode(selected.id, payload);
-      setNodesData((prev) => prev.map((n) => (String(n.id) === selected.id ? updated : n)));
+      setNodesData((prev) =>
+        prev.map((n) =>
+          String(n.id) === selected.id
+            ? {
+                ...n,
+                ...updated,
+                pos_x: updated.pos_x ?? n.pos_x,
+                pos_y: updated.pos_y ?? n.pos_y,
+                width: updated.width ?? n.width,
+                height: updated.height ?? n.height,
+              }
+            : n,
+        ),
+      );
       return;
     }
     if (selected.kind === 'note') {
@@ -430,7 +496,20 @@ function Map2Canvas() {
         payload.text_ru = form.text;
       }
       const updated = await api.updateSederNote(selected.id, payload);
-      setNotesData((prev) => prev.map((n) => (String(n.id) === selected.id ? updated : n)));
+      setNotesData((prev) =>
+        prev.map((n) =>
+          String(n.id) === selected.id
+            ? {
+                ...n,
+                ...updated,
+                pos_x: updated.pos_x ?? n.pos_x,
+                pos_y: updated.pos_y ?? n.pos_y,
+                width: updated.width ?? n.width,
+                height: updated.height ?? n.height,
+              }
+            : n,
+        ),
+      );
       return;
     }
     if (selected.kind === 'domain') {
@@ -442,7 +521,20 @@ function Map2Canvas() {
         height: form.height ? Number(form.height) : undefined,
       };
       const updated = await api.updateSederDomain(selected.id, payload);
-      setDomainsData((prev) => prev.map((d) => (String(d.id) === selected.id ? updated : d)));
+      setDomainsData((prev) =>
+        prev.map((d) =>
+          String(d.id) === selected.id
+            ? {
+                ...d,
+                ...updated,
+                pos_x: updated.pos_x ?? d.pos_x,
+                pos_y: updated.pos_y ?? d.pos_y,
+                width: updated.width ?? d.width,
+                height: updated.height ?? d.height,
+              }
+            : d,
+        ),
+      );
     }
   };
 
@@ -523,68 +615,106 @@ function Map2Canvas() {
 
   return (
     <div className={`${styles.panel} ${editMode ? styles.panelEdit : ''}`}>
-      <div className={styles.debug}>
-        nodes:{nodesData.length} · edges:{edgesData.length} · viewNodes:{flowNodes.length} · viewEdges:{edges.length} ·
-        edit:{editMode ? 'on' : 'off'} · admin:{isAdmin ? 'yes' : 'no'} ·
-        types:{Array.from(new Set(edgesData.map((e) => (e.connection_type || 'flow')))).join(',')}
+      <div className={styles.articleColumn}>
+        <ArticleSidebar
+          selectedId={selected?.kind === 'node' ? selected.id : null}
+          selectedNode={selectedNode}
+          nodesData={nodesData}
+          setNodesData={setNodesData}
+          isAdmin={isAdmin}
+          editMode={editMode}
+          onNavigate={handleNavigateToNode}
+        />
       </div>
-      {isAdmin ? (
-        <div className={styles.sidePanel}>
-          <EditToolbar
-            isAdmin={isAdmin}
-            editMode={editMode}
-            edgeType={edgeType}
-            nodeTypes={NODE_TYPES}
-            onToggleEdit={() => setEditMode((v) => !v)}
-            onAddNode={handleAddNode}
-            onAddNote={handleAddNote}
-            onAddDomain={handleAddDomain}
-            onEdgeTypeChange={setEdgeType}
-          />
-          <InspectorPanel
-            selected={selected}
-            form={form}
-            nodeTypes={NODE_TYPES}
-            domains={domainsData}
-            onChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
-            onSave={saveSelection}
-            onDelete={deleteSelection}
-          />
+      <div className={styles.canvasColumn}>
+        <div className={styles.debug}>
+          nodes:{nodesData.length} · edges:{edgesData.length} · viewNodes:{flowNodes.length} · viewEdges:{edges.length} ·
+          edit:{editMode ? 'on' : 'off'} · admin:{isAdmin ? 'yes' : 'no'} ·
+          types:{Array.from(new Set(edgesData.map((e) => (e.connection_type || 'flow')))).join(',')}
         </div>
-      ) : null}
-      <ReactFlow
-        className={styles.flow}
-        nodes={flowNodes}
-        onNodesChange={onNodesChange}
-        edges={edges}
-        edgeTypes={edgeTypes}
-        nodeTypes={{
-          seder: SederNodeWrapper,
-          note: NoteNode,
-          domain: DomainNode,
-        }}
+        {isAdmin ? (
+          <div className={styles.sidePanel}>
+            <EditToolbar
+              isAdmin={isAdmin}
+              editMode={editMode}
+              edgeType={edgeType}
+              nodeTypes={NODE_TYPES}
+              onToggleEdit={() => setEditMode((v) => !v)}
+              onAddNode={handleAddNode}
+              onAddNote={handleAddNote}
+              onAddDomain={handleAddDomain}
+              onEdgeTypeChange={setEdgeType}
+            />
+            <InspectorPanel
+              selected={selected}
+              form={form}
+              nodeTypes={NODE_TYPES}
+              domains={domainsData}
+              onChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
+              onSave={saveSelection}
+              onDelete={deleteSelection}
+            />
+          </div>
+        ) : null}
+        <ReactFlow
+          className={styles.flow}
+          nodes={flowNodes}
+          onNodesChange={(changes) => {
+            onNodesChange(changes);
+            if (!editMode || !isAdmin) return;
+            for (const change of changes) {
+              if (change.type !== 'dimensions' || change.resizing) continue;
+              const nodeId = String(change.id);
+              const width = change.dimensions?.width;
+              const height = change.dimensions?.height;
+              if (nodeId.startsWith('note-')) {
+                const noteId = nodeId.slice(5);
+                setNotesData((prev) =>
+                  prev.map((n) =>
+                    String(n.id) === noteId ? { ...n, width: width ?? n.width, height: height ?? n.height } : n,
+                  ),
+                );
+                void api.updateSederNote(noteId, { width, height });
+              } else if (nodeId.startsWith('domain-')) {
+                const domainId = nodeId.slice(7);
+                setDomainsData((prev) =>
+                  prev.map((d) =>
+                    String(d.id) === domainId ? { ...d, width: width ?? d.width, height: height ?? d.height } : d,
+                  ),
+                );
+                void api.updateSederDomain(domainId, { width, height });
+              }
+            }
+          }}
+          edges={edges}
+          edgeTypes={edgeTypes}
+          nodeTypes={{
+            seder: SederNodeWrapper,
+            note: NoteNode,
+            domain: DomainNode,
+          }}
         onConnect={editMode && isAdmin ? handleConnect : undefined}
-        onNodeClick={isAdmin ? handleSelect : undefined}
+        onNodeClick={handleSelect}
         onPaneClick={handlePaneClick}
         onNodeDragStart={editMode && isAdmin ? handleNodeDragStart : undefined}
-        onNodeDragStop={editMode && isAdmin ? handleNodeDragStop : undefined}
-        onNodeResizeEnd={editMode && isAdmin ? handleNodeDragStop : undefined}
-        nodesDraggable={editMode && isAdmin}
-        panOnDrag={!editMode}
-        snapToGrid={editMode && isAdmin}
-        snapGrid={snapGrid}
-        fitView
-        defaultEdgeOptions={{ type: 'flow' }}
-      >
-        <Background variant="dots" gap={22} size={1} color="var(--map-grid)" />
-        <Controls />
-      </ReactFlow>
-      {loading ? (
-        <div className={styles.debug}>Загрузка...</div>
-      ) : null}
-      {error ? (
-        <div className={styles.debug}>{error}</div>
-      ) : null}
+        onNodeDragStop={editMode && isAdmin ? handleNodeDragEnd : undefined}
+          nodesDraggable={editMode && isAdmin}
+          panOnDrag={!editMode}
+          snapToGrid={editMode && isAdmin}
+          snapGrid={snapGrid}
+          fitView
+          defaultEdgeOptions={{ type: 'flow' }}
+        >
+          <Background variant="dots" gap={22} size={1} color="var(--map-grid)" />
+          <Controls />
+        </ReactFlow>
+        {loading ? (
+          <div className={styles.debug}>Загрузка...</div>
+        ) : null}
+        {error ? (
+          <div className={styles.debug}>{error}</div>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -16,7 +16,9 @@ marked.setOptions({
 export default function Markdown({ content, className, dir = 'auto' }: MarkdownProps) {
   const html = useMemo(() => {
     const raw = marked.parse(content || '') as string;
-    return DOMPurify.sanitize(raw);
+    return DOMPurify.sanitize(raw, {
+      ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|node):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    });
   }, [content]);
 
   return (

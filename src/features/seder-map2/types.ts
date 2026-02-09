@@ -5,6 +5,7 @@ export type MapNode = {
   title_he?: string | null;
   title_ru?: string | null;
   node_type?: string | null;
+  article_id?: string | null;
   domain_id?: string | null;
   spine_parent_id?: string | null;
   definition_id?: string | null;
