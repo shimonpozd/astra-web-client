@@ -659,33 +659,42 @@ function Map2Canvas() {
         <ReactFlow
           className={styles.flow}
           nodes={flowNodes}
-          onNodesChange={(changes) => {
-            onNodesChange(changes);
-            if (!editMode || !isAdmin) return;
-            for (const change of changes) {
-              if (change.type !== 'dimensions' || change.resizing) continue;
-              const nodeId = String(change.id);
-              const width = change.dimensions?.width;
-              const height = change.dimensions?.height;
-              if (nodeId.startsWith('note-')) {
-                const noteId = nodeId.slice(5);
-                setNotesData((prev) =>
-                  prev.map((n) =>
-                    String(n.id) === noteId ? { ...n, width: width ?? n.width, height: height ?? n.height } : n,
-                  ),
-                );
-                void api.updateSederNote(noteId, { width, height });
-              } else if (nodeId.startsWith('domain-')) {
-                const domainId = nodeId.slice(7);
-                setDomainsData((prev) =>
-                  prev.map((d) =>
-                    String(d.id) === domainId ? { ...d, width: width ?? d.width, height: height ?? d.height } : d,
-                  ),
-                );
-                void api.updateSederDomain(domainId, { width, height });
+        onNodesChange={(changes) => {
+          onNodesChange(changes);
+          if (!editMode || !isAdmin) return;
+          for (const change of changes) {
+            if (change.type !== 'dimensions' || change.resizing) continue;
+            const nodeId = String(change.id);
+            const width = change.dimensions?.width;
+            const height = change.dimensions?.height;
+            if (typeof width !== 'number' || typeof height !== 'number') continue;
+            if (nodeId.startsWith('note-')) {
+              const noteId = nodeId.slice(5);
+              const existing = notesData.find((n) => String(n.id) === noteId);
+              if (existing && existing.width === width && existing.height === height) {
+                continue;
               }
+              setNotesData((prev) =>
+                prev.map((n) =>
+                  String(n.id) === noteId ? { ...n, width: width ?? n.width, height: height ?? n.height } : n,
+                ),
+              );
+              void api.updateSederNote(noteId, { width, height });
+            } else if (nodeId.startsWith('domain-')) {
+              const domainId = nodeId.slice(7);
+              const existing = domainsData.find((d) => String(d.id) === domainId);
+              if (existing && existing.width === width && existing.height === height) {
+                continue;
+              }
+              setDomainsData((prev) =>
+                prev.map((d) =>
+                  String(d.id) === domainId ? { ...d, width: width ?? d.width, height: height ?? d.height } : d,
+                ),
+              );
+              void api.updateSederDomain(domainId, { width, height });
             }
-          }}
+          }
+        }}
           edges={edges}
           edgeTypes={edgeTypes}
           nodeTypes={{
