@@ -129,6 +129,7 @@ function Map2Canvas() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [eraseMode, setEraseMode] = useState(false);
   const [edgeType, setEdgeType] = useState<'flow' | 'becomes' | 'contains' | 'reference'>('flow');
   const [selected, setSelected] = useState<SelectedTarget>(null);
   const [form, setForm] = useState<InspectorForm>({
@@ -304,6 +305,15 @@ function Map2Canvas() {
         setError(err?.message ?? 'Не удалось создать связь');
       });
     return localEdge;
+  };
+
+  const handleEdgeClick = (_: unknown, edge: Edge) => {
+    if (!editMode || !isAdmin || !eraseMode) return;
+    setEdgesData((prev) => prev.filter((e) => String(e.id) !== String(edge.id)));
+    if (String(edge.id).startsWith('temp-')) return;
+    api.deleteSederEdge(String(edge.id)).catch((err: any) => {
+      setError(err?.message ?? 'Не удалось удалить связь');
+    });
   };
 
   const handleAddNode = (typeId: string) => {
@@ -627,24 +637,27 @@ function Map2Canvas() {
         />
       </div>
       <div className={styles.canvasColumn}>
-        <div className={styles.debug}>
-          nodes:{nodesData.length} · edges:{edgesData.length} · viewNodes:{flowNodes.length} · viewEdges:{edges.length} ·
-          edit:{editMode ? 'on' : 'off'} · admin:{isAdmin ? 'yes' : 'no'} ·
-          types:{Array.from(new Set(edgesData.map((e) => (e.connection_type || 'flow')))).join(',')}
-        </div>
-        {isAdmin ? (
-          <div className={styles.sidePanel}>
-            <EditToolbar
-              isAdmin={isAdmin}
-              editMode={editMode}
-              edgeType={edgeType}
-              nodeTypes={NODE_TYPES}
-              onToggleEdit={() => setEditMode((v) => !v)}
-              onAddNode={handleAddNode}
-              onAddNote={handleAddNote}
-              onAddDomain={handleAddDomain}
-              onEdgeTypeChange={setEdgeType}
-            />
+      {isAdmin ? (
+        <div className={styles.sidePanel}>
+          <EditToolbar
+            isAdmin={isAdmin}
+            editMode={editMode}
+            eraseMode={eraseMode}
+            edgeType={edgeType}
+            nodeTypes={NODE_TYPES}
+            onToggleEdit={() =>
+              setEditMode((v) => {
+                const next = !v;
+                if (!next) setEraseMode(false);
+                return next;
+              })
+            }
+            onToggleErase={() => setEraseMode((v) => !v)}
+            onAddNode={handleAddNode}
+            onAddNote={handleAddNote}
+            onAddDomain={handleAddDomain}
+            onEdgeTypeChange={setEdgeType}
+          />
             <InspectorPanel
               selected={selected}
               form={form}
@@ -697,11 +710,12 @@ function Map2Canvas() {
         }}
           edges={edges}
           edgeTypes={edgeTypes}
-          nodeTypes={{
-            seder: SederNodeWrapper,
-            note: NoteNode,
-            domain: DomainNode,
-          }}
+        nodeTypes={{
+          seder: SederNodeWrapper,
+          note: NoteNode,
+          domain: DomainNode,
+        }}
+        onEdgeClick={handleEdgeClick}
         onConnect={editMode && isAdmin ? handleConnect : undefined}
         onNodeClick={handleSelect}
         onPaneClick={handlePaneClick}
@@ -717,12 +731,6 @@ function Map2Canvas() {
           <Background variant="dots" gap={22} size={1} color="var(--map-grid)" />
           <Controls />
         </ReactFlow>
-        {loading ? (
-          <div className={styles.debug}>Загрузка...</div>
-        ) : null}
-        {error ? (
-          <div className={styles.debug}>{error}</div>
-        ) : null}
       </div>
     </div>
   );
