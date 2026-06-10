@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react
 import { StudySnapshot } from '../../types/study';
 import { ContinuousText, TextSegment, ChapterNavigation } from '../../types/text';
 const FocusReader = lazy(() => import('./FocusReader'));
+import { TraditionalTalmudDaf } from './TraditionalTalmudDaf';
 import ChatViewport from '../chat/ChatViewport';
 import MessageComposer from '../chat/MessageComposer';
 import WorkbenchPanelInline from './WorkbenchPanelInline';
@@ -217,7 +218,7 @@ interface StudyModeProps {
   showRightPanel?: boolean;
   onToggleLeftPanel?: () => void;
   onToggleRightPanel?: () => void;
-  layoutVariant?: 'classic' | 'stacked';
+  layoutVariant?: 'classic' | 'stacked' | 'traditional';
   showChatPanel?: boolean;
   currentPersona?: Persona;
   availablePersonas?: Persona[];
@@ -516,25 +517,34 @@ export default function StudyMode({
                   }}
                 >
                   <Suspense fallback={null}>
-                    <FocusReader
-                      continuousText={continuousText}
-                      isLoading={isLoading}
-                      onNavigateToRef={onNavigateToRef}
-                      onLexiconDoubleClick={handleLexiconDoubleClick}
-                      isDailyMode={studySessionId?.startsWith('daily-') || false}
-                      isBackgroundLoading={isBackgroundLoading}
-                      onBack={onNavigateBack}
-                      onForward={onNavigateForward}
-                      onExit={onExit}
-                      currentRef={snapshot?.ref}
-                      canBack={canNavigateBack}
-                      canForward={canNavigateForward}
-                      onToggleLeftPanel={handleToggleLeftPanel}
-                      onToggleRightPanel={handleToggleRightPanel}
-                      showLeftPanel={leftPanelIsVisible}
-                      showRightPanel={rightPanelIsVisible}
-                      sessionId={studySessionId}
-                    />
+                    {layoutVariant === 'traditional' ? (
+                      <TraditionalTalmudDaf
+                        dafRef={snapshot?.ref || ''}
+                        segments={snapshot?.segments || []}
+                        onSegmentClick={(ref) => onNavigateToRef?.(ref)}
+                        onLexiconDoubleClick={handleLexiconDoubleClick as any}
+                      />
+                    ) : (
+                      <FocusReader
+                        continuousText={continuousText}
+                        isLoading={isLoading}
+                        onNavigateToRef={onNavigateToRef}
+                        onLexiconDoubleClick={handleLexiconDoubleClick}
+                        isDailyMode={studySessionId?.startsWith('daily-') || false}
+                        isBackgroundLoading={isBackgroundLoading}
+                        onBack={onNavigateBack}
+                        onForward={onNavigateForward}
+                        onExit={onExit}
+                        currentRef={snapshot?.ref}
+                        canBack={canNavigateBack}
+                        canForward={canNavigateForward}
+                        onToggleLeftPanel={handleToggleLeftPanel}
+                        onToggleRightPanel={handleToggleRightPanel}
+                        showLeftPanel={leftPanelIsVisible}
+                        showRightPanel={rightPanelIsVisible}
+                        sessionId={studySessionId}
+                      />
+                    )}
                   </Suspense>
                 </div>
 
@@ -634,25 +644,34 @@ export default function StudyMode({
                   }}
                 >
                   <Suspense fallback={null}>
-                    <FocusReader
-                      continuousText={continuousText}
-                      isLoading={isLoading}
-                      onNavigateToRef={onNavigateToRef}
-                      onLexiconDoubleClick={handleLexiconDoubleClick}
-                      isDailyMode={studySessionId?.startsWith('daily-') || false}
-                      isBackgroundLoading={isBackgroundLoading}
-                      onBack={onNavigateBack}
-                      onForward={onNavigateForward}
-                      onExit={onExit}
-                      currentRef={snapshot?.ref}
-                      canBack={canNavigateBack}
-                      canForward={canNavigateForward}
-                      onToggleLeftPanel={handleToggleLeftPanel}
-                      onToggleRightPanel={handleToggleRightPanel}
-                      showLeftPanel={leftPanelIsVisible}
-                      showRightPanel={rightPanelIsVisible}
-                      sessionId={studySessionId}
-                    />
+                    {layoutVariant === 'traditional' ? (
+                      <TraditionalTalmudDaf
+                        dafRef={snapshot?.ref || ''}
+                        segments={snapshot?.segments || []}
+                        onSegmentClick={(ref) => onNavigateToRef?.(ref)}
+                        onLexiconDoubleClick={handleLexiconDoubleClick as any}
+                      />
+                    ) : (
+                      <FocusReader
+                        continuousText={continuousText}
+                        isLoading={isLoading}
+                        onNavigateToRef={onNavigateToRef}
+                        onLexiconDoubleClick={handleLexiconDoubleClick}
+                        isDailyMode={studySessionId?.startsWith('daily-') || false}
+                        isBackgroundLoading={isBackgroundLoading}
+                        onBack={onNavigateBack}
+                        onForward={onNavigateForward}
+                        onExit={onExit}
+                        currentRef={snapshot?.ref}
+                        canBack={canNavigateBack}
+                        canForward={canNavigateForward}
+                        onToggleLeftPanel={handleToggleLeftPanel}
+                        onToggleRightPanel={handleToggleRightPanel}
+                        showLeftPanel={leftPanelIsVisible}
+                        showRightPanel={rightPanelIsVisible}
+                        sessionId={studySessionId}
+                      />
+                    )}
                   </Suspense>
                 </div>
 

@@ -17,4 +17,12 @@ export function formatHebrewText(text: string): string {
     .replace(/\u200F/g, '') // Удаляем RLM
     .replace(/\u200E/g, '') // Удаляем LRM
     .trim();
-}
+  }
+
+  export function stripHebrewVowels(text: string): string {
+  return text.replace(/[\u05B0-\u05C7]/g, '');
+  }
+
+  export function stripPunctuation(text: string): string {
+  return text.replace(/["'\"().,!?;:\-\[\]{}]/g, '');
+  }

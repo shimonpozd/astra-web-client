@@ -576,6 +576,19 @@ async function getLexicon(word: string): Promise<any> {
   }
 }
 
+async function getTalmudComments(ref: string): Promise<any> {
+  try {
+    const response = await authorizedFetch(`${API_BASE}/study/talmud/comments?ref=${encodeURIComponent(ref)}`);
+    if (!response.ok) {
+      throw new Error('Failed to get Talmud comments');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`Failed to get Talmud comments for ${ref}:`, error);
+    throw error;
+  }
+}
+
 async function getBookshelfCategories(): Promise<Array<{name: string; color: string}>> {
   try {
     const response = await authorizedFetch(`${API_BASE}/study/categories`);
@@ -2080,6 +2093,7 @@ export const api = {
   navigateForward,
   getStudyState,
   getLexicon,
+  getTalmudComments,
   getBookshelfCategories,
   getBookshelfItems,
   getProfile,

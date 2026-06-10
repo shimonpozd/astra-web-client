@@ -347,29 +347,34 @@ export function ChatLayout() {
 
   const sidebarColumnWidth = sidebarMode === 'compact' ? '64px' : '320px';
   const isVerticalLayout = mode === 'vertical_three' && isStudyActive;
+  const isTraditionalDaf = mode === 'traditional_daf' && isStudyActive;
+  
   const cols: string[] = [];
-  if (!isVerticalLayout) {
+  if (!isVerticalLayout && !isTraditionalDaf) {
     if (isSidebarVisible) cols.push(sidebarColumnWidth);
     if (isChatAreaVisible) cols.push('1fr');
     if (isStudyActive && isChatAreaVisible) cols.push('400px');
   }
   const gridCols = cols.join(' ') || '1fr';
+  
   const verticalColumns: string[] = [];
   if (isSidebarVisible) {
     verticalColumns.push(sidebarColumnWidth);
   }
-  if (isChatAreaVisible) {
+  if (isChatAreaVisible && !isTraditionalDaf) {
     verticalColumns.push('minmax(360px, 1fr)');
   }
   verticalColumns.push('minmax(560px, 1.25fr)');
-  verticalColumns.push('400px');
+  if (!isTraditionalDaf) {
+    verticalColumns.push('400px');
+  }
   const verticalGridTemplate = verticalColumns.join(' ');
 
   return (
     <div className="h-screen w-full flex flex-col overflow-hidden">
       <TopBar />
 
-      {isVerticalLayout ? (
+      {isVerticalLayout || isTraditionalDaf ? (
         <div className="flex-1 min-h-0 grid overflow-hidden" style={{ gridTemplateColumns: verticalGridTemplate }}>
           {isSidebarVisible && (
             <div className="min-h-0 bg-background overflow-hidden h-full">
@@ -390,7 +395,7 @@ export function ChatLayout() {
             </div>
           )}
 
-          {isChatAreaVisible && (
+          {isChatAreaVisible && !isTraditionalDaf && (
             <div className="min-h-0 flex flex-col border-r border-border/20 bg-background">
               {isStudyActive ? (
                 <Suspense fallback={null}>
@@ -466,35 +471,38 @@ export function ChatLayout() {
                 selectedPanelId={selectedPanelId}
                 onSelectedPanelChange={() => {}}
                 isBackgroundLoading={isBackgroundLoading}
-                layoutVariant="stacked"
-                showChatPanel={false}
-                showLeftPanel={leftWorkbenchVisible}
-                showRightPanel={rightWorkbenchVisible}
+                layoutVariant={isTraditionalDaf ? "traditional" : "stacked"}
+                showChatPanel={isTraditionalDaf}
+                showLeftPanel={isTraditionalDaf ? false : leftWorkbenchVisible}
+                showRightPanel={isTraditionalDaf ? false : rightWorkbenchVisible}
                 onToggleLeftPanel={handleToggleLeftWorkbench}
                 onToggleRightPanel={handleToggleRightWorkbench}
                 currentPersona={currentPersona}
                 availablePersonas={personas}
                 onPersonaChange={setAgentId}
               />
+
             </Suspense>
           </div>
 
-          <div className="min-h-0 overflow-hidden bg-background">
-            <Suspense fallback={null}>
-              <BookshelfPanel
-                sessionId={studySessionId || undefined}
-                currentRef={getCurrentRefForBookshelf()}
-                onDragStart={(ref) => debugLog('Dragging from bookshelf:', ref)}
-                onItemClick={(item) => debugLog('Clicked bookshelf item:', item)}
-                onAddToWorkbench={async (ref, side) => {
-                  if (side) {
-                    await workbenchSet(side, ref);
-                  }
-                }}
-                studySnapshot={studySnapshot}
-              />
-            </Suspense>
-          </div>
+          {!isTraditionalDaf && (
+            <div className="min-h-0 overflow-hidden bg-background">
+              <Suspense fallback={null}>
+                <BookshelfPanel
+                  sessionId={studySessionId || undefined}
+                  currentRef={getCurrentRefForBookshelf()}
+                  onDragStart={(ref) => debugLog('Dragging from bookshelf:', ref)}
+                  onItemClick={(item) => debugLog('Clicked bookshelf item:', item)}
+                  onAddToWorkbench={async (ref, side) => {
+                    if (side) {
+                      await workbenchSet(side, ref);
+                    }
+                  }}
+                  studySnapshot={studySnapshot}
+                />
+              </Suspense>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex-1 min-h-0 grid overflow-hidden" style={{ gridTemplateColumns: gridCols }}>
@@ -547,7 +555,7 @@ export function ChatLayout() {
                       selectedPanelId={selectedPanelId}
                       onSelectedPanelChange={() => {}}
                       isBackgroundLoading={isBackgroundLoading}
-                      layoutVariant="classic"
+                      layoutVariant={isTraditionalDaf ? "traditional" : "classic"}
                       showLeftPanel={leftWorkbenchVisible}
                       showRightPanel={rightWorkbenchVisible}
                       onToggleLeftPanel={handleToggleLeftWorkbench}

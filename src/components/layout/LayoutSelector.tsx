@@ -1,4 +1,4 @@
-import { Check, ChevronDown, LayoutDashboard, PanelRight } from 'lucide-react';
+import { Check, ChevronDown, LayoutDashboard, PanelRight, Columns } from 'lucide-react';
 
 import {
   DropdownMenu,
@@ -29,6 +29,11 @@ const layoutOptions: Array<{
     value: 'vertical_three',
     icon: PanelRight,
     label: 'Три панели',
+  },
+  {
+    value: 'traditional_daf',
+    icon: Columns,
+    label: 'Традиционный даф',
   },
 ];
 

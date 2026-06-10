@@ -11,6 +11,30 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Vilna';
+  src: url('/fonts/vilna.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Rashi';
+  src: url('/fonts/rashi.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-vilna {
+  font-family: 'Vilna', 'Mugrabi', serif;
+}
+
+.font-rashi {
+  font-family: 'Rashi', 'Noto Rashi Hebrew', serif;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

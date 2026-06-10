@@ -2,7 +2,8 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 
 export type StudyLayoutMode =
   | 'talmud_default'                 // left workbench + focus + right workbench (current)
-  | 'vertical_three'; // chat left, focus+commentary center, bookshelf right
+  | 'vertical_three' // chat left, focus+commentary center, bookshelf right
+  | 'traditional_daf'; // Classical Tzurath ha-Daf layout
 
 interface LayoutContextValue {
   mode: StudyLayoutMode;

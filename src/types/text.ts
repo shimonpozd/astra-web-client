@@ -3,6 +3,9 @@ export interface TextSegment {
   ref: string;
   text: string;
   heText?: string;
+  enText?: string;
+  en_text?: string;
+  he_text?: string;
   position: number; // Позиция в общем тексте (0-1)
   type: 'context' | 'focus' | 'commentary';
   metadata?: {
