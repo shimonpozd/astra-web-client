@@ -188,7 +188,7 @@ export const highlightDhInGemara = (
     result = replaceOutsideTags(result, rx, (match) => {
       const isRashi = item.comment.commentator.toLowerCase().includes('rashi');
       const commentatorClass = isRashi ? 'dh-rashi' : 'dh-tosafot';
-      return `<span class="highlight-dh ${commentatorClass} cursor-pointer bg-amber-500/20 dark:bg-amber-400/20 hover:bg-amber-500/40 border-b border-dashed border-amber-600 px-0.5 rounded-sm transition-all select-text" data-comment-ref="${escapeAttr(item.comment.ref)}">${match}</span>`;
+      return `<span class="highlight-dh ${commentatorClass}" data-comment-ref="${escapeAttr(item.comment.ref)}">${match}</span>`;
     });
   }
   
@@ -507,7 +507,9 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     
     // Parse Dibbur Hamatkhil inline
     const { dh, restHtml } = parseCommentDh(comment.he);
-    const highlightedRest = renderHighlightedText(restHtml, compiledSageHighlights, compiledConceptHighlights);
+    const highlightedRest = isActive
+      ? renderHighlightedText(restHtml, compiledSageHighlights, compiledConceptHighlights)
+      : restHtml;
 
     return (
       <div 
@@ -515,7 +517,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
         ref={el => refs.current[comment.ref] = el}
         className={cn(
           "mb-3 p-1 transition-all font-rashi text-right text-lg leading-relaxed text-justify cursor-text select-text rounded",
-          isActive ? "bg-primary/10 opacity-100" : "opacity-70 hover:opacity-100",
+          isActive ? "bg-primary/[0.05] opacity-100" : "opacity-70 hover:opacity-100",
           isHighlighted && "bg-amber-500/30 dark:bg-amber-500/20 ring-2 ring-amber-500/50 duration-300"
         )}
         style={{ textAlignLast: 'right' }}
@@ -843,7 +845,9 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                 // Highlight DH in Gemara segment
                 const segmentComments = comments.filter(c => c.anchorRef === segment.ref);
                 const withDh = highlightDhInGemara(processed, segmentComments);
-                const htmlToRender = `${renderHighlightedText(withDh, compiledSageHighlights, compiledConceptHighlights)}${idx < segments.length - 1 ? ' ' : ''}`;
+                const htmlToRender = isActive
+                  ? `${renderHighlightedText(withDh, compiledSageHighlights, compiledConceptHighlights)}${idx < segments.length - 1 ? ' ' : ''}`
+                  : `${withDh}${idx < segments.length - 1 ? ' ' : ''}`;
 
                 return (
                   <span 
@@ -852,7 +856,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                     className={cn(
                       "cursor-pointer transition-all duration-300 select-text",
                       activeSegmentRef 
-                        ? (isActive ? "opacity-100 bg-primary/10 rounded-sm" : "text-stone-400 dark:text-stone-500 opacity-80")
+                        ? (isActive ? "opacity-100 bg-primary/[0.05] rounded-sm" : "text-stone-400 dark:text-stone-500 opacity-80")
                         : "opacity-100 hover:bg-primary/5 rounded-sm"
                     )}
                     onClick={(e) => handleGemaraClick(e, segment.ref)}

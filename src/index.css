@@ -843,24 +843,51 @@
   box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.55);
 }
 .highlight-sage {
-  background: color-mix(in srgb, #f7d674 26%, transparent);
-  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.35);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: 2px;
   color: inherit;
+  transition: all 0.2s ease;
 }
 .highlight-sage-zugot {
-  background: color-mix(in srgb, #f7d674 32%, transparent);
+  border-color: color-mix(in srgb, #f7d674 60%, transparent);
 }
 .highlight-sage-tannaim {
-  background: color-mix(in srgb, #8ec5ff 24%, transparent);
+  border-color: color-mix(in srgb, #8ec5ff 60%, transparent);
 }
 .highlight-sage-amoraim {
-  background: color-mix(in srgb, #77e2c1 22%, transparent);
+  border-color: color-mix(in srgb, #77e2c1 60%, transparent);
 }
 .highlight-sage-achronim {
-  background: color-mix(in srgb, #ff9aa2 22%, transparent);
+  border-color: color-mix(in srgb, #ff9aa2 60%, transparent);
 }
 .highlight-concept {
-  background: color-mix(in srgb, #c8b8ff 24%, transparent);
-  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.35);
+  background: color-mix(in srgb, #c8b8ff 10%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, #c8b8ff 60%, transparent);
+  border-radius: 2px;
   color: inherit;
+  transition: all 0.2s ease;
+}
+.highlight-dh {
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 0 2px;
+  transition: all 0.2s ease;
+  user-select: text;
+}
+.highlight-dh.dh-rashi {
+  background-color: color-mix(in srgb, #d97706 6%, transparent);
+  border-bottom: 1px dotted color-mix(in srgb, #d97706 45%, transparent);
+}
+.highlight-dh.dh-rashi:hover {
+  background-color: color-mix(in srgb, #d97706 18%, transparent);
+  border-bottom-color: #d97706;
+}
+.highlight-dh.dh-tosafot {
+  background-color: color-mix(in srgb, #2563eb 6%, transparent);
+  border-bottom: 1px dotted color-mix(in srgb, #2563eb 45%, transparent);
+}
+.highlight-dh.dh-tosafot:hover {
+  background-color: color-mix(in srgb, #2563eb 18%, transparent);
+  border-bottom-color: #2563eb;
 }
