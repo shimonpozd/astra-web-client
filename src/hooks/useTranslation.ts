@@ -3,7 +3,7 @@ import { debugLog, debugWarn } from '../utils/debugLogger';
 import { authorizedFetch } from '../lib/authorizedFetch';
 
 // Cache store for translations - persists across component re-renders
-const translationCache = new Map<string, string>();
+export const translationCache = new Map<string, string>();
 
 interface UseTranslationProps {
   tref: string;  // Text reference (e.g., "Genesis 1:1" or "Rashi on Genesis 1:1:1")

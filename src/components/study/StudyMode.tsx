@@ -7,6 +7,8 @@ import ChatViewport from '../chat/ChatViewport';
 import MessageComposer from '../chat/MessageComposer';
 import WorkbenchPanelInline from './WorkbenchPanelInline';
 import { api } from '../../services/api';
+import { fetchConceptHighlights, fetchSageHighlights } from '../../services/highlight';
+import { ConceptHighlight, SageHighlight } from '../../types/highlight';
 import { useLexiconStore } from '../../store/lexiconStore';
 import { Message } from '../../services/api';
 import { debugLog } from '../../utils/debugLogger';
@@ -223,6 +225,8 @@ interface StudyModeProps {
   currentPersona?: Persona;
   availablePersonas?: Persona[];
   onPersonaChange?: (persona: Persona) => void;
+  isTraditionalFullscreen?: boolean;
+  onToggleTraditionalFullscreen?: () => void;
 }
 
 export default function StudyMode({
@@ -260,11 +264,35 @@ export default function StudyMode({
   currentPersona,
   availablePersonas,
   onPersonaChange,
+  isTraditionalFullscreen = false,
+  onToggleTraditionalFullscreen
 }: StudyModeProps) {
   // Use props if provided, otherwise fall back to local state
   const [localSelectedPanelId, setLocalSelectedPanelId] = useState<string | null>(null);
   const selectedPanelId = propSelectedPanelId !== undefined ? propSelectedPanelId : localSelectedPanelId;
   const setSelectedPanelId = onSelectedPanelChange || setLocalSelectedPanelId;
+
+  const [sageHighlights, setSageHighlights] = useState<SageHighlight[]>([]);
+  const [conceptHighlights, setConceptHighlights] = useState<ConceptHighlight[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const [sages, concepts] = await Promise.all([fetchSageHighlights(), fetchConceptHighlights()]);
+        console.log('[StudyMode] fetch result counts:', { sages: sages?.length, concepts: concepts?.length });
+        if (!active) return;
+        setSageHighlights(sages);
+        setConceptHighlights(concepts);
+      } catch (err) {
+        console.warn('[StudyMode] Failed to load highlights:', err);
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, []);
   
   // New lexicon system using global store
   const { setSelection, fetchExplanation } = useLexiconStore();
@@ -335,25 +363,39 @@ export default function StudyMode({
   const composerLayoutMode: 'horizontal' | 'vertical' = isStackedLayout ? 'vertical' : 'horizontal';
 
   // New lexicon double-click handler using global store
-  const handleLexiconDoubleClick = async (segment?: TextSegment) => {
-    const selected = (window.getSelection()?.toString() || '').trim();
-    const fallback = segment?.heText || segment?.text || '';
-    const contextRaw = fallback || selected || '';
-    const context = contextRaw
-      ? contextRaw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const handleLexiconDoubleClick = async (
+    target?: TextSegment | string,
+    customContext?: string
+  ) => {
+    let selected = (window.getSelection()?.toString() || '').trim();
+    let context = '';
+    
+    if (typeof target === 'object' && target !== null) {
+      // It's a TextSegment (from FocusReader)
+      const fallback = target.heText || target.text || '';
+      context = fallback || selected || '';
+    } else if (typeof target === 'string') {
+      // It's a pre-extracted word (or target string)
+      if (target.trim()) {
+        selected = target.trim();
+      }
+      context = customContext || selected || '';
+    } else {
+      context = selected;
+    }
+
+    const contextClean = context
+      ? context.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
       : '';
 
-    const rawText = selected || fallback;
-    if (!rawText) return;
-
-    const cleanText = rawText
+    const cleanText = selected
       .replace(/[֑-ׇ]/g, '')
       .replace(/["'""().,!?;:\-\[\]{}]/g, '')
       .trim();
 
     if (!cleanText) return;
 
-    setSelection(cleanText, context || null);
+    setSelection(cleanText, contextClean || null);
     await fetchExplanation();
   };
 
@@ -523,6 +565,10 @@ export default function StudyMode({
                         segments={snapshot?.segments || []}
                         onSegmentClick={(ref) => onNavigateToRef?.(ref)}
                         onLexiconDoubleClick={handleLexiconDoubleClick as any}
+                        sageHighlights={sageHighlights}
+                        conceptHighlights={conceptHighlights}
+                        isFullscreen={isTraditionalFullscreen}
+                        onToggleFullscreen={onToggleTraditionalFullscreen}
                       />
                     ) : (
                       <FocusReader
@@ -650,6 +696,10 @@ export default function StudyMode({
                         segments={snapshot?.segments || []}
                         onSegmentClick={(ref) => onNavigateToRef?.(ref)}
                         onLexiconDoubleClick={handleLexiconDoubleClick as any}
+                        sageHighlights={sageHighlights}
+                        conceptHighlights={conceptHighlights}
+                        isFullscreen={isTraditionalFullscreen}
+                        onToggleFullscreen={onToggleTraditionalFullscreen}
                       />
                     ) : (
                       <FocusReader

@@ -29,6 +29,7 @@ export function ChatLayout() {
   const location = useLocation();
   const [isSidebarVisible] = useState(true);
   const [isChatAreaVisible] = useState(true);
+  const [isTraditionalFullscreen, setIsTraditionalFullscreen] = useState(false);
   const [agentId, setAgentId] = useState<string>(() => {
     return localStorage.getItem("astra_agent_id") || "default";
   });
@@ -348,17 +349,18 @@ export function ChatLayout() {
   const sidebarColumnWidth = sidebarMode === 'compact' ? '64px' : '320px';
   const isVerticalLayout = mode === 'vertical_three' && isStudyActive;
   const isTraditionalDaf = mode === 'traditional_daf' && isStudyActive;
+  const actualSidebarVisible = isSidebarVisible && !(isTraditionalDaf && isTraditionalFullscreen);
   
   const cols: string[] = [];
   if (!isVerticalLayout && !isTraditionalDaf) {
-    if (isSidebarVisible) cols.push(sidebarColumnWidth);
+    if (actualSidebarVisible) cols.push(sidebarColumnWidth);
     if (isChatAreaVisible) cols.push('1fr');
     if (isStudyActive && isChatAreaVisible) cols.push('400px');
   }
   const gridCols = cols.join(' ') || '1fr';
   
   const verticalColumns: string[] = [];
-  if (isSidebarVisible) {
+  if (actualSidebarVisible) {
     verticalColumns.push(sidebarColumnWidth);
   }
   if (isChatAreaVisible && !isTraditionalDaf) {
@@ -376,7 +378,7 @@ export function ChatLayout() {
 
       {isVerticalLayout || isTraditionalDaf ? (
         <div className="flex-1 min-h-0 grid overflow-hidden" style={{ gridTemplateColumns: verticalGridTemplate }}>
-          {isSidebarVisible && (
+          {actualSidebarVisible && (
             <div className="min-h-0 bg-background overflow-hidden h-full">
               <Suspense fallback={null}>
                 <ChatSidebar
@@ -472,7 +474,7 @@ export function ChatLayout() {
                 onSelectedPanelChange={() => {}}
                 isBackgroundLoading={isBackgroundLoading}
                 layoutVariant={isTraditionalDaf ? "traditional" : "stacked"}
-                showChatPanel={isTraditionalDaf}
+                showChatPanel={isTraditionalDaf && !isTraditionalFullscreen}
                 showLeftPanel={isTraditionalDaf ? false : leftWorkbenchVisible}
                 showRightPanel={isTraditionalDaf ? false : rightWorkbenchVisible}
                 onToggleLeftPanel={handleToggleLeftWorkbench}
@@ -480,6 +482,8 @@ export function ChatLayout() {
                 currentPersona={currentPersona}
                 availablePersonas={personas}
                 onPersonaChange={setAgentId}
+                isTraditionalFullscreen={isTraditionalFullscreen}
+                onToggleTraditionalFullscreen={() => setIsTraditionalFullscreen(!isTraditionalFullscreen)}
               />
 
             </Suspense>
@@ -506,7 +510,7 @@ export function ChatLayout() {
         </div>
       ) : (
         <div className="flex-1 min-h-0 grid overflow-hidden" style={{ gridTemplateColumns: gridCols }}>
-          {isSidebarVisible && (
+          {actualSidebarVisible && (
             <Suspense fallback={null}>
               <div className="h-full min-h-0 overflow-hidden">
                 <ChatSidebar
@@ -563,6 +567,8 @@ export function ChatLayout() {
                       currentPersona={currentPersona}
                       availablePersonas={personas}
                       onPersonaChange={setAgentId}
+                      isTraditionalFullscreen={isTraditionalFullscreen}
+                      onToggleTraditionalFullscreen={() => setIsTraditionalFullscreen(!isTraditionalFullscreen)}
                     />
                   </Suspense>
                 ) : (
