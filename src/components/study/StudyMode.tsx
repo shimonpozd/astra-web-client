@@ -564,11 +564,13 @@ export default function StudyMode({
                         dafRef={snapshot?.ref || ''}
                         segments={snapshot?.segments || []}
                         onSegmentClick={(ref) => onNavigateToRef?.(ref)}
+                        onDafChange={(nextRef) => onNavigateToRef?.(nextRef)}
                         onLexiconDoubleClick={handleLexiconDoubleClick as any}
                         sageHighlights={sageHighlights}
                         conceptHighlights={conceptHighlights}
                         isFullscreen={isTraditionalFullscreen}
                         onToggleFullscreen={onToggleTraditionalFullscreen}
+                        isAdmin={true}
                       />
                     ) : (
                       <FocusReader
@@ -695,11 +697,13 @@ export default function StudyMode({
                         dafRef={snapshot?.ref || ''}
                         segments={snapshot?.segments || []}
                         onSegmentClick={(ref) => onNavigateToRef?.(ref)}
+                        onDafChange={(nextRef) => onNavigateToRef?.(nextRef)}
                         onLexiconDoubleClick={handleLexiconDoubleClick as any}
                         sageHighlights={sageHighlights}
                         conceptHighlights={conceptHighlights}
                         isFullscreen={isTraditionalFullscreen}
                         onToggleFullscreen={onToggleTraditionalFullscreen}
+                        isAdmin={true}
                       />
                     ) : (
                       <FocusReader
