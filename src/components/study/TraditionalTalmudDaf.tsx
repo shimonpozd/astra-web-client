@@ -21,7 +21,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { addSageMapping, createSageProfile, addCustomConcept, addConceptMapping } from '../../services/highlight';
+import { addSageMapping, createSageProfile, addCustomConcept, addConceptMapping, fetchSageHighlights } from '../../services/highlight';
 import { stripHebrewVowels, stripPunctuation } from '../../utils/hebrewUtils';
 import { useTranslation } from '../../hooks/useTranslation';
 import { Button } from '../ui/button';
@@ -1165,17 +1165,22 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   const handleLinkSage = async (sageSlug: string) => {
     if (!selectionMenu?.selectedText) return;
     const rawText = selectionMenu.selectedText;
-    const escaped = escapeRegExp(rawText);
     const ok = await addSageMapping(sageSlug, rawText);
     if (ok) {
-      setLocalSageHighlights(prev => {
-        return prev.map(s => {
-          if (s.slug === sageSlug) {
-            return { ...s, regex_pattern: s.regex_pattern ? `${s.regex_pattern}|${escaped}` : escaped };
-          }
-          return s;
+      const updated = await fetchSageHighlights();
+      if (updated && updated.length > 0) {
+        setLocalSageHighlights(updated);
+      } else {
+        const escaped = escapeRegExp(rawText);
+        setLocalSageHighlights(prev => {
+          return prev.map(s => {
+            if (s.slug === sageSlug) {
+              return { ...s, regex_pattern: s.regex_pattern ? `${s.regex_pattern}|${escaped}` : escaped };
+            }
+            return s;
+          });
         });
-      });
+      }
     }
     setShowSageModal(false);
     setSelectionMenu(null);
@@ -1184,7 +1189,6 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   const handleCreateAndLinkSage = async () => {
     if (!newSageName.trim() || !selectionMenu?.selectedText) return;
     const rawText = selectionMenu.selectedText;
-    const escaped = escapeRegExp(rawText);
     const created = await createSageProfile({
       name: newSageName.trim(),
       period: newSagePeriod,
@@ -1192,16 +1196,22 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     });
     if (created && created.slug) {
       await addSageMapping(created.slug, rawText);
-      setLocalSageHighlights(prev => [
-        ...prev,
-        {
-          slug: created.slug,
-          name_he: newSageName.trim(),
-          period: newSagePeriod,
-          period_label_ru: newSagePeriodRu,
-          regex_pattern: escaped,
-        }
-      ]);
+      const updated = await fetchSageHighlights();
+      if (updated && updated.length > 0) {
+        setLocalSageHighlights(updated);
+      } else {
+        const escaped = escapeRegExp(rawText);
+        setLocalSageHighlights(prev => [
+          ...prev,
+          {
+            slug: created.slug!,
+            name_he: newSageName.trim(),
+            period: newSagePeriod,
+            period_label_ru: newSagePeriodRu,
+            regex_pattern: escaped,
+          }
+        ]);
+      }
     }
     setShowCreateSageModal(false);
     setSelectionMenu(null);
