@@ -1079,6 +1079,16 @@
   border-bottom-color: #2563eb;
 }
 
+.highlight-dh.dh-rashi.dh-tosafot {
+  background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 25%, transparent), color-mix(in srgb, #3b82f6 25%, transparent));
+  border-bottom: 2px solid color-mix(in srgb, #d97706 70%, transparent);
+}
+
+.dark .highlight-dh.dh-rashi.dh-tosafot {
+  background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 30%, transparent), color-mix(in srgb, #3b82f6 30%, transparent));
+  border-bottom-color: #f59e0b;
+}
+
 .highlight-dh.active {
   background-color: color-mix(in srgb, #f59e0b 50%, transparent) !important;
   border-bottom: 2px solid #d97706 !important;

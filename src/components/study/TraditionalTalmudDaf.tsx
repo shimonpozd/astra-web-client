@@ -35,7 +35,7 @@ export const escapeRegExp = (str: string): string => {
 
 export const getNextDafRef = (dafRef: string): string => {
   if (!dafRef) return dafRef;
-  const match = dafRef.match(/^(.+?)\s+(\d+)([ab])$/i);
+  const match = dafRef.match(/^(.+?)\s+(\d+)([ab])(?:[:.].*)?$/i);
   if (!match) return dafRef;
   const tractate = match[1];
   const page = parseInt(match[2], 10);
@@ -49,7 +49,7 @@ export const getNextDafRef = (dafRef: string): string => {
 
 export const getPrevDafRef = (dafRef: string): string => {
   if (!dafRef) return dafRef;
-  const match = dafRef.match(/^(.+?)\s+(\d+)([ab])$/i);
+  const match = dafRef.match(/^(.+?)\s+(\d+)([ab])(?:[:.].*)?$/i);
   if (!match) return dafRef;
   const tractate = match[1];
   const page = parseInt(match[2], 10);
@@ -216,13 +216,26 @@ const copyToClipboard = async (text: string): Promise<boolean> => {
 // Helper to escape attributes in span HTML
 const escapeAttr = (value: string) => (value || '').replace(/"/g, '&quot;');
 
-// Replace patterns in text but not inside HTML tags
+// Replace patterns in text but not inside HTML tags or existing highlight spans
 const replaceOutsideTags = (html: string, regex: RegExp, replacer: (match: string) => string) => {
   const parts = html.split(/(<[^>]+>)/g);
+  let openHighlightSpanCount = 0;
+
   for (let i = 0; i < parts.length; i += 1) {
-    if (parts[i].startsWith('<')) continue;
-    regex.lastIndex = 0; // Reset state for global regexes
-    parts[i] = parts[i].replace(regex, replacer);
+    const part = parts[i];
+    if (part.startsWith('<')) {
+      if (/^<span\b[^>]*class="[^"]*highlight-/i.test(part)) {
+        openHighlightSpanCount += 1;
+      } else if (part === '</span>' && openHighlightSpanCount > 0) {
+        openHighlightSpanCount -= 1;
+      }
+      continue;
+    }
+
+    if (openHighlightSpanCount === 0) {
+      regex.lastIndex = 0; // Reset state for global regexes
+      parts[i] = part.replace(regex, replacer);
+    }
   }
   return parts.join('');
 };
@@ -414,7 +427,7 @@ export const highlightDhInGemara = (
     .filter(item => item.cleanWords.length > 0)
     .sort((a, b) => b.cleanWords.length - a.cleanWords.length);
 
-  const matches: { startHtml: number; endHtml: number; commentRef: string; isRashi: boolean; isActive: boolean }[] = [];
+  const matches: { startHtml: number; endHtml: number; commentRefs: string[]; isRashi: boolean; isTosafot: boolean }[] = [];
 
   for (const item of sortedComments) {
     const dhWords = item.cleanWords;
@@ -447,18 +460,27 @@ export const highlightDhInGemara = (
     if (bestMatch) {
       const startHtml = tokens[bestMatch.startTokenIdx].startHtml;
       const endHtml = tokens[bestMatch.endTokenIdx].endHtml;
-      const isCommentActive = activeRef === item.comment.ref || hoveredRef === item.comment.ref;
       const isRashi = item.comment.commentator.toLowerCase().includes('rashi');
+      const isTosafot = item.comment.commentator.toLowerCase().includes('tosafot');
 
-      const overlaps = matches.some(m => Math.max(m.startHtml, startHtml) < Math.min(m.endHtml, endHtml));
-      if (!overlaps) {
-        matches.push({
-          startHtml,
-          endHtml,
-          commentRef: item.comment.ref,
-          isRashi,
-          isActive: isCommentActive,
-        });
+      const existingMatch = matches.find(m => m.startHtml === startHtml && m.endHtml === endHtml);
+      if (existingMatch) {
+        if (!existingMatch.commentRefs.includes(item.comment.ref)) {
+          existingMatch.commentRefs.push(item.comment.ref);
+        }
+        if (isRashi) existingMatch.isRashi = true;
+        if (isTosafot) existingMatch.isTosafot = true;
+      } else {
+        const overlaps = matches.some(m => Math.max(m.startHtml, startHtml) < Math.min(m.endHtml, endHtml));
+        if (!overlaps) {
+          matches.push({
+            startHtml,
+            endHtml,
+            commentRefs: [item.comment.ref],
+            isRashi,
+            isTosafot,
+          });
+        }
       }
     }
   }
@@ -470,9 +492,11 @@ export const highlightDhInGemara = (
   let result = text;
   for (const m of matches) {
     const chunk = result.substring(m.startHtml, m.endHtml);
-    const commentatorClass = m.isRashi ? 'dh-rashi' : 'dh-tosafot';
-    const activeClass = m.isActive ? 'active' : '';
-    const wrapped = `<span class="highlight-dh ${commentatorClass} ${activeClass}" data-comment-ref="${escapeAttr(m.commentRef)}">${chunk}</span>`;
+    const classes = ['highlight-dh'];
+    if (m.isRashi) classes.push('dh-rashi');
+    if (m.isTosafot) classes.push('dh-tosafot');
+    const refsAttr = escapeAttr(m.commentRefs.join('|'));
+    const wrapped = `<span class="${classes.join(' ')}" data-comment-ref="${refsAttr}">${chunk}</span>`;
     result = result.substring(0, m.startHtml) + wrapped + result.substring(m.endHtml);
   }
 
@@ -607,8 +631,9 @@ const CommentaryColumn: React.FC<CommentaryColumnProps> = ({
               <div
                 key={key}
                 ref={el => refsMap.current[comment.ref || key] = el}
+                dir="rtl"
                 className={cn(
-                  "mb-4 p-2.5 rounded-lg transition-all duration-200 text-justify font-rashi cursor-pointer border-r-4 flex flex-col gap-1.5",
+                  "mb-4 p-2.5 rounded-lg transition-all duration-200 text-right font-rashi cursor-pointer border-r-4 flex flex-col gap-1.5 select-text",
                   fontSizeClass,
                   isCommentActive
                     ? isRashi
@@ -617,7 +642,7 @@ const CommentaryColumn: React.FC<CommentaryColumnProps> = ({
                     : isAnchorActive
                     ? "bg-amber-500/10 border-amber-500/60 dark:bg-amber-500/15"
                     : isRead
-                    ? "border-emerald-500/40 bg-emerald-500/5 opacity-70"
+                    ? "border-emerald-500/60 bg-emerald-500/10 dark:bg-emerald-500/15 shadow-sm"
                     : "border-transparent hover:bg-muted/40"
                 )}
                 onMouseEnter={() => setHoveredCommentRef(comment.ref)}
@@ -628,9 +653,9 @@ const CommentaryColumn: React.FC<CommentaryColumnProps> = ({
                   onSegmentClick?.(comment.anchorRef);
 
                   if (comment.ref) {
-                    const dhElement = document.querySelector(`[data-comment-ref="${CSS.escape(comment.ref)}"]`);
+                    const dhElement = document.querySelector(`[data-comment-ref~="${CSS.escape(comment.ref)}"]`);
                     if (dhElement) {
-                      dhElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      dhElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }
                   }
                 }}
@@ -639,28 +664,29 @@ const CommentaryColumn: React.FC<CommentaryColumnProps> = ({
                   onLexiconDoubleClick?.(word, comment.he);
                 }}
               >
-                <div className="flex items-center justify-between gap-2 border-b border-border/10 pb-1">
-                  {isRashi && (
-                    <button
-                      type="button"
-                      aria-label={isRead ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
-                      className={cn(
-                        "h-5 w-5 rounded flex items-center justify-center border transition-all",
-                        isRead ? "bg-emerald-500 text-white border-emerald-500" : "border-border/60 opacity-40 hover:opacity-100"
-                      )}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleReadComment(comment.ref);
-                      }}
-                      title={isRead ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
-                    >
-                      <Check className="w-3 h-3 text-current" />
-                    </button>
-                  )}
-                  {dh && <strong className="text-primary font-extrabold text-base md:text-lg leading-snug">{dh}</strong>}
+                <div className="flex items-start justify-between gap-2 border-b border-border/10 pb-1 font-sans" dir="rtl">
+                  {dh && <strong className="text-primary font-extrabold text-base md:text-lg leading-snug font-rashi text-right" dir="rtl">{dh}</strong>}
+                  <button
+                    type="button"
+                    aria-label={isRead ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
+                    className={cn(
+                      "h-5 w-5 rounded flex items-center justify-center border transition-all shrink-0 mt-0.5",
+                      isRead 
+                        ? "bg-emerald-500 text-white border-emerald-500 shadow-sm ring-1 ring-emerald-500/50" 
+                        : "border-border/60 text-muted-foreground hover:border-emerald-500/60 hover:text-emerald-500 opacity-60 hover:opacity-100"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleReadComment(comment.ref);
+                    }}
+                    title={isRead ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
+                  >
+                    <Check className={cn("w-3 h-3 transition-transform", isRead ? "scale-100 font-bold" : "scale-75 opacity-70")} />
+                  </button>
                 </div>
-                <span
-                  className="text-justify tracking-wide"
+                <div
+                  dir="rtl"
+                  className="text-justify tracking-wide leading-relaxed text-right"
                   style={{ textAlignLast: 'right' }}
                   dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(restHtml || comment.he) }}
                 />
@@ -739,12 +765,22 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   };
 
   const [currentDafRef, setCurrentDafRef] = useState(dafRef);
+  const [localSegments, setLocalSegments] = useState<TextSegment[]>([]);
 
   useEffect(() => {
     if (dafRef) {
       setCurrentDafRef(dafRef);
     }
   }, [dafRef]);
+
+  const displaySegments = useMemo(() => {
+    const amudRef = (currentDafRef || dafRef || '').replace(/:.*$/, '').trim().toLowerCase();
+    const propDaf = (segments && segments[0]?.ref || '').replace(/:.*$/, '').trim().toLowerCase();
+    if (segments && segments.length > 0 && propDaf === amudRef) {
+      return segments;
+    }
+    return localSegments;
+  }, [segments, localSegments, currentDafRef, dafRef]);
 
   const handleDafChange = useCallback((nextRef: string) => {
     if (!nextRef || nextRef === currentDafRef) return;
@@ -813,6 +849,14 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
           const data = await res.json();
           if (!active) return;
           processCommentaryData(data.commentary || [], amudRef);
+          if (Array.isArray(data.he) && data.he.length > 0) {
+            const fetchedSegments: TextSegment[] = data.he.map((heStr: string, idx: number) => ({
+              ref: `${amudRef}:${idx + 1}`,
+              he_text: typeof heStr === 'string' ? heStr : '',
+              heText: typeof heStr === 'string' ? heStr : '',
+            }));
+            setLocalSegments(fetchedSegments);
+          }
           return;
         }
 
@@ -823,6 +867,14 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
           const data2 = await res2.json();
           if (!active) return;
           processCommentaryData(data2.commentary || [], amudRef);
+          if (Array.isArray(data2.he) && data2.he.length > 0) {
+            const fetchedSegments: TextSegment[] = data2.he.map((heStr: string, idx: number) => ({
+              ref: `${amudRef}:${idx + 1}`,
+              he_text: typeof heStr === 'string' ? heStr : '',
+              heText: typeof heStr === 'string' ? heStr : '',
+            }));
+            setLocalSegments(fetchedSegments);
+          }
         }
       } catch (err) {
         console.error('[TraditionalTalmudDaf] Error loading comments:', err);
@@ -884,8 +936,8 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   const compileSageHighlights = useCallback((items: SageHighlight[]): CompiledSageHighlight[] => {
     const allowed = new Set(['zugot', 'tannaim', 'amoraim', 'achronim']);
     const sorted = [...(items || [])].sort((a, b) => {
-      const lenA = (a.name_he || a.slug || '').length;
-      const lenB = (b.name_he || b.slug || '').length;
+      const lenA = Math.max((a.name_he || '').length, (a.regex_pattern || '').length, (a.slug || '').length);
+      const lenB = Math.max((b.name_he || '').length, (b.regex_pattern || '').length, (b.slug || '').length);
       return lenB - lenA;
     });
     const compiled: CompiledSageHighlight[] = [];
@@ -959,15 +1011,15 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   }, [compiledConceptHighlights]);
 
   const renderedSegmentHtmls = useMemo(() => {
-    return segments.map((segment, idx) => {
+    return displaySegments.map((segment, idx) => {
       const hebrewText = segment.he_text || segment.heText || '';
       const processed = processText(hebrewText);
       const segmentComments = comments.filter(c => c.anchorRef === segment.ref || isSameRef(c.anchorRef, segment.ref));
       const withDh = highlightDhInGemara(processed, segmentComments);
       const highlighted = renderHighlightedText(withDh, compiledSageHighlights, compiledConceptHighlights);
-      return `${highlighted}${idx < segments.length - 1 ? ' ' : ''}`;
+      return `${highlighted}${idx < displaySegments.length - 1 ? ' ' : ''}`;
     });
-  }, [segments, comments, processText, compiledSageHighlights, compiledConceptHighlights]);
+  }, [displaySegments, comments, processText, compiledSageHighlights, compiledConceptHighlights]);
 
   useEffect(() => {
     const container = gemaraContainerRef.current;
@@ -975,8 +1027,11 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     const dhSpans = container.querySelectorAll('.highlight-dh');
     dhSpans.forEach(span => {
       const el = span as HTMLElement;
-      const ref = el.dataset.commentRef;
-      if (ref && (ref === activeCommentRef || ref === hoveredCommentRef)) {
+      const refs = (el.dataset.commentRef || '').split('|');
+      if (
+        (activeCommentRef && refs.includes(activeCommentRef)) ||
+        (hoveredCommentRef && refs.includes(hoveredCommentRef))
+      ) {
         el.classList.add('active');
       } else {
         el.classList.remove('active');
@@ -1000,7 +1055,10 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     const dhSpan = rawTarget?.closest('.highlight-dh') as HTMLElement | null;
     if (dhSpan) {
       const commentRef = dhSpan.dataset.commentRef;
-      if (commentRef) setHoveredCommentRef(commentRef);
+      if (commentRef) {
+        const refs = commentRef.split('|');
+        if (refs[0]) setHoveredCommentRef(refs[0]);
+      }
     }
 
     const target = rawTarget?.closest('.hover-target') as HTMLElement | null;
@@ -1445,12 +1503,19 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
 
     const dhSpan = (e.target as HTMLElement).closest('.highlight-dh');
     if (dhSpan) {
-      const commentRef = dhSpan.getAttribute('data-comment-ref');
-      if (commentRef) {
-        setActiveCommentRef(commentRef);
-        const el = rashiRefs.current[commentRef] || tosafotRefs.current[commentRef];
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const commentRefAttr = dhSpan.getAttribute('data-comment-ref');
+      if (commentRefAttr) {
+        const refs = commentRefAttr.split('|');
+        setActiveCommentRef(refs[0]);
+        for (const r of refs) {
+          const elRashi = rashiRefs.current[r];
+          if (elRashi) {
+            elRashi.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          const elTosafot = tosafotRefs.current[r];
+          if (elTosafot) {
+            elTosafot.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         }
       }
     }
@@ -1524,32 +1589,32 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
             </Button>
           )}
 
-          <div className="flex items-center bg-muted rounded-md p-1 gap-1">
+          <div className="flex items-center bg-muted/60 dark:bg-muted/40 border border-border/40 rounded-lg p-0.5 gap-0.5">
             <Button 
               variant="ghost" size="sm" 
-              className={cn("h-7 px-2", !showVowels && "bg-primary/10")} 
+              className={cn("h-7 px-2 text-xs transition-colors", !showVowels ? "bg-primary/20 text-primary font-semibold" : "text-muted-foreground hover:text-foreground")} 
               onClick={() => setShowVowels(!showVowels)}
               aria-label="Огласовки"
               title="Vowels (Огласовки)"
             >
-              <Type className={cn("w-4 h-4", showVowels ? "opacity-40" : "text-primary")} />
+              <Type className={cn("w-3.5 h-3.5", showVowels ? "opacity-50" : "text-primary")} />
             </Button>
             
             <Button 
               variant="ghost" size="sm" 
-              className={cn("h-7 px-2", !showPunctuation && "bg-primary/10")} 
+              className={cn("h-7 px-2 text-xs transition-colors", !showPunctuation ? "bg-primary/20 text-primary font-semibold" : "text-muted-foreground hover:text-foreground")} 
               onClick={() => setShowPunctuation(!showPunctuation)}
               aria-label="Пунктуация"
               title="Punctuation (Пунктуация)"
             >
-              <Quote className={cn("w-4 h-4", showPunctuation ? "opacity-40" : "text-primary")} />
+              <Quote className={cn("w-3.5 h-3.5", showPunctuation ? "opacity-50" : "text-primary")} />
             </Button>
           </div>
 
-          <div className="flex items-center bg-muted rounded-md p-1 gap-1" title="Размер шрифта комментариев Раши и Тосфот">
+          <div className="flex items-center bg-muted/60 dark:bg-muted/40 border border-border/40 rounded-lg p-0.5 gap-0.5" title="Размер шрифта комментариев Раши и Тосфот">
             <Button 
               variant="ghost" size="sm" 
-              className="h-7 px-1.5 text-xs font-bold" 
+              className="h-7 w-7 px-0 text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-30" 
               disabled={commentFontSize === 'sm'}
               onClick={handleDecreaseCommentFontSize}
               aria-label="Уменьшить шрифт"
@@ -1557,12 +1622,12 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
             >
               A-
             </Button>
-            <span className="text-[10px] uppercase font-bold px-1 opacity-50 select-none">
+            <span className="text-[10px] uppercase font-bold px-1 text-muted-foreground/70 select-none">
               {commentFontSize}
             </span>
             <Button 
               variant="ghost" size="sm" 
-              className="h-7 px-1.5 text-xs font-bold" 
+              className="h-7 w-7 px-0 text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-30" 
               disabled={commentFontSize === 'xl'}
               onClick={handleIncreaseCommentFontSize}
               aria-label="Увеличить шрифт"
@@ -1572,14 +1637,14 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
             </Button>
           </div>
 
-          <div className="flex items-center bg-muted rounded-md p-1 gap-1">
+          <div className="flex items-center bg-muted/60 dark:bg-muted/40 border border-border/40 rounded-lg p-0.5 gap-0.5">
              <button 
-                className={cn("px-3 py-1 text-xs rounded font-bold transition-all", 
+                className={cn("h-7 px-2.5 text-xs rounded-md font-bold transition-all", 
                   translationLang === 'EN' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
                 onClick={() => setTranslationLang('EN')}
               >EN</button>
                <button 
-                className={cn("px-3 py-1 text-xs rounded font-bold transition-all", 
+                className={cn("h-7 px-2.5 text-xs rounded-md font-bold transition-all", 
                   translationLang === 'RU' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
                 onClick={() => setTranslationLang('RU')}
               >RU</button>
@@ -1588,7 +1653,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-9 text-muted-foreground hover:text-foreground transition-all"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground transition-all"
             onClick={onToggleFullscreen}
             aria-label="Полноэкранный режим"
             title={isFullscreen ? "Выйти из полноэкранного режима" : "Во весь экран"}
@@ -1665,7 +1730,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
           </div>
           <div className="flex-1 px-4 py-8 overflow-y-auto hide-scrollbar">
             <div className="w-full max-w-[32ch] mx-auto text-right font-vilna text-2xl md:text-3xl leading-[2.2] md:leading-[1.6] lg:leading-[1.6] text-justify tracking-wide" style={{ textAlignLast: 'right' }} dir="rtl">
-              {segments.map((segment, idx) => {
+              {displaySegments.map((segment, idx) => {
                 const isActive = activeSegmentRef === segment.ref;
                 const htmlToRender = renderedSegmentHtmls[idx] || '';
 
