@@ -3,6 +3,7 @@ import { Message as MessageType } from '../types/index';
 import { MessageRenderer } from './MessageRenderer';
 import { Doc, DocV1 } from '../types/text';
 import { cn } from '../lib/utils';
+import { coerceDoc } from '../lib/text/normalize';
 
 interface MessageProps {
   message: MessageType;
@@ -28,28 +29,17 @@ export default function Message({ message }: MessageProps) {
   } else {
     // Assistant/system messages
     if (contentType === 'doc.v1' && typeof content === 'object' && content !== null) {
-      // New doc.v1 format
       renderedContent = <MessageRenderer doc={content as DocV1} />;
     } else if (typeof content === 'string') {
-      // Try to parse as legacy JSON or render as plain text
-      let parsedDoc: Doc | DocV1 | null = null;
-      let parseError = false;
-
-      try {
-        parsedDoc = JSON.parse(content);
-      } catch (error) {
-        parseError = true;
-      }
-
-      if (parsedDoc && !parseError) {
-        renderedContent = <MessageRenderer doc={parsedDoc} />;
+      const doc = coerceDoc(content);
+      if (doc) {
+        renderedContent = <MessageRenderer doc={doc} />;
       } else {
         renderedContent = (
           <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
         );
       }
     } else {
-      // Fallback
       renderedContent = (
         <p className="whitespace-pre-wrap leading-relaxed">
           {JSON.stringify(content)}

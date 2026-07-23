@@ -137,7 +137,7 @@ export function BlockStreamRenderer({ onBlockStart, onBlockDelta, onBlockEnd, on
   }, [externalHandlers]);
 
   return (
-    <div className="block-stream-renderer">
+    <div className="block-stream-renderer doc">
       <MessageRenderer doc={virtualDoc} />
       {!isComplete && (
         <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">

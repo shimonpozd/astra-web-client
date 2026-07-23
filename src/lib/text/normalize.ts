@@ -278,12 +278,15 @@ export function coerceDoc(payload: unknown): DocV1 | null {
       }
     }
 
-    // Если не удалось распарсить как JSON, но это обычный текст - создаем простой doc
+    // Если не удалось распарсить как JSON, но это обычный текст - создаем doc с разделением по абзацам
     if (s.length > 0 && !s.startsWith('[') && !s.startsWith('{')) {
-      // Это обычный текст, создаем простой doc из одного абзаца
+      const paragraphs = s.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
+      const blocks = paragraphs.length > 0
+        ? paragraphs.map(p => ({ type: 'paragraph', text: p }))
+        : [{ type: 'paragraph', text: s }];
       return {
         version: '1.0',
-        blocks: [{ type: 'paragraph', text: s }]
+        blocks
       };
     }
   }

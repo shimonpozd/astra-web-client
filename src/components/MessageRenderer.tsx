@@ -514,11 +514,15 @@ export function MessageRenderer({ doc }: MessageRendererProps) {
       ((doc as any).version === 'doc.v1' && (doc as any).content) ||
       ((doc as any).paragraph || (doc as any).quote || (doc as any).term)) {
     debugLog('🎯 Using StudyChatRenderer for:', doc);
-    return <StudyChatRenderer doc={doc as any} />;
+    return (
+      <div className="doc">
+        <StudyChatRenderer doc={doc as any} />
+      </div>
+    );
   }
 
   return (
-    <div>
+    <div className="doc">
       {doc.blocks.map((rawBlock, index) => {
         // Handle cases where block data is nested inside a `data` property
         const block = (rawBlock as any).data ? { ...rawBlock, ...(rawBlock as any).data } : rawBlock;
@@ -540,10 +544,22 @@ export function MessageRenderer({ doc }: MessageRendererProps) {
 
           case "paragraph": {
             const t = typeof block.text === "string" ? block.text : String(block.text ?? "");
+            const paragraphs = t.split(/\n\n+/).filter(Boolean);
+            if (paragraphs.length <= 1) {
+              return (
+                <p key={index} lang={block.lang} dir={block.dir || "auto"}>
+                  {renderMdLite(t)}
+                </p>
+              );
+            }
             return (
-              <p key={index} lang={block.lang} dir={block.dir || "auto"}>
-                {renderMdLite(t)}
-              </p>
+              <React.Fragment key={index}>
+                {paragraphs.map((pText, pIdx) => (
+                  <p key={`${index}-${pIdx}`} lang={block.lang} dir={block.dir || "auto"}>
+                    {renderMdLite(pText)}
+                  </p>
+                ))}
+              </React.Fragment>
             );
           }
 
