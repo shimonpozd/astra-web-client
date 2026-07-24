@@ -65,7 +65,8 @@ export function parseRefSmart(ref: string): ParsedRef | null {
   const book = normalizeBookName(bookTokens.join(' '));
   const sanitizedTailToken = tailToken.replace(/[)\]]+$/, '');
   const tailHead = sanitizedTailToken.split(/[-–]/)[0];
-  const tail = tailHead.toLowerCase();
+  // Replace Cyrillic 'а' and 'б' with Latin 'a' and 'b'
+  const tail = tailHead.toLowerCase().replace(/а/g, 'a').replace(/б/g, 'b');
 
   const isTanakhBook = Boolean(book) && isKnownTanakhBook(book);
   const isTalmudBook = Boolean(book) && isKnownTalmudBook(book);
@@ -186,8 +187,9 @@ export function refEquals(a?: string, b?: string): boolean {
 export function normalizeRefForAPI(ref: string): string {
   if (!ref) return ref;
 
-  const p = parseRefSmart(ref);
-  if (!p) return ref;
+  const cleanedRef = ref.replace(/(\d+)\s*а\b/gi, '$1a').replace(/(\d+)\s*б\b/gi, '$1b');
+  const p = parseRefSmart(cleanedRef);
+  if (!p) return cleanedRef;
 
   if (p.type === 'talmud' && p.segment != null) {
     const amud = p.amud ? `${p.daf}${p.amud}` : String(p.daf);
@@ -198,5 +200,5 @@ export function normalizeRefForAPI(ref: string): string {
     return `${p.book} ${p.chapter}:${p.verse}`;
   }
 
-  return ref;
+  return cleanedRef;
 }
