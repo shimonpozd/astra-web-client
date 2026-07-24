@@ -117,12 +117,15 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     return READER_CONFIG[currentCategory] || READER_CONFIG.default;
   }, [currentCategory]);
 
+  const isTalmud = readerConfig.useTraditionalScript;
+
   const defaultSets = useMemo(() => {
     return DEFAULT_COMMENTARY_SETS[currentCategory] || DEFAULT_COMMENTARY_SETS.default;
   }, [currentCategory]);
 
   const { commentaryOverrides, handleSetCommentatorOverride, handleResetCommentatorOverride } =
     useCommentaryOverrides(currentCategory);
+  const { readComments, toggleReadComment } = useReadComments(currentDafRef);
 
   const [localSegments, setLocalSegments] = useState<TextSegment[]>([]);
   const [loading, setLoading] = useState(false);
