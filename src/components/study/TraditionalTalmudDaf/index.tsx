@@ -121,8 +121,8 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     return DEFAULT_COMMENTARY_SETS[currentCategory] || DEFAULT_COMMENTARY_SETS.default;
   }, [currentCategory]);
 
-  const { leftCommentator, rightCommentator, setLeftCommentator, setRightCommentator } =
-    useCommentaryOverrides(defaultSets);
+  const { commentaryOverrides, handleSetCommentatorOverride, handleResetCommentatorOverride } =
+    useCommentaryOverrides(currentCategory);
 
   const [localSegments, setLocalSegments] = useState<TextSegment[]>([]);
   const [loading, setLoading] = useState(false);
