@@ -188,13 +188,6 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   };
 
   const displaySegments = useMemo(() => {
-    const localMap = new Map<string, TextSegment>();
-    for (const item of localSegments) {
-      if (item && item.ref) {
-        localMap.set(item.ref.replace(/[:\s,.]/g, '').toLowerCase(), item);
-      }
-    }
-
     const raw = (segments && segments.length > 0) ? segments : localSegments;
     const seen = new Set<string>();
     const unique: TextSegment[] = [];
@@ -204,20 +197,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
       const normKey = item.ref.replace(/[:\s,.]/g, '').toLowerCase();
       if (!seen.has(normKey)) {
         seen.add(normKey);
-        const localMatch = localMap.get(normKey);
-        if (localMatch) {
-          const mergedHe = item.he_text || item.heText || localMatch.he_text || localMatch.heText || item.text || '';
-          const mergedEn = item.en_text || item.enText || localMatch.en_text || localMatch.enText || localMatch.text || '';
-          unique.push({
-            ...item,
-            he_text: mergedHe,
-            heText: mergedHe,
-            en_text: mergedEn,
-            enText: mergedEn,
-          });
-        } else {
-          unique.push(item);
-        }
+        unique.push(item);
       }
     }
     return unique;
@@ -414,7 +394,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     const normalize = (r: string) => (r || '').replace(/[:\s,.]/g, '').toLowerCase();
 
     return displaySegments.map((segment, idx) => {
-      const hebrewText = segment.he_text || segment.heText || '';
+      const hebrewText = segment.he_text || segment.heText || segment.he || segment.text || '';
       const processed = processText(hebrewText);
       const key = normalize(segment.ref);
       const segmentComments = commentsByAnchor.get(key) || [];
@@ -556,6 +536,15 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     return /[\u0590-\u05FF]/.test(str);
   }, []);
 
+  const activeHebrewText = useMemo(() => {
+    if (!activeSegmentData) return '';
+    if (activeSegmentData.he_text) return activeSegmentData.he_text;
+    if (activeSegmentData.heText) return activeSegmentData.heText;
+    if (isHebrewText(activeSegmentData.text)) return activeSegmentData.text;
+    if (isHebrewText((activeSegmentData as any).he)) return (activeSegmentData as any).he;
+    return '';
+  }, [activeSegmentData, isHebrewText]);
+
   const activeEnglishText = useMemo(() => {
     if (!activeSegmentData) return null;
     if (activeSegmentData.en_text && !isHebrewText(activeSegmentData.en_text)) return activeSegmentData.en_text;
@@ -583,7 +572,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
         }
       };
 
-      const hebrew = stripHtml(activeSegmentData.he_text || activeSegmentData.heText || '');
+      const hebrew = stripHtml(activeHebrewText || activeSegmentData.he_text || activeSegmentData.heText || '');
       const translationHtml = translationLang === 'EN' ? activeEnglishText : translatedText;
       const translation = stripHtml(translationHtml || '');
       
