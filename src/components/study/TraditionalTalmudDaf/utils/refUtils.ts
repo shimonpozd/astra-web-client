@@ -37,3 +37,9 @@ export const isSameRef = (ref1: string, ref2: string): boolean => {
   const normalize = (r: string) => r.replace(/[:\s,.]/g, '').toLowerCase();
   return normalize(ref1) === normalize(ref2);
 };
+
+export const isHadranLine = (text?: string): boolean => {
+  if (!text) return false;
+  const clean = text.replace(/[\u0591-\u05C7]/g, '').trim();
+  return /^\s*הדרן\s+עלך/i.test(clean) || /^\s*סליק\s+(פירקא|מסכת)/i.test(clean);
+};

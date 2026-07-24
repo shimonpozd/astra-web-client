@@ -32,7 +32,7 @@ import {
   READER_CONFIG
 } from './types';
 
-import { escapeRegExp, getNextDafRef, getPrevDafRef, isSameRef } from './utils/refUtils';
+import { escapeRegExp, getNextDafRef, getPrevDafRef, isSameRef, isHadranLine } from './utils/refUtils';
 import { parseCommentDh } from './utils/commentParsing';
 import {
   highlightFullPhraseInHtml,
@@ -83,55 +83,58 @@ interface TextSegment {
   text?: string;
 }
 
-export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
+export const TraditionalTalmudDaf = memo(function TraditionalTalmudDaf({
   dafRef,
   segments,
   onSegmentClick,
+  onDafChange,
   onLexiconDoubleClick,
   sageHighlights: initialSageHighlights = [],
   conceptHighlights: initialConceptHighlights = [],
   isFullscreen = false,
   onToggleFullscreen,
-  onDafChange,
-  isAdmin = true
-}) => {
-  const [comments, setComments] = useState<TraditionalComment[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [activeSegmentRef, setActiveSegmentRef] = useState<string | null>(null);
-  const [activeCommentRef, setActiveCommentRef] = useState<string | null>(null);
-  const [hoveredCommentRef, setHoveredCommentRef] = useState<string | null>(null);
-
-  const [mobileTab, setMobileTab] = useState<'center' | 'left' | 'right'>('center');
-  const [isBookshelfDrawerOpen, setIsBookshelfDrawerOpen] = useState(false);
-  const [activeDrawerSide, setActiveDrawerSide] = useState<'left' | 'right'>('left');
-
+  isAdmin = false,
+}: TraditionalTalmudDafProps) {
   const [currentDafRef, setCurrentDafRef] = useState(dafRef);
-  const [localSegments, setLocalSegments] = useState<TextSegment[]>([]);
 
   useEffect(() => {
-    if (dafRef) {
+    if (dafRef && dafRef !== currentDafRef) {
       setCurrentDafRef(dafRef);
     }
   }, [dafRef]);
 
+  const isHebrewText = useCallback((str?: string): boolean => {
+    if (!str) return false;
+    return /[\u0590-\u05FF]/.test(str);
+  }, []);
+
   const currentCategory = useMemo(() => {
     const parsed = parseRefSmart(currentDafRef || dafRef);
-    if (!parsed) return 'default';
-    if (parsed.type === 'talmud') return 'talmud';
-    if (parsed.type === 'tanakh') return 'tanakh';
-    if (parsed.book?.toLowerCase().includes('shulchan')) return 'shulchan_arukh_oc';
-    if (parsed.book?.toLowerCase().includes('rambam') || parsed.book?.toLowerCase().includes('mishneh')) return 'rambam';
-    return 'default';
+    return parsed?.type || 'talmud';
   }, [currentDafRef, dafRef]);
 
   const readerConfig = useMemo(() => {
     return READER_CONFIG[currentCategory] || READER_CONFIG.default;
   }, [currentCategory]);
 
-  const isTalmud = readerConfig.useTraditionalScript;
+  const defaultSets = useMemo(() => {
+    return DEFAULT_COMMENTARY_SETS[currentCategory] || DEFAULT_COMMENTARY_SETS.default;
+  }, [currentCategory]);
 
-  const { commentaryOverrides, handleSetCommentatorOverride, handleResetCommentatorOverride } = useCommentaryOverrides(currentCategory);
-  const { readComments, toggleReadComment } = useReadComments(currentDafRef);
+  const { leftCommentator, rightCommentator, setLeftCommentator, setRightCommentator } =
+    useCommentaryOverrides(defaultSets);
+
+  const [localSegments, setLocalSegments] = useState<TextSegment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [activeSegmentRef, setActiveSegmentRef] = useState<string | null>(null);
+  const [activeCommentRef, setActiveCommentRef] = useState<string | null>(null);
+  const [hoveredCommentRef, setHoveredCommentRef] = useState<string | null>(null);
+  const [comments, setComments] = useState<TraditionalComment[]>([]);
+
+  const [mobileTab, setMobileTab] = useState<'center' | 'left' | 'right'>('center');
+  const [isBookshelfDrawerOpen, setIsBookshelfDrawerOpen] = useState(false);
+  const [activeDrawerSide, setActiveDrawerSide] = useState<'left' | 'right'>('left');
+
   const {
     localSageHighlights,
     setLocalSageHighlights,
@@ -143,7 +146,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     conceptsBySlug,
   } = useHighlights(initialSageHighlights, initialConceptHighlights);
 
-  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [isAdminMode, setIsAdminMode] = useState(isAdmin);
   const {
     hoverCard,
     profileModalSlug,
@@ -159,12 +162,10 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   } = useTextSelection(sagesBySlug, conceptsBySlug, setHoveredCommentRef, isAdminMode);
 
   const gemaraContainerRef = useRef<HTMLDivElement | null>(null);
-  const gemaraRefs = useRef<Record<string, HTMLSpanElement | null>>({});
-  const rashiRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const tosafotRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const [commentFontSize, setCommentFontSize] = useState<'sm' | 'base' | 'lg' | 'xl'>(() => {
-    return (localStorage.getItem('traditional-comment-font-size') as any) || 'base';
+    const saved = localStorage.getItem('traditional-comment-font-size');
+    return (saved as 'sm' | 'base' | 'lg' | 'xl') || 'base';
   });
 
   const handleIncreaseCommentFontSize = () => {
@@ -188,6 +189,13 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   };
 
   const displaySegments = useMemo(() => {
+    const localMap = new Map<string, TextSegment>();
+    for (const item of localSegments) {
+      if (item && item.ref) {
+        localMap.set(item.ref.replace(/[:\s,.]/g, '').toLowerCase(), item);
+      }
+    }
+
     const raw = (segments && segments.length > 0) ? segments : localSegments;
     const seen = new Set<string>();
     const unique: TextSegment[] = [];
@@ -197,11 +205,34 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
       const normKey = item.ref.replace(/[:\s,.]/g, '').toLowerCase();
       if (!seen.has(normKey)) {
         seen.add(normKey);
-        unique.push(item);
+        const localMatch = localMap.get(normKey);
+        const hebrew = item.he_text || item.heText || (isHebrewText(item.text) ? item.text : '') || localMatch?.he_text || '';
+        const isHadran = isHadranLine(hebrew);
+
+        let finalEn = '';
+        if (isHadran) {
+          finalEn = '';
+        } else if (localMatch?.en_text && !isHebrewText(localMatch.en_text)) {
+          finalEn = localMatch.en_text;
+        } else if (item.en_text && !isHebrewText(item.en_text)) {
+          finalEn = item.en_text;
+        } else if (item.enText && !isHebrewText(item.enText)) {
+          finalEn = item.enText;
+        } else if (item.text && !isHebrewText(item.text)) {
+          finalEn = item.text;
+        }
+
+        unique.push({
+          ...item,
+          he_text: hebrew,
+          heText: hebrew,
+          en_text: finalEn,
+          enText: finalEn,
+        });
       }
     }
     return unique;
-  }, [segments, localSegments]);
+  }, [segments, localSegments, isHebrewText]);
 
   // Auto-select segment matching currentDafRef on load if no valid activeSegmentRef
   useEffect(() => {
@@ -293,17 +324,26 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
             const enSource = data.text || data.en;
             const enArr = Array.isArray(enSource) ? enSource : (typeof enSource === 'string' ? [enSource] : []);
 
+            let enIdx = 0;
             const fetchedSegments: TextSegment[] = heArr.map((heStr: string, idx: number) => {
+              const isHadran = isHadranLine(heStr);
+              let enText = '';
+              if (!isHadran && enIdx < enArr.length) {
+                enText = typeof enArr[enIdx] === 'string' ? enArr[enIdx] : '';
+                enIdx++;
+              }
+
               const segRef = (heArr.length === 1 && (targetRef.includes(':') || targetRef.includes('.')))
                 ? targetRef
                 : `${targetRef}:${idx + 1}`;
+
               return {
                 ref: segRef,
                 he_text: typeof heStr === 'string' ? heStr : '',
                 heText: typeof heStr === 'string' ? heStr : '',
-                en_text: typeof enArr[idx] === 'string' ? enArr[idx] : '',
-                enText: typeof enArr[idx] === 'string' ? enArr[idx] : '',
-                text: typeof enArr[idx] === 'string' ? enArr[idx] : '',
+                en_text: enText,
+                enText: enText,
+                text: enText,
               };
             });
             setLocalSegments(fetchedSegments);
