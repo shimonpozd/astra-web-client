@@ -83,7 +83,7 @@ interface TextSegment {
   text?: string;
 }
 
-export const TraditionalTalmudDaf = memo(function TraditionalTalmudDaf({
+export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   dafRef,
   segments,
   onSegmentClick,
@@ -93,8 +93,8 @@ export const TraditionalTalmudDaf = memo(function TraditionalTalmudDaf({
   conceptHighlights: initialConceptHighlights = [],
   isFullscreen = false,
   onToggleFullscreen,
-  isAdmin = false,
-}: TraditionalTalmudDafProps) {
+  isAdmin = true
+}) => {
   const [currentDafRef, setCurrentDafRef] = useState(dafRef);
 
   useEffect(() => {
@@ -570,11 +570,6 @@ export const TraditionalTalmudDaf = memo(function TraditionalTalmudDaf({
     if (!activeSegmentRef) return null;
     return displaySegments.find(s => s && isSameRef(s.ref, activeSegmentRef));
   }, [activeSegmentRef, displaySegments]);
-
-  const isHebrewText = useCallback((str?: string): boolean => {
-    if (!str) return false;
-    return /[\u0590-\u05FF]/.test(str);
-  }, []);
 
   const activeHebrewText = useMemo(() => {
     if (!activeSegmentData) return '';
