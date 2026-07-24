@@ -35,6 +35,10 @@
   font-family: 'Rashi', 'Noto Rashi Hebrew', serif;
 }
 
+.font-tanakh {
+  font-family: 'Noto Sans Hebrew', 'Mugrabi', system-ui, -apple-system, sans-serif;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

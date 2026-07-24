@@ -259,7 +259,7 @@ export default function StudyMode({
   showRightPanel,
   onToggleLeftPanel,
   onToggleRightPanel,
-  layoutVariant = 'classic',
+  layoutVariant = 'traditional',
   showChatPanel = true,
   currentPersona,
   availablePersonas,
@@ -541,7 +541,24 @@ export default function StudyMode({
                 : 'min-h-0 flex-1 panel-padding'
             }
           >
-            {isStackedLayout ? (
+            {layoutVariant === 'traditional' ? (
+              <div className="h-full w-full min-h-0 bg-card/60 rounded-lg overflow-hidden border border-border/60 shadow-sm">
+                <Suspense fallback={null}>
+                  <TraditionalTalmudDaf
+                    dafRef={snapshot?.ref || ''}
+                    segments={snapshot?.segments || []}
+                    onSegmentClick={(ref) => onNavigateToRef?.(ref)}
+                    onDafChange={(nextRef) => onNavigateToRef?.(nextRef)}
+                    onLexiconDoubleClick={handleLexiconDoubleClick as any}
+                    sageHighlights={sageHighlights}
+                    conceptHighlights={conceptHighlights}
+                    isFullscreen={isTraditionalFullscreen}
+                    onToggleFullscreen={onToggleTraditionalFullscreen}
+                    isAdmin={true}
+                  />
+                </Suspense>
+              </div>
+            ) : isStackedLayout ? (
               <div className="h-full flex flex-col gap-spacious min-h-0">
                 <div
                   className={`flex-1 min-h-0 bg-card/60 rounded-lg overflow-hidden transition-all ${

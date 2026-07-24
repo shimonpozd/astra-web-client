@@ -32,6 +32,8 @@ import { GamificationToasts } from './components/gamification/GamificationToasts
 import { LevelUpCelebration } from './components/gamification/LevelUpCelebration';
 import { config } from './config';
 
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+
 function AuthenticatedShell() {
   return (
     <div className="h-screen w-full bg-background">
@@ -77,10 +79,11 @@ function App() {
                       path="/"
                       element={
                         <Suspense fallback={null}>
-                          <ChatLayout />
+                          <Dashboard />
                         </Suspense>
                       }
                     />
+                    <Route path="/workbench" element={<Navigate to="/study" replace />} />
                     <Route path="/chat" element={<Navigate to="/" replace />} />
                     <Route
                       path="/chat/:sessionId"
@@ -94,7 +97,7 @@ function App() {
                       path="/study"
                       element={
                         <Suspense fallback={null}>
-                          <StudyLanding />
+                          <ChatLayout />
                         </Suspense>
                       }
                     />
@@ -130,16 +133,10 @@ function App() {
                         </Suspense>
                       }
                     />
+                    <Route path="/map" element={<Navigate to="/lab/map" replace />} />
+                    <Route path="/map2" element={<Navigate to="/lab/map" replace />} />
                     <Route
-                      path="/map"
-                      element={
-                        <Suspense fallback={null}>
-                          <SederMapPage />
-                        </Suspense>
-                      }
-                    />
-                    <Route
-                      path="/map2"
+                      path="/lab/map"
                       element={
                         <Suspense fallback={null}>
                           <SederMap2Page />
@@ -154,9 +151,10 @@ function App() {
                         </Suspense>
                       }
                     />
+                    <Route path="/yiddish" element={<Navigate to="/lab/yiddish" replace />} />
                     {config.features.yiddishMode ? (
                       <Route
-                        path="/yiddish"
+                        path="/lab/yiddish"
                         element={
                           <Suspense fallback={null}>
                             <YiddishModePage />

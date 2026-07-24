@@ -379,8 +379,10 @@ export interface VirtualDailyChat {
 
 async function getDailyCalendar(): Promise<VirtualDailyChat[]> {
   try {
-    // Get virtual daily chats from backend
-    const response = await authorizedFetch(`${API_BASE}/daily/calendar`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    const response = await authorizedFetch(`${API_BASE}/daily/calendar`, { signal: controller.signal });
+    clearTimeout(timer);
     if (!response.ok) {
       throw new Error(`Failed to get daily calendar: ${response.statusText}`);
     }

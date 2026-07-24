@@ -348,8 +348,8 @@ export function ChatLayout() {
 
   const sidebarColumnWidth = sidebarMode === 'compact' ? '64px' : '320px';
   const isVerticalLayout = mode === 'vertical_three' && isStudyActive;
-  const isTraditionalDaf = mode === 'traditional_daf' && isStudyActive;
-  const actualSidebarVisible = isSidebarVisible && !(isTraditionalDaf && isTraditionalFullscreen);
+  const isTraditionalDaf = isStudyActive;
+  const actualSidebarVisible = isSidebarVisible;
   
   const cols: string[] = [];
   if (!isVerticalLayout && !isTraditionalDaf) {
@@ -559,7 +559,8 @@ export function ChatLayout() {
                       selectedPanelId={selectedPanelId}
                       onSelectedPanelChange={() => {}}
                       isBackgroundLoading={isBackgroundLoading}
-                      layoutVariant={isTraditionalDaf ? "traditional" : "classic"}
+                      layoutVariant="traditional"
+                      showChatPanel={!isTraditionalFullscreen}
                       showLeftPanel={leftWorkbenchVisible}
                       showRightPanel={rightWorkbenchVisible}
                       onToggleLeftPanel={handleToggleLeftWorkbench}

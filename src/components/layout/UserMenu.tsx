@@ -47,17 +47,9 @@ export function UserMenu({ user, levelProgress, logout, navigate }: UserMenuProp
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-sm truncate">{username}</div>
-              <div className="text-xs text-muted-foreground">
-                Уровень {levelProgress.level} • {formatXp(totalXp)} XP
-              </div>
             </div>
           </div>
         </div>
-
-        <DropdownMenuItem onClick={() => navigate('/progress')} className="cursor-pointer">
-          <TrendingUp className="w-4 h-4 mr-2" />
-          Мой прогресс
-        </DropdownMenuItem>
 
         <DropdownMenuItem onClick={() => navigate('/timeline')} className="cursor-pointer">
           <Milestone className="w-4 h-4 mr-2" />

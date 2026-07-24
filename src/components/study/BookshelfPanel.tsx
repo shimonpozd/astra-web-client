@@ -546,6 +546,7 @@ const BookshelfPanel = memo(({
   sessionId,
   currentRef,
   onDragStart,
+  onItemClick,
   onAddToWorkbench,
   studySnapshot
 }: BookshelfPanelProps & {
@@ -676,13 +677,13 @@ const BookshelfPanel = memo(({
 
   // Load items when category or ref changes
   useEffect(() => {
-    if (!selectedCategory || !sessionId || !currentRef) return;
+    if (!selectedCategory || !currentRef) return;
 
     const loadItems = async () => {
       setIsLoadingItems(true);
       setError(null);
       try {
-        const data = await api.getBookshelfItems(sessionId, currentRef, selectedCategory);
+        const data = await api.getBookshelfItems(sessionId || 'default', currentRef, selectedCategory);
 
         // ✅ страховка на случай undefined/null
         const rawItems = Array.isArray(data?.bookshelf?.items) ? data.bookshelf.items : [];
@@ -808,8 +809,13 @@ const BookshelfPanel = memo(({
     return (
       <div
         key={group.key}
-        className={`rounded-lg border panel-card cursor-move hover:bg-accent/5 transition-colors ${density === 'compact' ? 'p-2' : 'p-2.5'}`}
+        className={`rounded-lg border panel-card cursor-pointer hover:bg-accent/5 transition-colors ${density === 'compact' ? 'p-2' : 'p-2.5'}`}
         style={{ borderColor: `${group.color}80`, borderWidth: '2px' }}
+        onClick={(e) => {
+          if (onItemClick) {
+            onItemClick(item);
+          }
+        }}
         draggable
         onDragStart={(e) => {
           // Для совместимости передаем конкретный ref части
@@ -873,7 +879,7 @@ const BookshelfPanel = memo(({
                     {item.heRef}
                   </span>
                 )}
-                {item.heRef && item.indexTitle ? ' â€¢ ' : null}
+                {item.heRef && item.indexTitle ? ' • ' : null}
                 {item.indexTitle && (
                   <span dir="ltr">{item.indexTitle}</span>
                 )}
@@ -901,10 +907,17 @@ const BookshelfPanel = memo(({
               );
             })()}
           </div>
-          {onAddToWorkbench && (
+          {(onItemClick || onAddToWorkbench) && (
             <button
               type="button"
-              onClick={(e) => handleAddToWorkbench(item.ref, e)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onItemClick) {
+                  onItemClick(item);
+                } else if (onAddToWorkbench) {
+                  handleAddToWorkbench(item.ref, e);
+                }
+              }}
               className="flex-shrink-0 w-6 h-6 rounded-md border border-border/40 bg-background hover:bg-accent hover:border-accent-foreground/20 flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
               title="Добавить в панель"
               aria-label="Добавить в панель"
@@ -927,9 +940,14 @@ const BookshelfPanel = memo(({
       <div key={group.key} className="space-y-1">
         {/* Group header - compact "series line" */}
         <div
-          className={`rounded-lg border panel-card cursor-move hover:bg-accent/5 transition-colors relative ${density === 'compact' ? 'p-2' : 'p-2.5'}`}
+          className={`rounded-lg border panel-card cursor-pointer hover:bg-accent/5 transition-colors relative ${density === 'compact' ? 'p-2' : 'p-2.5'}`}
           style={{ borderColor: `${group.color}80`, borderWidth: '2px' }}
           title={`Drag entire series: ${group.parsed.commentator} on ${group.parsed.tractate} ${group.parsed.page}:${group.parsed.section} (${group.items.length} parts)`}
+          onClick={(e) => {
+            if (onItemClick && group.items[0]) {
+              onItemClick(group.items[0]);
+            }
+          }}
           draggable
           onDragStart={(e) => {
             // Передаем всю группу как единое целое
@@ -1000,12 +1018,17 @@ const BookshelfPanel = memo(({
                 )}
               </div>
             </div>
-            {onAddToWorkbench && (
+            {(onItemClick || onAddToWorkbench) && (
               <button
                 type="button"
                 onClick={(e) => {
-                  const groupRef = `${group.parsed.commentator} on ${group.parsed.tractate} ${group.parsed.page}:${group.parsed.section}`;
-                  handleAddToWorkbench(groupRef, e);
+                  e.stopPropagation();
+                  if (onItemClick && group.items[0]) {
+                    onItemClick(group.items[0]);
+                  } else if (onAddToWorkbench) {
+                    const groupRef = `${group.parsed.commentator} on ${group.parsed.tractate} ${group.parsed.page}:${group.parsed.section}`;
+                    handleAddToWorkbench(groupRef, e);
+                  }
                 }}
                 className="flex-shrink-0 w-6 h-6 rounded-md border border-border/40 bg-background hover:bg-accent hover:border-accent-foreground/20 flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
                 title="Добавить группу в панель"

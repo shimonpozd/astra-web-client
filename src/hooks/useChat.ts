@@ -78,60 +78,57 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
-  // Load initial chat list including daily chats
+  // Load initial chat list instantly, then fetch daily calendar non-blockingly
   useEffect(() => {
     async function loadChats() {
       try {
         setIsLoading(true);
         setError(null);
         
-        // Load regular chats and daily virtual chats in parallel
-        const [sessionList, dailyCalendar] = await Promise.all([
-          api.getChatList(),
-          api.getDailyCalendar()
-        ]);
-        
-        debugLog('Daily calendar loaded:', dailyCalendar);
+        // 1. Fetch local session list IMMEDIATELY (~5ms)
+        const sessionList = await api.getChatList();
+        setChats(sessionList);
+        setIsLoading(false);
 
-        const existingIds = new Set(sessionList.map(item => item.session_id));
-        
-        // Convert daily calendar to Chat format
-        const dailyChats: Chat[] = dailyCalendar
-          .filter(item => !existingIds.has(item.session_id))
-          .map(mapVirtualDailyChat);
-        
-        debugLog('Daily chats created:', dailyChats);
-        
-        // Combine and sort (daily chats first, then by last_modified)
-      const allChats = [...dailyChats, ...sessionList].sort((a, b) => {
-        // Daily chats always come first
-        if (a.type === 'daily' && b.type !== 'daily') return -1;
-        if (a.type !== 'daily' && b.type === 'daily') return 1;
-        if (a.type === 'daily' && b.type === 'daily') {
-          const aStale = a.stale ? 1 : 0;
-          const bStale = b.stale ? 1 : 0;
-          if (aStale !== bStale) return aStale - bStale; // fresh above stale
-          const aDate = dateFromDailySessionId(a.session_id);
-          const bDate = dateFromDailySessionId(b.session_id);
-          if (aDate && bDate && aDate !== bDate) {
-            return bDate - aDate; // newer date first
-          }
-        }
-        // Within same type, sort by last_modified (newest first)
-        return new Date(b.last_modified).getTime() - new Date(a.last_modified).getTime();
-      });
-        
-        setChats(allChats);
+        // 2. Fetch daily calendar non-blockingly in background
+        api.getDailyCalendar()
+          .then((dailyCalendar) => {
+            if (!Array.isArray(dailyCalendar) || dailyCalendar.length === 0) return;
+
+            const existingIds = new Set(sessionList.map(item => item.session_id));
+            const dailyChats: Chat[] = dailyCalendar
+              .filter(item => !existingIds.has(item.session_id))
+              .map(mapVirtualDailyChat);
+
+            const allChats = [...dailyChats, ...sessionList].sort((a, b) => {
+              if (a.type === 'daily' && b.type !== 'daily') return -1;
+              if (a.type !== 'daily' && b.type === 'daily') return 1;
+              if (a.type === 'daily' && b.type === 'daily') {
+                const aStale = a.stale ? 1 : 0;
+                const bStale = b.stale ? 1 : 0;
+                if (aStale !== bStale) return aStale - bStale;
+                const aDate = dateFromDailySessionId(a.session_id);
+                const bDate = dateFromDailySessionId(b.session_id);
+                if (aDate && bDate && aDate !== bDate) {
+                  return bDate - aDate;
+                }
+              }
+              return new Date(b.last_modified).getTime() - new Date(a.last_modified).getTime();
+            });
+
+            setChats(allChats);
+          })
+          .catch((e) => debugLog('Background daily calendar load error:', e));
+
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred';
         setError(errorMessage);
-      } finally {
         setIsLoading(false);
       }
     }
 
     loadChats();
-  }, []); // Runs once on mount
+  }, []);
 
   // Load messages when a chat is selected
   useEffect(() => {
