@@ -162,6 +162,9 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   } = useTextSelection(sagesBySlug, conceptsBySlug, setHoveredCommentRef, isAdminMode);
 
   const gemaraContainerRef = useRef<HTMLDivElement | null>(null);
+  const gemaraRefs = useRef<Record<string, HTMLSpanElement | null>>({});
+  const rashiRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const tosafotRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const [commentFontSize, setCommentFontSize] = useState<'sm' | 'base' | 'lg' | 'xl'>(() => {
     const saved = localStorage.getItem('traditional-comment-font-size');
