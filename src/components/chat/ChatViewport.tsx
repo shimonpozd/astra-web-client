@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, Suspense, lazy } from 'react';
 import type { Message as ApiMessage } from '../../services/api';
-const UnifiedMessageRenderer = lazy(() => import('../UnifiedMessageRenderer'));
-const AudioMessageRenderer = lazy(() => import('../AudioMessageRenderer').then(m => ({ default: m.AudioMessageRenderer })));
+import { safeLazy } from '../../utils/safeLazy';
+const UnifiedMessageRenderer = safeLazy(() => import('../UnifiedMessageRenderer'));
+const AudioMessageRenderer = safeLazy(() => import('../AudioMessageRenderer').then(m => ({ default: m.AudioMessageRenderer })));
 import type { ChatMessage, AudioMessage } from '../../types/text';
 import { safeScrollToBottom } from '../../utils/scrollUtils';
 import { debugWarn } from '../../utils/debugLogger';

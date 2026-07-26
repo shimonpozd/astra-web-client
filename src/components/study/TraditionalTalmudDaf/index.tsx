@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react';
 
-import { addSageMapping, createSageProfile, addCustomConcept, addConceptMapping, fetchSageHighlights } from '../../../services/highlight';
+import { addSageMapping, createSageProfile, addCustomConcept, addConceptMapping, fetchSageHighlights, fetchConceptHighlights } from '../../../services/highlight';
 import { stripHebrewVowels, stripPunctuation } from '../../../utils/hebrewUtils';
 import { useTranslation } from '../../../hooks/useTranslation';
 import { Button } from '../../ui/button';
@@ -148,6 +148,19 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     sagesBySlug,
     conceptsBySlug,
   } = useHighlights(initialSageHighlights, initialConceptHighlights);
+
+  useEffect(() => {
+    if (!initialSageHighlights || initialSageHighlights.length === 0) {
+      fetchSageHighlights().then(data => {
+        if (data && data.length > 0) setLocalSageHighlights(data);
+      }).catch(() => {});
+    }
+    if (!initialConceptHighlights || initialConceptHighlights.length === 0) {
+      fetchConceptHighlights().then(data => {
+        if (data && data.length > 0) setLocalConceptHighlights(data);
+      }).catch(() => {});
+    }
+  }, [initialSageHighlights, initialConceptHighlights, setLocalSageHighlights, setLocalConceptHighlights]);
 
   const [isAdminMode, setIsAdminMode] = useState(isAdmin);
   const {

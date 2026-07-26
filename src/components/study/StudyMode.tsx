@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { StudySnapshot } from '../../types/study';
 import { ContinuousText, TextSegment, ChapterNavigation } from '../../types/text';
-const FocusReader = lazy(() => import('./FocusReader'));
+import { safeLazy } from '../../utils/safeLazy';
+const FocusReader = safeLazy(() => import('./FocusReader'));
 import { TraditionalTalmudDaf } from './TraditionalTalmudDaf';
 import ChatViewport from '../chat/ChatViewport';
 import MessageComposer from '../chat/MessageComposer';

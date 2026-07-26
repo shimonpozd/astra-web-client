@@ -8,19 +8,13 @@ export const parseCommentDh = (hebrewHtml: string) => {
     restHtml = restHtml.substring(boldMatch[0].length).trim();
   } else {
     const strippedHtml = restHtml.replace(/<\/?b>/gi, '').replace(/<\/?strong>/gi, '');
-    const dashMatch = strippedHtml.match(/^(.*?)([\-–—])(.*)$/s);
-    if (dashMatch && dashMatch[1].trim().length < 150) {
+    const dashMatch = strippedHtml.match(/^(.*?)([\-–—:])(.*)$/s);
+    if (dashMatch && dashMatch[1].trim().length < 80) {
       dh = dashMatch[1].trim();
       restHtml = dashMatch[3].trim();
     } else {
-      const match = strippedHtml.match(/^(.*?)([\.])(.*)$/s);
-      if (match && match[1].trim().length < 100) {
-        dh = match[1].trim();
-        restHtml = match[3].trim();
-      } else {
-        dh = strippedHtml.slice(0, 40);
-        restHtml = strippedHtml;
-      }
+      dh = '';
+      restHtml = strippedHtml;
     }
   }
 

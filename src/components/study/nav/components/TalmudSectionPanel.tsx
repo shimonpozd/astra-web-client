@@ -8,7 +8,8 @@ import type { TalmudEdition, TalmudSeder } from '../types';
 import { TALMUD_SEDER_LABELS } from '../constants';
 import TalmudEditionSelector from './TalmudEditionSelector';
 import TractateList from './TractateList';
-const TalmudDafGrid = lazy(() => import('./TalmudDafGrid'));
+import { safeLazy } from '../../../../utils/safeLazy';
+const TalmudDafGrid = safeLazy(() => import('./TalmudDafGrid'));
 import type { DafSelection } from './TalmudDafGrid';
 
 interface TalmudSectionPanelProps {

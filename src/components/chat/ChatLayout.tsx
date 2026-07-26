@@ -3,17 +3,18 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useChat } from "../../hooks/useChat";
 import { useStudyMode } from "../../hooks/useStudyMode";
 import { useTextSelectionListener } from "../../hooks/useTextSelectionListener";
-const BookshelfPanel = lazy(() => import("../study/BookshelfPanel"));
-const StudyMode = lazy(() =>
+import { safeLazy } from "../../utils/safeLazy";
+const BookshelfPanel = safeLazy(() => import("../study/BookshelfPanel"));
+const StudyMode = safeLazy(() =>
   import("../study/StudyMode").then((m) => ({ default: m.default }))
 );
-const StudyChatPanel = lazy(() =>
+const StudyChatPanel = safeLazy(() =>
   import("../study/StudyMode").then((m) => ({ default: m.StudyChatPanel }))
 );
-const ChatSidebar = lazy(() => import("./ChatSidebar"));
-const ChatViewport = lazy(() => import("./ChatViewport"));
-const MessageComposer = lazy(() => import("./MessageComposer"));
-const StudyNavigator = lazy(() => import("../study/nav/FocusNavOverlay"));
+const ChatSidebar = safeLazy(() => import("./ChatSidebar"));
+const ChatViewport = safeLazy(() => import("./ChatViewport"));
+const MessageComposer = safeLazy(() => import("./MessageComposer"));
+const StudyNavigator = safeLazy(() => import("../study/nav/FocusNavOverlay"));
 import TopBar from "../layout/TopBar"; // Import the new TopBar
 import { api } from "../../services/api"; // Import api for daily session creation
 import { useLayout } from "../../contexts/LayoutContext";

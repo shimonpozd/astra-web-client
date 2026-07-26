@@ -1,24 +1,6 @@
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-function safeLazy<T extends React.ComponentType<any>>(
-  componentImport: () => Promise<{ default: T } | any>
-) {
-  return lazy(async () => {
-    const pageHasBeenReloaded = sessionStorage.getItem('vite_chunk_reload');
-    try {
-      const component = await componentImport();
-      sessionStorage.removeItem('vite_chunk_reload');
-      return component.default ? component : { default: component.default || component };
-    } catch (error) {
-      if (!pageHasBeenReloaded) {
-        sessionStorage.setItem('vite_chunk_reload', 'true');
-        window.location.reload();
-        return new Promise<{ default: T }>(() => {});
-      }
-      throw error;
-    }
-  });
-}
+import { safeLazy } from './utils/safeLazy';
 
 const ChatLayout = safeLazy(() => import('./components/chat/ChatLayout').then(m => ({ default: m.ChatLayout })));
 const StudyLanding = safeLazy(() => import('./pages/StudyLanding'));
