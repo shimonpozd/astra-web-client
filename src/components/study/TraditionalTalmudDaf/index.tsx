@@ -271,10 +271,38 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentDafRef, handleDafChange]);
 
+  const lastFetchedRef = useRef<string>('');
+
   // Fetch comments based on READER_CONFIG (Talmud = whole page, Non-Talmud = exact segment)
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     const fallbackRef = currentDafRef || dafRef;
+    const rawRef = currentDafRef || dafRef || '';
+    
+    let targetRef = rawRef;
+    let sefariaRef = '';
+
+    if (readerConfig.loadCommentaryBy === 'daf') {
+      // Talmud branch: strip segment number to whole amud (e.g. Berakhot 2a)
+      const amudRef = rawRef.replace(/[:.]\d+.*$/, '').replace(/[:.]\d+$/, '').trim();
+      sefariaRef = amudRef.replace(/\s+(?=\d+[ab]$)/i, '.').replace(/\s+/g, '_');
+      targetRef = amudRef;
+    } else {
+      // Non-Talmud branch (Tanakh, Shulchan Arukh, Rambam): use specific passage ref
+      targetRef = activeSegmentRef || rawRef;
+      sefariaRef = targetRef.trim().replace(/\s+/g, '_').replace(/[:]/g, '.');
+    }
+
+    // Do not refetch or show spinner if comments for this targetRef are already loaded
+    if (lastFetchedRef.current === targetRef && comments.length > 0) {
+      return;
+    }
+    lastFetchedRef.current = targetRef;
+
+    // Immediately clear comments and local segments when switching to a NEW page/ref
+    setComments([]);
+    setLocalSegments([]);
 
     const processCommentaryData = (commentaryItems: any[]) => {
       const parsedComments: TraditionalComment[] = [];
@@ -300,28 +328,16 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
           });
         }
       }
-      setComments(parsedComments);
+      if (active) {
+        setComments(parsedComments);
+      }
     };
 
     const fetchComments = async () => {
       setLoading(true);
       try {
-        const rawRef = currentDafRef || dafRef || '';
-        let targetRef = rawRef;
-        let sefariaRef = '';
-
-        if (readerConfig.loadCommentaryBy === 'daf') {
-          // Talmud branch: strip segment number to whole amud (e.g. Berakhot 2a)
-          const amudRef = rawRef.replace(/[:.]\d+.*$/, '').replace(/[:.]\d+$/, '').trim();
-          sefariaRef = amudRef.replace(/\s+(?=\d+[ab]$)/i, '.').replace(/\s+/g, '_');
-          targetRef = amudRef;
-        } else {
-          // Non-Talmud branch (Tanakh, Shulchan Arukh, Rambam): use specific passage ref
-          targetRef = activeSegmentRef || rawRef;
-          sefariaRef = targetRef.trim().replace(/\s+/g, '_').replace(/[:]/g, '.');
-        }
-        
         const processResponseData = (data: any) => {
+          if (!active) return;
           processCommentaryData(data.commentary || []);
           const heSource = data.he;
           const heArr = Array.isArray(heSource) ? heSource : (typeof heSource === 'string' ? [heSource] : []);
@@ -352,12 +368,14 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                 text: enText,
               };
             });
-            setLocalSegments(fetchedSegments);
+            if (active) {
+              setLocalSegments(fetchedSegments);
+            }
           }
         };
 
         const url = `https://www.sefaria.org/api/texts/${encodeURIComponent(sefariaRef)}?commentary=1&context=0&pad=0`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           if (!active) return;
@@ -367,14 +385,16 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
 
         // Fallback fetch
         const fallbackUrl = `https://www.sefaria.org/api/texts/${encodeURIComponent(targetRef)}?commentary=1&context=0`;
-        const res2 = await fetch(fallbackUrl);
+        const res2 = await fetch(fallbackUrl, { signal: controller.signal });
         if (res2.ok) {
           const data2 = await res2.json();
           if (!active) return;
           processResponseData(data2);
         }
-      } catch (err) {
-        console.error('[TraditionalTalmudDaf] Error loading comments:', err);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error('[TraditionalTalmudDaf] Error loading comments:', err);
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -383,8 +403,9 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     void fetchComments();
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [currentDafRef, dafRef, readerConfig.loadCommentaryBy, activeSegmentRef]);
+  }, [currentDafRef, dafRef, readerConfig.loadCommentaryBy, activeSegmentRef, comments.length]);
 
   const [showVowels, setShowVowels] = useState(true);
   const [showPunctuation, setShowPunctuation] = useState(true);
@@ -1039,10 +1060,12 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                       key={segment.ref}
                       ref={el => gemaraRefs.current[segment.ref] = el}
                       className={cn(
-                        "cursor-pointer transition-all duration-300 select-text",
+                        "cursor-pointer transition-all duration-200 select-text inline",
                         activeSegmentRef 
-                          ? (isActive ? "opacity-100 bg-primary/[0.05] rounded-sm" : "text-stone-400 dark:text-stone-500 opacity-80")
-                          : "opacity-100 hover:bg-primary/5 rounded-sm"
+                          ? (isActive 
+                              ? "opacity-100 bg-amber-500/20 dark:bg-amber-500/25 border-b-2 border-amber-500 dark:border-amber-400 rounded-none px-0.5 py-0" 
+                              : "text-stone-400 dark:text-stone-500 opacity-60 hover:opacity-90")
+                          : "opacity-100 hover:bg-primary/5 rounded-none"
                       )}
                       onClick={(e) => handleGemaraClick(e, segment.ref)}
                       onDoubleClick={() => {
@@ -1058,6 +1081,11 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
               </div>
             ) : (
               <div className="max-w-2xl mx-auto space-y-4 font-sans">
+                <div className="text-center pb-2 mb-4 border-b border-border/40">
+                  <h2 className="text-lg sm:text-xl font-serif font-bold text-foreground/90 tracking-wide">
+                    {currentDafRef || dafRef}
+                  </h2>
+                </div>
                 {displaySegments.map((segment, idx) => {
                   const isActive = isSameRef(activeSegmentRef || '', segment.ref);
                   const segmentNum = segment.ref.split(/[:.]/).pop() || `${idx + 1}`;
@@ -1070,7 +1098,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                       className={cn(
                         "p-5 rounded-2xl border transition-all duration-200 cursor-pointer relative group space-y-3",
                         isActive
-                          ? "bg-primary/10 border-primary shadow-md ring-1 ring-primary/30"
+                          ? "bg-amber-500/10 border-amber-500/60 shadow-md ring-1 ring-amber-500/30"
                           : "bg-card/60 border-border/50 hover:bg-muted/40 hover:border-border"
                       )}
                       onClick={(e) => handleGemaraClick(e, segment.ref)}
@@ -1080,15 +1108,16 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                       }}
                     >
                       <div className="flex items-center justify-between border-b border-border/30 pb-2">
-                        <span className="text-[11px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
-                          Отрывок {segmentNum}
+                        <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                          {segmentNum}
                         </span>
                         <span className="text-xs text-muted-foreground font-medium">{segment.ref}</span>
                       </div>
 
                       <p 
                         dir="rtl" 
-                        className="text-right font-tanakh font-semibold text-2xl sm:text-3xl leading-relaxed text-foreground select-text tracking-normal"
+                        className="text-right font-serif text-xl sm:text-2xl leading-relaxed text-foreground select-text tracking-normal text-justify"
+                        style={{ textAlignLast: 'right' }}
                         dangerouslySetInnerHTML={{ __html: renderedSegmentHtmls[idx] || hebrewText }}
                       />
                     </div>

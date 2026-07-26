@@ -132,6 +132,20 @@ export default function MessageComposer({
   const toastTimerRef = useRef<number | null>(null);
 
   const composerDisabled = disabled || pending || isTranscribing || isRecording;
+
+  useEffect(() => {
+    const handleSendPrompt = (e: Event) => {
+      const customEv = e as CustomEvent<{ prompt: string }>;
+      if (customEv.detail?.prompt) {
+        setText(customEv.detail.prompt);
+        textareaRef.current?.focus();
+      }
+    };
+    window.addEventListener('send-chat-prompt', handleSendPrompt as EventListener);
+    return () => {
+      window.removeEventListener('send-chat-prompt', handleSendPrompt as EventListener);
+    };
+  }, []);
   const transcriptionPrompt =
     import.meta.env.VITE_TRANSCRIPTION_PROMPT || DEFAULT_TRANSCRIPTION_PROMPT;
   const transcriptionLanguage = import.meta.env.VITE_TRANSCRIPTION_LANGUAGE;

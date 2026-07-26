@@ -1,38 +1,58 @@
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-const ChatLayout = lazy(() => import('./components/chat/ChatLayout').then(m => ({ default: m.ChatLayout })));
-const StudyLanding = lazy(() => import('./pages/StudyLanding'));
-const AdminLayout = lazy(() => import('./pages/AdminLayout'));
-const GeneralSettings = lazy(() => import('./pages/admin/GeneralSettings'));
-const PersonalityList = lazy(() => import('./pages/admin/PersonalityList'));
-const PersonalityCreate = lazy(() => import('./pages/admin/PersonalityCreate'));
-const PersonalityEdit = lazy(() => import('./pages/admin/PersonalityEdit'));
-const PromptEditor = lazy(() => import('./pages/admin/PromptEditor'));
-const ProfileProgress = lazy(() => import('./pages/ProfileProgress'));
-const TimelinePage = lazy(() => import('./pages/TimelinePage'));
-const ZmanimClock = lazy(() => import('./pages/ZmanimClock'));
-const SederMapPage = lazy(() => import('./pages/SederMap2Page'));
-const SederMap2Page = lazy(() => import('./pages/SederMap2Page'));
-const UserManagementPage = lazy(() => import('./pages/admin/UserManagement'));
-const ProfilesAdminPage = lazy(() => import('./pages/admin/ProfilesAdmin.tsx'));
-const TalmudicConceptsPage = lazy(() => import('./pages/admin/TalmudicConcepts'));
-const YiddishWordcardsAdmin = lazy(() => import('./pages/admin/YiddishWordcards'));
-const YiddishModePage = lazy(() => import('./features/yiddish/pages/YiddishModePage'));
+function safeLazy<T extends React.ComponentType<any>>(
+  componentImport: () => Promise<{ default: T } | any>
+) {
+  return lazy(async () => {
+    const pageHasBeenReloaded = sessionStorage.getItem('vite_chunk_reload');
+    try {
+      const component = await componentImport();
+      sessionStorage.removeItem('vite_chunk_reload');
+      return component.default ? component : { default: component.default || component };
+    } catch (error) {
+      if (!pageHasBeenReloaded) {
+        sessionStorage.setItem('vite_chunk_reload', 'true');
+        window.location.reload();
+        return new Promise<{ default: T }>(() => {});
+      }
+      throw error;
+    }
+  });
+}
+
+const ChatLayout = safeLazy(() => import('./components/chat/ChatLayout').then(m => ({ default: m.ChatLayout })));
+const StudyLanding = safeLazy(() => import('./pages/StudyLanding'));
+const AdminLayout = safeLazy(() => import('./pages/AdminLayout'));
+const GeneralSettings = safeLazy(() => import('./pages/admin/GeneralSettings'));
+const PersonalityList = safeLazy(() => import('./pages/admin/PersonalityList'));
+const PersonalityCreate = safeLazy(() => import('./pages/admin/PersonalityCreate'));
+const PersonalityEdit = safeLazy(() => import('./pages/admin/PersonalityEdit'));
+const PromptEditor = safeLazy(() => import('./pages/admin/PromptEditor'));
+const ProfileProgress = safeLazy(() => import('./pages/ProfileProgress'));
+const TimelinePage = safeLazy(() => import('./pages/TimelinePage'));
+const ZmanimClock = safeLazy(() => import('./pages/ZmanimClock'));
+const SederMapPage = safeLazy(() => import('./pages/SederMap2Page'));
+const SederMap2Page = safeLazy(() => import('./pages/SederMap2Page'));
+const UserManagementPage = safeLazy(() => import('./pages/admin/UserManagement'));
+const ProfilesAdminPage = safeLazy(() => import('./pages/admin/ProfilesAdmin.tsx'));
+const TalmudicConceptsPage = safeLazy(() => import('./pages/admin/TalmudicConcepts'));
+const YiddishWordcardsAdmin = safeLazy(() => import('./pages/admin/YiddishWordcards'));
+const YiddishModePage = safeLazy(() => import('./features/yiddish/pages/YiddishModePage'));
 import { useTextSelectionListener } from './hooks/useTextSelectionListener';
 import { LexiconPanel } from './components/LexiconPanel';
 import { ThemeProvider } from './components/theme-provider';
 import { FontSettingsProvider } from './contexts/FontSettingsContext';
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
-const LoginPage = lazy(() => import('./pages/Login'));
-const RegisterPage = lazy(() => import('./pages/Register'));
+const LoginPage = safeLazy(() => import('./pages/Login'));
+const RegisterPage = safeLazy(() => import('./pages/Register'));
 import { RequireAuth } from './components/auth/RequireAuth';
-const FocusNavOverlay = lazy(() => import('./components/study/nav/FocusNavOverlay'));
+const FocusNavOverlay = safeLazy(() => import('./components/study/nav/FocusNavOverlay'));
 import { GamificationProvider } from './contexts/GamificationContext';
 import { GamificationToasts } from './components/gamification/GamificationToasts';
 import { LevelUpCelebration } from './components/gamification/LevelUpCelebration';
 import { config } from './config';
 
-const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Dashboard = safeLazy(() => import('./pages/Dashboard'));
 
 function AuthenticatedShell() {
   return (

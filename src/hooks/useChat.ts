@@ -59,10 +59,12 @@ function mapVirtualDailyChat(item: VirtualDailyChat): Chat {
 function dateFromDailySessionId(sessionId: string): number | null {
   if (!sessionId.startsWith('daily-')) return null;
   const parts = sessionId.split('-');
-  if (parts.length < 3) return null;
-  const datePart = parts[1];
-  const time = Date.parse(datePart);
-  return Number.isNaN(time) ? null : time;
+  if (parts.length >= 4) {
+    const dateStr = `${parts[1]}-${parts[2]}-${parts[3]}`;
+    const time = Date.parse(dateStr);
+    if (!Number.isNaN(time)) return time;
+  }
+  return null;
 }
 
 export function useChat(agentId: string = 'default', initialChatId?: string | null) {

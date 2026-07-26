@@ -184,6 +184,41 @@ export const Dashboard: React.FC = () => {
     }
   ];
 
+  const [dailyTab, setDailyTab] = useState<'active' | 'completed'>('active');
+
+  const processedDailyItems = useMemo(() => {
+    const rawList = dailyItems.length > 0 ? dailyItems : defaultDailyLessons;
+    return rawList.map((item, idx) => {
+      const isRambam = item.daily_category?.includes('rambam') || item.session_id?.includes('rambam');
+      const isChitas = item.daily_category?.includes('chitas') || item.session_id?.includes('chitas');
+      const displaySubtitle = item.display_value_ru || item.display_value || item.display_value_he || item.name;
+
+      return {
+        id: item.session_id || `daily-${idx}`,
+        title: item.name || item.title || 'Дневной урок',
+        subtitle: displaySubtitle,
+        ref: item.display_value || item.session_id,
+        sessionId: item.session_id,
+        completed: Boolean(item.completed),
+        icon: isRambam ? Sparkles : isChitas ? Calendar : BookOpen,
+        color: isRambam
+          ? 'from-blue-500/10 to-cyan-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30'
+          : isChitas
+          ? 'from-emerald-500/10 to-teal-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+          : 'from-amber-500/10 to-orange-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30',
+        btnText: item.completed ? '✓ Открыть' : '▶ Начать'
+      };
+    });
+  }, [dailyItems]);
+
+  const visibleDailyItems = useMemo(() => {
+    if (dailyTab === 'active') {
+      return processedDailyItems.filter(i => !i.completed);
+    } else {
+      return processedDailyItems.filter(i => i.completed);
+    }
+  }, [processedDailyItems, dailyTab]);
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <TopBar />
@@ -235,70 +270,81 @@ export const Dashboard: React.FC = () => {
                     Ваши текущие дневные учебные циклы
                   </CardDescription>
                 </div>
+
+                {/* Tabs filter */}
+                <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border/40">
+                  <button
+                    type="button"
+                    className={cn(
+                      "px-3 py-1 text-xs font-semibold rounded-md transition-all",
+                      dailyTab === 'active' ? "bg-background text-foreground shadow-sm font-bold" : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => setDailyTab('active')}
+                  >
+                    Сегодня ({processedDailyItems.filter(i => !i.completed).length})
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "px-3 py-1 text-xs font-semibold rounded-md transition-all",
+                      dailyTab === 'completed' ? "bg-background text-foreground shadow-sm font-bold" : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => setDailyTab('completed')}
+                  >
+                    Пройденные ({processedDailyItems.filter(i => i.completed).length})
+                  </button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {(dailyItems.length > 0 ? dailyItems.map((item, idx) => {
-                  const isRambam = item.daily_category?.includes('rambam') || item.session_id?.includes('rambam');
-                  const isChitas = item.daily_category?.includes('chitas') || item.session_id?.includes('chitas');
-                  const displaySubtitle = item.display_value_ru || item.display_value || item.display_value_he || item.name;
-
-                  return {
-                    id: item.session_id || `daily-${idx}`,
-                    title: item.name || item.title || 'Дневной урок',
-                    subtitle: displaySubtitle,
-                    ref: item.display_value || item.session_id,
-                    sessionId: item.session_id,
-                    completed: item.completed,
-                    icon: isRambam ? Sparkles : isChitas ? Calendar : BookOpen,
-                    color: isRambam
-                      ? 'from-blue-500/20 to-cyan-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30'
-                      : isChitas
-                      ? 'from-emerald-500/20 to-teal-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                      : 'from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30',
-                    btnText: item.completed ? '✓ Открыть урок' : `▶ Начать ${item.name || 'урок'}`
-                  };
-                }) : defaultDailyLessons).map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div 
-                      key={item.id} 
-                      className={cn(
-                        "rounded-xl p-4 border bg-gradient-to-br flex flex-col justify-between transition-all hover:shadow-md",
-                        item.color
-                      )}
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold uppercase tracking-wider opacity-80">{item.title}</span>
-                          <Icon className="w-4 h-4 opacity-70" />
+              {visibleDailyItems.length === 0 ? (
+                <div className="text-center p-6 text-xs text-muted-foreground font-medium">
+                  {dailyTab === 'active' ? 'Все сегодняшние уроки пройдены! 🎉' : 'Нет пройденных уроков'}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {visibleDailyItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div 
+                        key={item.id} 
+                        className={cn(
+                          "rounded-xl p-3 border bg-gradient-to-br flex items-center justify-between transition-all hover:shadow-md gap-3",
+                          item.color
+                        )}
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <Icon className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                            <span className="text-[11px] font-bold uppercase tracking-wider opacity-80 truncate">{item.title}</span>
+                          </div>
+                          <p className="text-sm font-bold font-serif line-clamp-1 text-foreground/90">{item.subtitle}</p>
                         </div>
-                        <p className="text-base font-bold font-vilna line-clamp-1">{item.subtitle}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        className="mt-4 w-full justify-center gap-2 font-semibold text-xs shadow-sm"
-                        onClick={async () => {
-                          try {
-                            if (item.sessionId) {
-                              await api.createDailySessionLazy(item.sessionId);
-                              navigate(`/daily/${item.sessionId}`);
-                            } else {
+                        <Button
+                          size="sm"
+                          variant={item.completed ? "outline" : "default"}
+                          className="h-8 px-3 text-xs font-semibold shrink-0 gap-1.5 shadow-sm"
+                          onClick={async () => {
+                            try {
+                              if (item.sessionId) {
+                                await api.createDailySessionLazy(item.sessionId);
+                                navigate(`/daily/${item.sessionId}`);
+                              } else {
+                                navigate(`/study/${encodeURIComponent(item.ref)}`);
+                              }
+                            } catch {
                               navigate(`/study/${encodeURIComponent(item.ref)}`);
                             }
-                          } catch {
-                            navigate(`/study/${encodeURIComponent(item.ref)}`);
-                          }
-                        }}
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        {item.btnText}
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
+                          }}
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                          {item.btnText}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 

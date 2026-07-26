@@ -1,6 +1,6 @@
 import { Plus, X, Calendar, BookOpen, MessageSquare, ChevronLeft, ChevronRight as ChevronRightIcon, Bookmark, CheckCircle2 } from 'lucide-react';
 import { Chat } from '../../services/api';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useTheme } from '../theme-provider';
 import { useLocation } from 'react-router-dom';
 import { emitGamificationEvent } from '../../contexts/GamificationContext';
@@ -84,8 +84,42 @@ export default function ChatSidebar({
     syncActiveCategory(activeRouteType);
   }, [activeRouteType, syncActiveCategory]);
 
-  // Separate by category
-  const dailyChats = chats.filter(chat => chat.type === 'daily');
+  // Separate by category with proper daily sorting
+  const getDailyTimestamp = (sessionId: string) => {
+    if (!sessionId.startsWith('daily-')) return 0;
+    const parts = sessionId.split('-');
+    if (parts.length >= 4) {
+      const time = Date.parse(`${parts[1]}-${parts[2]}-${parts[3]}`);
+      if (!isNaN(time)) return time;
+    }
+    return 0;
+  };
+
+  const todayMs = new Date().setHours(0,0,0,0);
+
+  const dailyChats = useMemo(() => {
+    const allDaily = chats.filter(chat => chat.type === 'daily');
+    const todayList: Chat[] = [];
+    const pastList: Chat[] = [];
+
+    for (const item of allDaily) {
+      const ts = getDailyTimestamp(item.session_id);
+      const itemDay = new Date(ts).setHours(0,0,0,0);
+      if (ts > 0 && itemDay >= todayMs) {
+        todayList.push(item);
+      } else {
+        pastList.push(item);
+      }
+    }
+
+    // Sort past list by date descending (Newest past date first)
+    pastList.sort((a, b) => getDailyTimestamp(b.session_id) - getDailyTimestamp(a.session_id));
+    // Today list: uncompleted first, then completed
+    todayList.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1));
+
+    return [...todayList, ...pastList];
+  }, [chats, todayMs]);
+
   const studyChats = chats.filter(chat => chat.type === 'study');
   const simpleChats = chats.filter(chat => chat.type === 'chat');
   const categoryToList: Record<'daily'|'study'|'chat', Chat[]> = {

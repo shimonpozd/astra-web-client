@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
-import { Plus, Loader2, Copy, Check } from 'lucide-react';
+import { Plus, Loader2, Copy, Check, Languages, MessageSquare } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
 import { TraditionalComment } from './types';
 import { parseCommentDh } from './utils/commentParsing';
 import { isSameRef } from './utils/refUtils';
+import { authorizedFetch } from '../../../lib/authorizedFetch';
 
 interface CommentaryColumnProps {
   side: 'left' | 'right';
@@ -65,8 +66,104 @@ export const CommentaryColumn: React.FC<CommentaryColumnProps> = ({
 }) => {
   const borderClass = side === 'left' ? 'border-r border-border/10' : 'border-l border-border/10';
   const [columnViewMode, setColumnViewMode] = useState<'text' | 'translation'>('text');
+  const [expandedCommentTranslations, setExpandedCommentTranslations] = useState<Record<string, boolean>>({});
+  const [commentTranslations, setCommentTranslations] = useState<Record<string, string>>({});
+  const [translatingCommentKey, setTranslatingCommentKey] = useState<string | null>(null);
 
-  const fontScriptClass = useTraditionalScript ? 'font-rashi' : '';
+  const fontScriptClass = useTraditionalScript ? 'font-rashi' : 'font-serif';
+
+  // Part B: Autoscroll column when activeSegmentRef changes
+  useEffect(() => {
+    if (!activeSegmentRef || !comments || comments.length === 0) return;
+    const firstMatch = comments.find(c => c && isSameRef(c.anchorRef, activeSegmentRef));
+    if (firstMatch) {
+      const key = firstMatch.ref || `comment-${firstMatch.anchorRef || ''}-${firstMatch.commentator || ''}`;
+      const el = refsMap.current[key] || refsMap.current[firstMatch.ref];
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }, [activeSegmentRef, comments, refsMap]);
+
+  const handleTranslateComment = async (key: string, comment: TraditionalComment) => {
+    setExpandedCommentTranslations(prev => ({ ...prev, [key]: !prev[key] }));
+    if (commentTranslations[key]) return;
+
+    // Use comment.en only if it is real English (not raw Hebrew/Aramaic)
+    const isHebrewText = (str?: string) => Boolean(str && /[\u0590-\u05FF]/.test(str));
+    if (comment.en && comment.en.trim() && !isHebrewText(comment.en)) {
+      setCommentTranslations(prev => ({ ...prev, [key]: comment.en! }));
+      return;
+    }
+
+    setTranslatingCommentKey(key);
+    try {
+      if (comment.ref) {
+        const res = await authorizedFetch('/api/actions/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tref: comment.ref }),
+        });
+        if (res.ok && res.body) {
+          const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+          let fullTranslation = '';
+          let buffer = '';
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (!value) continue;
+
+            buffer += value;
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed) continue;
+              try {
+                const event = JSON.parse(trimmed);
+                const textChunk = typeof event.data === 'string' ? event.data : (event.data?.text || '');
+                if ((event.type === 'llm_chunk' || event.type === 'translation_chunk') && textChunk) {
+                  fullTranslation += textChunk;
+                  setCommentTranslations(prev => ({ ...prev, [key]: fullTranslation }));
+                }
+              } catch {
+                if (trimmed && !trimmed.startsWith('{')) {
+                  fullTranslation += trimmed;
+                  setCommentTranslations(prev => ({ ...prev, [key]: fullTranslation }));
+                }
+              }
+            }
+          }
+
+          if (buffer.trim()) {
+            try {
+              const event = JSON.parse(buffer.trim());
+              const textChunk = typeof event.data === 'string' ? event.data : (event.data?.text || '');
+              if ((event.type === 'llm_chunk' || event.type === 'translation_chunk') && textChunk) {
+                fullTranslation += textChunk;
+              }
+            } catch {
+              if (buffer.trim() && !buffer.trim().startsWith('{')) {
+                fullTranslation += buffer.trim();
+              }
+            }
+          }
+
+          if (fullTranslation.trim()) {
+            setCommentTranslations(prev => ({ ...prev, [key]: fullTranslation }));
+            return;
+          }
+        }
+      }
+      setCommentTranslations(prev => ({ ...prev, [key]: 'Перевод временно недоступен' }));
+    } catch {
+      setCommentTranslations(prev => ({ ...prev, [key]: 'Перевод временно недоступен' }));
+    } finally {
+      setTranslatingCommentKey(null);
+    }
+  };
 
   return (
     <div className={cn("w-full h-full flex flex-col flex-1 min-w-0", borderClass)}>
@@ -170,6 +267,8 @@ export const CommentaryColumn: React.FC<CommentaryColumnProps> = ({
                   "mb-4 p-2.5 rounded-lg transition-all duration-200 text-right cursor-pointer border-r-4 flex flex-col gap-1.5 select-text",
                   fontScriptClass,
                   fontSizeClass,
+                  // Part B: Dim non-active comments when an activeSegmentRef exists
+                  activeSegmentRef && !isAnchorActive && !isCommentActive ? "opacity-50 hover:opacity-100" : "opacity-100",
                   isCommentActive
                     ? isRashi
                       ? "bg-amber-500/25 border-amber-500 ring-2 ring-amber-500/60 shadow-md scale-[1.01]"
@@ -211,23 +310,61 @@ export const CommentaryColumn: React.FC<CommentaryColumnProps> = ({
                       {dh}
                     </strong>
                   )}
-                  <button
-                    type="button"
-                    aria-label={isRead ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
-                    className={cn(
-                      "h-5 w-5 rounded flex items-center justify-center border transition-all shrink-0 mt-0.5",
-                      isRead 
-                        ? "bg-emerald-500 text-white border-emerald-500 shadow-sm ring-1 ring-emerald-500/50" 
-                        : "border-border/60 text-muted-foreground hover:border-emerald-500/60 hover:text-emerald-500 opacity-60 hover:opacity-100"
-                    )}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleReadComment(comment.ref);
-                    }}
-                    title={isRead ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
-                  >
-                    <Check className={cn("w-3 h-3 transition-transform", isRead ? "scale-100 font-bold" : "scale-75 opacity-70")} />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0 mt-0.5" dir="ltr">
+                    {/* Part D: Per-comment translate button */}
+                    <button
+                      type="button"
+                      aria-label="Перевести комментарий"
+                      className={cn(
+                        "h-5 w-5 rounded flex items-center justify-center border transition-all shrink-0",
+                        expandedCommentTranslations[key]
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border/60 text-muted-foreground hover:border-primary/60 hover:text-primary opacity-60 hover:opacity-100"
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleTranslateComment(key, comment);
+                      }}
+                      title="Перевести комментарий"
+                    >
+                      <Languages className="w-3 h-3" />
+                    </button>
+
+                    {/* Part G: Explain comment in chat button */}
+                    <button
+                      type="button"
+                      aria-label="Объяснить комментарий в чате"
+                      className="h-5 w-5 rounded flex items-center justify-center border border-border/60 text-muted-foreground hover:border-primary/60 hover:text-primary opacity-60 hover:opacity-100 transition-all shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const plainText = (comment.he || '').replace(/<[^>]+>/g, '').trim();
+                        const prompt = `Пожалуйста, объясни комментарий ${comment.commentator || title} к отрывку ${comment.anchorRef}: "${plainText}"`;
+                        window.dispatchEvent(new CustomEvent('send-chat-prompt', { detail: { prompt } }));
+                      }}
+                      title="Объяснить этот комментарий в чате"
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                    </button>
+
+                    {/* Read status checkmark */}
+                    <button
+                      type="button"
+                      aria-label={isRead ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
+                      className={cn(
+                        "h-5 w-5 rounded flex items-center justify-center border transition-all shrink-0",
+                        isRead 
+                          ? "bg-emerald-500 text-white border-emerald-500 shadow-sm ring-1 ring-emerald-500/50" 
+                          : "border-border/60 text-muted-foreground hover:border-emerald-500/60 hover:text-emerald-500 opacity-60 hover:opacity-100"
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleReadComment(comment.ref);
+                      }}
+                      title={isRead ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
+                    >
+                      <Check className={cn("w-3 h-3 transition-transform", isRead ? "scale-100 font-bold" : "scale-75 opacity-70")} />
+                    </button>
+                  </div>
                 </div>
                 <div
                   dir="rtl"
@@ -235,6 +372,24 @@ export const CommentaryColumn: React.FC<CommentaryColumnProps> = ({
                   style={{ textAlignLast: 'right' }}
                   dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(restHtml || comment.he) }}
                 />
+
+                {/* Part D: Expandable Translation Panel */}
+                {expandedCommentTranslations[key] && (
+                  <div
+                    className="mt-2 p-2.5 rounded-md bg-muted/30 text-foreground/90 font-sans text-xs sm:text-sm text-left leading-relaxed border border-border/30 animate-in fade-in duration-200"
+                    dir="ltr"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {translatingCommentKey === key ? (
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Переводим...</span>
+                      </div>
+                    ) : (
+                      commentTranslations[key] || comment.en || 'Перевод недоступен'
+                    )}
+                  </div>
+                )}
               </div>
             );
           })

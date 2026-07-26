@@ -5,30 +5,70 @@ export const escapeRegExp = (str: string): string => {
 export const getNextDafRef = (dafRef: string): string => {
   if (!dafRef) return dafRef;
   const match = dafRef.match(/^(.+?)\s+(\d+)([ab])(?:[:.].*)?$/i);
-  if (!match) return dafRef;
-  const tractate = match[1];
-  const page = parseInt(match[2], 10);
-  const amud = match[3].toLowerCase();
-  if (amud === 'a') {
-    return `${tractate} ${page}b`;
-  } else {
-    return `${tractate} ${page + 1}a`;
+  if (match) {
+    const tractate = match[1];
+    const page = parseInt(match[2], 10);
+    const amud = match[3].toLowerCase();
+    if (amud === 'a') {
+      return `${tractate} ${page}b`;
+    } else {
+      return `${tractate} ${page + 1}a`;
+    }
   }
+
+  const verseMatch = dafRef.match(/^(.+?)\s+(\d+)[:.](.+?)$/i);
+  if (verseMatch) {
+    const book = verseMatch[1];
+    const chapter = verseMatch[2];
+    const verseNum = parseInt(verseMatch[3], 10);
+    if (!isNaN(verseNum)) {
+      return `${book} ${chapter}:${verseNum + 1}`;
+    }
+  }
+
+  const chapterMatch = dafRef.match(/^(.+?)\s+(\d+)$/i);
+  if (chapterMatch) {
+    const book = chapterMatch[1];
+    const chapter = parseInt(chapterMatch[2], 10);
+    return `${book} ${chapter + 1}`;
+  }
+
+  return dafRef;
 };
 
 export const getPrevDafRef = (dafRef: string): string => {
   if (!dafRef) return dafRef;
   const match = dafRef.match(/^(.+?)\s+(\d+)([ab])(?:[:.].*)?$/i);
-  if (!match) return dafRef;
-  const tractate = match[1];
-  const page = parseInt(match[2], 10);
-  const amud = match[3].toLowerCase();
-  if (amud === 'b') {
-    return `${tractate} ${page}a`;
-  } else {
-    if (page <= 2) return `${tractate} 2a`;
-    return `${tractate} ${page - 1}b`;
+  if (match) {
+    const tractate = match[1];
+    const page = parseInt(match[2], 10);
+    const amud = match[3].toLowerCase();
+    if (amud === 'b') {
+      return `${tractate} ${page}a`;
+    } else {
+      if (page <= 2) return `${tractate} 2a`;
+      return `${tractate} ${page - 1}b`;
+    }
   }
+
+  const verseMatch = dafRef.match(/^(.+?)\s+(\d+)[:.](.+?)$/i);
+  if (verseMatch) {
+    const book = verseMatch[1];
+    const chapter = verseMatch[2];
+    const verseNum = parseInt(verseMatch[3], 10);
+    if (!isNaN(verseNum)) {
+      return verseNum <= 1 ? `${book} ${chapter}:1` : `${book} ${chapter}:${verseNum - 1}`;
+    }
+  }
+
+  const chapterMatch = dafRef.match(/^(.+?)\s+(\d+)$/i);
+  if (chapterMatch) {
+    const book = chapterMatch[1];
+    const chapter = parseInt(chapterMatch[2], 10);
+    return chapter <= 1 ? `${book} 1` : `${book} ${chapter - 1}`;
+  }
+
+  return dafRef;
 };
 
 // Helper to compare refs flexibly (ignoring dots, colons, spaces, commas, retaining range hyphens)
