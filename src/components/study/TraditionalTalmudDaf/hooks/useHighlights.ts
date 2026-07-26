@@ -19,7 +19,6 @@ export const useHighlights = (
   }, [initialConceptHighlights]);
 
   const compileSageHighlights = useCallback((items: SageHighlight[]): CompiledSageHighlight[] => {
-    const allowed = new Set(['zugot', 'tannaim', 'amoraim', 'achronim']);
     const sorted = [...(items || [])].sort((a, b) => {
       const lenA = Math.max((a.name_he || '').length, (a.regex_pattern || '').length, (a.slug || '').length);
       const lenB = Math.max((b.name_he || '').length, (b.regex_pattern || '').length, (b.slug || '').length);
@@ -29,11 +28,8 @@ export const useHighlights = (
     for (const item of sorted) {
       if (!item?.slug || !item?.regex_pattern) continue;
       try {
-        const periodRaw = (item.period || '').toLowerCase();
+        const periodRaw = (item.period || 'sage').toLowerCase();
         const periodBase = (periodRaw.split('_')[0] || periodRaw || 'sage').trim();
-        if (periodBase && !allowed.has(periodBase)) {
-          continue;
-        }
         const regex = item.regex_pattern.includes('[WILD]')
           ? (buildHebrewFuzzyRegex(item.regex_pattern) || new RegExp(item.regex_pattern, 'gu'))
           : new RegExp(item.regex_pattern, 'gu');

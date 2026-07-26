@@ -11,7 +11,8 @@ import {
   Calendar, 
   Sparkles, 
   History, 
-  Compass
+  Compass,
+  ChevronDown
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { Button } from '../components/ui/button';
@@ -39,12 +40,47 @@ function getTodayDates() {
   };
 }
 
-// Zmanim sample for default coordinates
-const MOCK_ZMANIM = [
-  { label: 'Алот а-Шахар', time: '02:41', desc: 'Рассвет' },
-  { label: 'Шма (ГРА)', time: '08:52', desc: 'Время чтения Шма' },
-  { label: 'Хацот', time: '12:44', desc: 'Полдень' },
-  { label: 'Заход солнца (Шкиа)', time: '20:48', desc: 'Закат' },
+const ZMANIM_LABELS_RU: Record<string, { label: string; desc: string }> = {
+  getAlos16Point1Degrees: { label: 'Алот а-Шахар (16.1°)', desc: 'Рассвет (заря)' },
+  getAlos72: { label: 'Алот а-Шахар (72 мин)', desc: 'Рассвет МГА' },
+  getAlosBaalHatanya: { label: 'Алот а-Шахар (Алтер Ребе)', desc: 'Рассвет по Баал а-Тания' },
+  getMisheyakir11Degrees: { label: 'Мишейакир (11°)', desc: 'Время цицит и тфилин' },
+  getSunrise: { label: 'Восход солнца (Нец)', desc: 'Астрономический восход' },
+  getSeaLevelSunrise: { label: 'Восход на уровне моря', desc: 'Восход солнца' },
+  getSunriseBaalHatanya: { label: 'Восход (Алтер Ребе)', desc: 'Восход по Баал а-Тания' },
+  getSofZmanShmaGRA: { label: 'Шма (ГРА)', desc: 'Время чтения Шма' },
+  getSofZmanShmaMGA: { label: 'Шма (МГА)', desc: 'Время чтения Шма МГА' },
+  getSofZmanShmaBaalHatanya: { label: 'Шма (Алтер Ребе)', desc: 'Время чтения Шма' },
+  getSofZmanTfilaGRA: { label: 'Тфила (ГРА)', desc: 'Время утренней молитвы' },
+  getSofZmanTfilaMGA: { label: 'Тфила (МГА)', desc: 'Время утренней молитвы МГА' },
+  getChatzos: { label: 'Хацот а-Йом', desc: 'Астрономический полдень' },
+  getChatzosHayomBaalHatanya: { label: 'Хацот (Алтер Ребе)', desc: 'Полдень по Баал а-Тания' },
+  getMinchaGedola: { label: 'Минха Гедола', desc: 'Начало дневной молитвы' },
+  getMinchaKetana: { label: 'Минха Ктана', desc: 'Малая Минха' },
+  getPlagHamincha: { label: 'Плаг а-Минха', desc: 'Раннее зажигание свечей' },
+  getSunset: { label: 'Заход солнца (Шкиа)', desc: 'Закат' },
+  getSunsetBaalHatanya: { label: 'Закат (Алтер Ребе)', desc: 'Закат по Баал а-Тания' },
+  getTzaisGeonim7Point083Degrees: { label: 'Цейт а-Кохавим (Геоним)', desc: 'Выход звезд' },
+  getTzais72: { label: 'Цейт а-Кохавим (72 мин)', desc: 'Выход звезд по Рабейну Там' },
+  getTzaisBaalHatanya: { label: 'Цейт а-Кохавим (Алтер Ребе)', desc: 'Выход звезд по Баал а-Тания' },
+};
+
+function getZmanInfo(methodId: string): { label: string; desc: string } {
+  if (ZMANIM_LABELS_RU[methodId]) {
+    return ZMANIM_LABELS_RU[methodId];
+  }
+  const clean = methodId
+    .replace(/^get/, '')
+    .replace(/([A-Z])/g, ' $1')
+    .trim();
+  return { label: clean, desc: 'Галахическое время' };
+}
+
+const DEFAULT_ZMANIM = [
+  { label: 'Алот а-Шахар', time: '--:--', desc: 'Рассвет' },
+  { label: 'Шма (ГРА)', time: '--:--', desc: 'Время чтения Шма' },
+  { label: 'Хацот', time: '--:--', desc: 'Полдень' },
+  { label: 'Заход солнца (Шкиа)', time: '--:--', desc: 'Закат' },
 ];
 
 export const Dashboard: React.FC = () => {
@@ -60,11 +96,10 @@ export const Dashboard: React.FC = () => {
     return chats.filter(c => c.type !== 'daily').slice(0, 5);
   }, [chats]);
 
-  const [zmanimList, setZmanimList] = useState(MOCK_ZMANIM);
+  const [zmanimList, setZmanimList] = useState<{ label: string; time: string; desc: string }[]>(DEFAULT_ZMANIM);
   const [zmanimLocationName, setZmanimLocationName] = useState<string>('Иерусалим');
 
   useEffect(() => {
-    // Determine location & Calculate Zmanim non-blockingly
     let loc = { name: 'Иерусалим', lat: 31.7683, lon: 35.2137 };
     try {
       const savedRaw = localStorage.getItem('astra.zmanim.location');
@@ -84,33 +119,64 @@ export const Dashboard: React.FC = () => {
 
     setZmanimLocationName(loc.name);
 
+    let selectedMethods: string[] = [];
+    try {
+      const savedMethods = localStorage.getItem('astra.zmanim.methods');
+      if (savedMethods) {
+        const parsed = JSON.parse(savedMethods);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          selectedMethods = parsed;
+        }
+      }
+    } catch {
+      /* ignore storage parse error */
+    }
+
+    if (selectedMethods.length === 0) {
+      selectedMethods = [
+        'getAlos16Point1Degrees',
+        'getSunrise',
+        'getSofZmanShmaGRA',
+        'getChatzos',
+        'getSunset',
+        'getTzaisGeonim7Point083Degrees',
+      ];
+    }
+
     const today = new Date().toISOString().split('T')[0];
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
     api.calculateZmanim({
       date: today,
       timezone: tz,
       location: loc,
-      methods: [
-        'getAlos16Point1Degrees',
-        'getSofZmanShmaGRA',
-        'getChatzos',
-        'getSunset',
-      ],
+      methods: selectedMethods,
       use_elevation: false,
     })
       .then(data => {
         if (data?.results) {
           const fmt = (val: any) => {
-            if (!val || typeof val !== 'string') return '--:--';
+            if (!val || typeof val !== 'string') return null;
             const d = new Date(val);
-            return Number.isNaN(d.getTime()) ? '--:--' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return Number.isNaN(d.getTime()) ? null : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           };
-          setZmanimList([
-            { label: 'Алот а-Шахар', time: fmt(data.results.getAlos16Point1Degrees), desc: 'Рассвет' },
-            { label: 'Шма (ГРА)', time: fmt(data.results.getSofZmanShmaGRA), desc: 'Время чтения Шма' },
-            { label: 'Хацот', time: fmt(data.results.getChatzos), desc: 'Полдень' },
-            { label: 'Заход солнца (Шкиа)', time: fmt(data.results.getSunset), desc: 'Закат' },
-          ]);
+
+          const list: { label: string; time: string; desc: string }[] = [];
+          for (const mId of selectedMethods) {
+            const rawVal = data.results[mId];
+            const timeFormatted = fmt(rawVal);
+            if (timeFormatted) {
+              const info = getZmanInfo(mId);
+              list.push({
+                label: info.label,
+                time: timeFormatted,
+                desc: info.desc,
+              });
+            }
+          }
+          if (list.length > 0) {
+            setZmanimList(list);
+          }
         }
       })
       .catch(err => console.warn('Failed to calculate Zmanim:', err));
@@ -188,18 +254,46 @@ export const Dashboard: React.FC = () => {
 
   const processedDailyItems = useMemo(() => {
     const rawList = dailyItems.length > 0 ? dailyItems : defaultDailyLessons;
-    return rawList.map((item, idx) => {
-      const isRambam = item.daily_category?.includes('rambam') || item.session_id?.includes('rambam');
-      const isChitas = item.daily_category?.includes('chitas') || item.session_id?.includes('chitas');
-      const displaySubtitle = item.display_value_ru || item.display_value || item.display_value_he || item.name;
+
+    const getPriority = (item: any): number => {
+      const title = (item.title || item.name || '').toLowerCase();
+      const session = (item.sessionId || item.session_id || item.id || '').toLowerCase();
+      const cat = (item.daily_category || item.category || '').toLowerCase();
+
+      if (title.includes('daf yomi') || title.includes('даф') || session.includes('daf_yomi')) return 100;
+      if (title.includes('rambam (3') || session.includes('rambam_3')) return 90;
+      if (title.includes('rambam (1') || session.includes('rambam_1') || title.includes('рамбам')) return 85;
+      if (title.includes('parasha') || session.includes('parasha') || title.includes('недельн')) return 80;
+      if (title.includes('chitas') || session.includes('chitas') || title.includes('929') || session.includes('929')) return 75;
+      if (title.includes('tanakh') || session.includes('tanakh')) return 70;
+      if (title.includes('haftarah') || session.includes('haftarah')) return 60;
+      return 50;
+    };
+
+    const cleanSubtitle = (sub: string, fallbackTitle: string): string => {
+      if (!sub) return fallbackTitle;
+      let clean = sub.trim();
+      if (/^\d{1,2}\s+\d{1,2}\s+/.test(clean)) {
+        clean = clean.replace(/^\d{1,2}\s+\d{1,2}\s+/, '');
+      }
+      return clean || fallbackTitle;
+    };
+
+    const mapped = rawList.map((item, idx) => {
+      const isRambam = item.daily_category?.includes('rambam') || item.session_id?.includes('rambam') || item.title?.includes('Rambam');
+      const isChitas = item.daily_category?.includes('chitas') || item.session_id?.includes('chitas') || item.title?.includes('Chitas');
+      const itemTitle = item.title_ru || item.name || item.title || 'Дневной урок';
+      const rawSub = item.display_value_ru || item.display_value || item.display_value_he || item.name || '';
+      const displaySubtitle = cleanSubtitle(rawSub, itemTitle);
 
       return {
         id: item.session_id || `daily-${idx}`,
-        title: item.name || item.title || 'Дневной урок',
+        title: itemTitle,
         subtitle: displaySubtitle,
         ref: item.display_value || item.session_id,
         sessionId: item.session_id,
         completed: Boolean(item.completed),
+        priority: getPriority(item),
         icon: isRambam ? Sparkles : isChitas ? Calendar : BookOpen,
         color: isRambam
           ? 'from-blue-500/10 to-cyan-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30'
@@ -209,15 +303,24 @@ export const Dashboard: React.FC = () => {
         btnText: item.completed ? '✓ Открыть' : '▶ Начать'
       };
     });
+
+    mapped.sort((a, b) => b.priority - a.priority);
+    return mapped;
   }, [dailyItems]);
 
-  const visibleDailyItems = useMemo(() => {
+  const [isAllDailyExpanded, setIsAllDailyExpanded] = useState(false);
+
+  const filteredDailyItems = useMemo(() => {
     if (dailyTab === 'active') {
       return processedDailyItems.filter(i => !i.completed);
     } else {
       return processedDailyItems.filter(i => i.completed);
     }
   }, [processedDailyItems, dailyTab]);
+
+  const visibleDailyItems = useMemo(() => {
+    return isAllDailyExpanded ? filteredDailyItems : filteredDailyItems.slice(0, 4);
+  }, [filteredDailyItems, isAllDailyExpanded]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -343,6 +446,19 @@ export const Dashboard: React.FC = () => {
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {filteredDailyItems.length > 4 && (
+                <div className="text-center pt-2 border-t border-border/20 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsAllDailyExpanded(!isAllDailyExpanded)}
+                    className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    {isAllDailyExpanded ? 'Свернуть' : `Показать все уроки (${filteredDailyItems.length})`}
+                    <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", isAllDailyExpanded && "rotate-180")} />
+                  </button>
                 </div>
               )}
             </CardContent>

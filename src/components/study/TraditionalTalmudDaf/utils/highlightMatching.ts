@@ -158,7 +158,7 @@ export const buildHebrewFuzzyRegex = (phrase: string): RegExp | null => {
   if (regexParts.length === 0) return null;
 
   const separator = `[\\s\\u200E\\u200F"'\\"().,!?;:\\-\\[\\]{}ׇ]*`;
-  const pattern = regexParts.join(separator);
+  const pattern = `(?<![\\u0590-\\u05FF])${regexParts.join(separator)}(?![\\u0590-\\u05FF])`;
   try {
     return new RegExp(pattern, 'gu');
   } catch (e) {

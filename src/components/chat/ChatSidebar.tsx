@@ -77,14 +77,13 @@ export default function ChatSidebar({
     const activeChat = chats.find((chat) => chat.session_id === selectedChatId);
     if (!activeChat) return;
     syncActiveCategory(resolveCategoryFromType(activeChat.type));
-  }, [selectedChatId, chats, syncActiveCategory]);
+  }, [selectedChatId, chats, syncActiveCategory, resolveCategoryFromType]);
 
   useEffect(() => {
     if (!activeRouteType) return;
     syncActiveCategory(activeRouteType);
   }, [activeRouteType, syncActiveCategory]);
 
-  // Separate by category with proper daily sorting
   const getDailyTimestamp = (sessionId: string) => {
     if (!sessionId.startsWith('daily-')) return 0;
     const parts = sessionId.split('-');
@@ -95,9 +94,9 @@ export default function ChatSidebar({
     return 0;
   };
 
-  const todayMs = new Date().setHours(0,0,0,0);
+  const todayMs = useMemo(() => new Date().setHours(0,0,0,0), []);
 
-  const dailyChats = useMemo(() => {
+  const { todayDailyChats, pastDailyChats } = useMemo(() => {
     const allDaily = chats.filter(chat => chat.type === 'daily');
     const todayList: Chat[] = [];
     const pastList: Chat[] = [];
@@ -112,18 +111,16 @@ export default function ChatSidebar({
       }
     }
 
-    // Sort past list by date descending (Newest past date first)
     pastList.sort((a, b) => getDailyTimestamp(b.session_id) - getDailyTimestamp(a.session_id));
-    // Today list: uncompleted first, then completed
     todayList.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1));
 
-    return [...todayList, ...pastList];
+    return { todayDailyChats: todayList, pastDailyChats: pastList };
   }, [chats, todayMs]);
 
   const studyChats = chats.filter(chat => chat.type === 'study');
   const simpleChats = chats.filter(chat => chat.type === 'chat');
   const categoryToList: Record<'daily'|'study'|'chat', Chat[]> = {
-    daily: dailyChats,
+    daily: [...todayDailyChats, ...pastDailyChats],
     study: studyChats,
     chat: simpleChats,
   };
@@ -415,34 +412,33 @@ export default function ChatSidebar({
                 <span>No items</span>
               </div>
             ) : (
-              visibleChats.map((chat, idx) => {
-                const isRouteActive = Boolean(activeRouteId && activeRouteType === chat.type && activeRouteId === chat.session_id);
-                const selected = isRouteActive || (!activeRouteId && selectedChatId === chat.session_id);
-                const stale = chat.type === 'daily' && chat.stale;
-                return (
-                  <div
-                    key={chat.session_id}
-                    role="listitem"
-                    tabIndex={0}
-                    aria-selected={selected}
-                    onFocus={() => setFocusedIndex(idx)}
-                    className="relative flex items-center justify-between h-12 px-3 rounded-md outline-none gap-2"
-                    style={{
-                      background: selected ? (isDark ? 'rgba(184,157,99,0.12)' : 'rgba(194,169,112,0.10)') : 'transparent',
-                      opacity: stale ? 0.5 : 1,
-                      transition: 'all 200ms cubic-bezier(0.25,1,0.5,1)'
-                    }}
-                    onClick={() => {
-                      handleSelectCategory(resolveCategoryFromType(chat.type));
-                      onSelectChat(chat.session_id, chat.type);
-                    }}
-                  >
-                    {selected && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded"
-                            style={{ background: `linear-gradient(180deg, ${colorAccent} 0%, transparent 100%)` }} />
-                    )}
+              (() => {
+                const renderChatItem = (chat: Chat, idx: number) => {
+                  const isRouteActive = Boolean(activeRouteId && activeRouteType === chat.type && activeRouteId === chat.session_id);
+                  const selected = isRouteActive || (!activeRouteId && selectedChatId === chat.session_id);
+                  const stale = chat.type === 'daily' && chat.stale;
+                  return (
+                    <div
+                      key={chat.session_id}
+                      role="listitem"
+                      tabIndex={0}
+                      aria-selected={selected}
+                      onFocus={() => setFocusedIndex(idx)}
+                      className="relative flex items-center justify-between h-11 px-3 rounded-md outline-none gap-2 cursor-pointer hover:bg-muted/40 transition-all"
+                      style={{
+                        background: selected ? (isDark ? 'rgba(184,157,99,0.12)' : 'rgba(194,169,112,0.10)') : 'transparent',
+                        opacity: stale ? 0.5 : 1,
+                      }}
+                      onClick={() => {
+                        handleSelectCategory(resolveCategoryFromType(chat.type));
+                        onSelectChat(chat.session_id, chat.type);
+                      }}
+                    >
+                      {selected && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded"
+                              style={{ background: `linear-gradient(180deg, ${colorAccent} 0%, transparent 100%)` }} />
+                      )}
                       <div className="flex items-center gap-3 min-w-0">
-                        {/* Secondary badges */}
                         {chat.type === 'daily' ? (
                           <span className="relative w-5 h-5 grid place-items-center">
                             <span className="absolute w-2.5 h-2.5 rounded-full" style={{ background: chat.completed ? colorAccent : colorSeparator }} />
@@ -456,31 +452,16 @@ export default function ChatSidebar({
 
                         <div className="min-w-0 space-y-0.5">
                           <span
-                            className="truncate text-[14.5px] font-[600] tracking-[-0.01em]"
+                            className="truncate text-[14px] font-[600] tracking-[-0.01em] block"
                             title={chat.name || chat.display_value_ru || chat.display_value}
                           >
                             {chat.name || chat.display_value_ru || chat.display_value}
                           </span>
                           {chat.type === 'daily' && (
                             <div className="flex items-center gap-2 text-[11px]" style={{ color: colorFgMuted }}>
-                              <div className="relative min-w-0 flex-1 overflow-hidden">
-                                <div
-                                  className="whitespace-nowrap overflow-hidden"
-                                  style={{
-                                    maskImage: 'linear-gradient(90deg, rgba(0,0,0,1) 80%, rgba(0,0,0,0) 100%)',
-                                  }}
-                                >
-                                  <span
-                                    className="inline-block"
-                                    title={chat.display_value_ru || chat.display_value || chat.ref || chat.name}
-                                    style={{
-                                      animation: (chat.ref && chat.ref.length > 28) ? 'marquee 9s linear infinite' : undefined,
-                                    }}
-                                  >
-                                    {chat.display_value_ru || chat.display_value || chat.ref || '—'}
-                                  </span>
-                                </div>
-                              </div>
+                              <span className="truncate max-w-[170px]" title={chat.display_value_ru || chat.display_value || chat.ref || chat.name}>
+                                {chat.display_value_ru || chat.display_value || chat.ref || '—'}
+                              </span>
                               {chat.daily_stream && chat.daily_stream.units_total > 1 && (
                                 <span className="font-semibold" style={{ color: colorAccent }}>
                                   {chat.daily_stream.unit_index_today + 1}/{chat.daily_stream.units_total}
@@ -491,33 +472,73 @@ export default function ChatSidebar({
                         </div>
                       </div>
 
-                    {chat.type === 'daily' ? (
-                      <button
-                        className="p-1.5 rounded opacity-80 hover:opacity-100 transition-opacity ml-auto"
-                        onClick={(e) => { e.stopPropagation(); handleCompleteDaily(chat); }}
-                        aria-label={chat.completed ? "Снять отметку" : "Отметить завершение"}
-                        disabled={pendingCompleteId === chat.session_id}
-                        style={{ color: chat.completed ? colorAccent : colorFgMuted }}
-                      >
-                        <CheckCircle2
-                          className="w-4 h-4"
-                          strokeWidth={1.8}
-                          fill={chat.completed ? colorAccent : 'transparent'}
-                          style={{ transition: 'all 150ms ease-out' }}
-                        />
-                      </button>
-                    ) : (
-                      <button
-                        className="p-1 rounded opacity-40 hover:opacity-100 transition-opacity"
-                        onClick={(e) => { e.stopPropagation(); onDeleteSession(chat.session_id, chat.type); }}
-                        aria-label="Delete chat"
-                      >
-                        <X className="w-3 h-3" style={{ color: colorFgMuted, transition: 'transform 120ms ease-out, opacity 120ms ease-out' }} strokeWidth={1.25} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })
+                      {chat.type === 'daily' ? (
+                        <button
+                          className="p-1.5 rounded opacity-80 hover:opacity-100 transition-opacity ml-auto"
+                          onClick={(e) => { e.stopPropagation(); handleCompleteDaily(chat); }}
+                          aria-label={chat.completed ? "Снять отметку" : "Отметить завершение"}
+                          disabled={pendingCompleteId === chat.session_id}
+                          style={{ color: chat.completed ? colorAccent : colorFgMuted }}
+                        >
+                          <CheckCircle2
+                            className="w-4 h-4"
+                            strokeWidth={1.8}
+                            fill={chat.completed ? colorAccent : 'transparent'}
+                            style={{ transition: 'all 150ms ease-out' }}
+                          />
+                        </button>
+                      ) : (
+                        <button
+                          className="p-1 rounded opacity-40 hover:opacity-100 transition-opacity ml-auto"
+                          onClick={(e) => { e.stopPropagation(); onDeleteSession(chat.session_id, chat.type); }}
+                          aria-label="Delete chat"
+                        >
+                          <X className="w-3 h-3" style={{ color: colorFgMuted }} strokeWidth={1.25} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                };
+
+                if (activeCategory === 'daily') {
+                  return (
+                    <div className="flex flex-col gap-1.5">
+                      <div className="px-2 py-1 text-[11px] font-bold tracking-wider uppercase flex items-center justify-between text-amber-600 dark:text-amber-400 border-b border-border/20 pb-1">
+                        <span>Уроки на сегодня</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 font-semibold">
+                          {todayDailyChats.filter(c => !c.completed).length} к прохождению
+                        </span>
+                      </div>
+
+                      {todayDailyChats.length === 0 ? (
+                        <div className="text-xs text-muted-foreground p-2">Нет уроков на сегодня</div>
+                      ) : (
+                        todayDailyChats.map((chat, idx) => renderChatItem(chat, idx))
+                      )}
+
+                      {pastDailyChats.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-border/30">
+                          <button
+                            type="button"
+                            onClick={() => setIsArchiveOpen(!isArchiveOpen)}
+                            className="w-full flex items-center justify-between px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md bg-muted/30"
+                          >
+                            <span className="font-semibold">Архив уроков ({pastDailyChats.length})</span>
+                            <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", isArchiveOpen && "rotate-180")} />
+                          </button>
+                          {isArchiveOpen && (
+                            <div className="mt-1 flex flex-col gap-1">
+                              {pastDailyChats.map((chat, idx) => renderChatItem(chat, todayDailyChats.length + idx))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return visibleChats.map((chat, idx) => renderChatItem(chat, idx));
+              })()
             )}
           </div>
         )}
