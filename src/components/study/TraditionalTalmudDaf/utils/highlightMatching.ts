@@ -229,7 +229,7 @@ export function extractGemaraWordTokens(html: string): TextToken[] {
 
 export function matchWordsEqual(w1: string, s1: string, w2: string, s2: string): boolean {
   if (w1 === w2) return true;
-  if (s1.length >= 2 && s2.length >= 2 && s1 === s2) return true;
+  if (s1.length >= 3 && s2.length >= 3 && s1 === s2) return true;
   return false;
 }
 
@@ -268,25 +268,24 @@ export const highlightDhInGemara = (
     let bestMatch: { startTokenIdx: number; endTokenIdx: number; count: number } | null = null;
 
     for (let tIdx = 0; tIdx < tokens.length; tIdx++) {
-      for (let dhStart = 0; dhStart < Math.min(dhWords.length, 2); dhStart++) {
-        let count = 0;
-        while (
-          tIdx + count < tokens.length &&
-          dhStart + count < dhWords.length &&
-          matchWordsEqual(
-            tokens[tIdx + count].clean,
-            tokens[tIdx + count].stem,
-            dhWords[dhStart + count].clean,
-            dhWords[dhStart + count].stem
-          )
-        ) {
-          count++;
-        }
+      const dhStart = 0;
+      let count = 0;
+      while (
+        tIdx + count < tokens.length &&
+        dhStart + count < dhWords.length &&
+        matchWordsEqual(
+          tokens[tIdx + count].clean,
+          tokens[tIdx + count].stem,
+          dhWords[dhStart + count].clean,
+          dhWords[dhStart + count].stem
+        )
+      ) {
+        count++;
+      }
 
-        if (count >= 2 || (count === 1 && dhWords.length === 1)) {
-          if (!bestMatch || count > bestMatch.count) {
-            bestMatch = { startTokenIdx: tIdx, endTokenIdx: tIdx + count - 1, count };
-          }
+      if (count >= 2 || (count === 1 && dhWords.length === 1)) {
+        if (!bestMatch || count > bestMatch.count) {
+          bestMatch = { startTokenIdx: tIdx, endTokenIdx: tIdx + count - 1, count };
         }
       }
     }
