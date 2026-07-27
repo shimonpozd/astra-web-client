@@ -1,10 +1,11 @@
-import { Plus, X, Calendar, BookOpen, MessageSquare, ChevronLeft, ChevronRight as ChevronRightIcon, Bookmark, CheckCircle2 } from 'lucide-react';
+import { Plus, X, Calendar, BookOpen, MessageSquare, ChevronLeft, ChevronRight as ChevronRightIcon, Bookmark, CheckCircle2, ChevronDown } from 'lucide-react';
 import { Chat } from '../../services/api';
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useTheme } from '../theme-provider';
 import { useLocation } from 'react-router-dom';
 import { emitGamificationEvent } from '../../contexts/GamificationContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../../lib/utils';
 
 interface ChatSidebarProps {
   chats: Chat[];
@@ -40,6 +41,7 @@ export default function ChatSidebar({
   });
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const [isFading, setIsFading] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [pendingCompleteId, setPendingCompleteId] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ text: string; accent?: boolean } | null>(null);
   const [confirmDailyId, setConfirmDailyId] = useState<string | null>(null);

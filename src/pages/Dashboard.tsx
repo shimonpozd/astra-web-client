@@ -1,3 +1,23 @@
+/**
+ * DESIGN SYSTEM NOTE
+ * ------------------
+ * This dashboard is set up for a two-typeface system:
+ *  - display/serif  → "Fraunces"      (headings, dates, Torah source citations)
+ *  - body/sans      → "Inter"         (UI text, labels, descriptions)
+ *  - data/mono      → "JetBrains Mono" (zmanim times)
+ *
+ * Add this to your index.html <head> (or import in your global CSS):
+ *
+ *   <link rel="preconnect" href="https://fonts.googleapis.com">
+ *   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+ *
+ * And in tailwind.config.js, extend fontFamily:
+ *   fontFamily: {
+ *     sans: ['Inter', 'sans-serif'],
+ *     serif: ['Fraunces', 'serif'],
+ *     mono: ['"JetBrains Mono"', 'monospace'],
+ *   }
+ */
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -83,13 +103,44 @@ const DEFAULT_ZMANIM = [
   { label: 'Заход солнца (Шкиа)', time: '--:--', desc: 'Закат' },
 ];
 
+const LESSON_ACCENTS: Record<string, { border: string; iconBg: string; iconText: string; chip: string }> = {
+  amber: {
+    border: 'border-l-amber-500/70',
+    iconBg: 'bg-amber-500/10 dark:bg-amber-400/10',
+    iconText: 'text-amber-600 dark:text-amber-400',
+    chip: 'text-amber-700 dark:text-amber-300',
+  },
+  blue: {
+    border: 'border-l-blue-500/70',
+    iconBg: 'bg-blue-500/10 dark:bg-blue-400/10',
+    iconText: 'text-blue-600 dark:text-blue-400',
+    chip: 'text-blue-700 dark:text-blue-300',
+  },
+  emerald: {
+    border: 'border-l-emerald-500/70',
+    iconBg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
+    iconText: 'text-emerald-600 dark:text-emerald-400',
+    chip: 'text-emerald-700 dark:text-emerald-300',
+  },
+};
+
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { chats, isLoading: loadingChats } = useChat();
   const todayDates = useMemo(() => getTodayDates(), []);
   
   const dailyItems = useMemo(() => {
-    return chats.filter(c => c.type === 'daily');
+    const todayIso = new Date().toISOString().split('T')[0];
+    return chats.filter(c => {
+      if (c.type !== 'daily') return false;
+      if (c.session_id.includes(todayIso)) return true;
+      const parts = c.session_id.split('-');
+      if (parts.length >= 4) {
+        const itemDateStr = `${parts[1]}-${parts[2]}-${parts[3]}`;
+        return itemDateStr === todayIso;
+      }
+      return false;
+    });
   }, [chats]);
 
   const recentChats = useMemo(() => {
@@ -190,8 +241,8 @@ export const Dashboard: React.FC = () => {
       sessionId: 'daily-daf_yomi',
       ref: 'Chullin 75a',
       icon: BookOpen,
-      color: 'from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30',
-      btnText: '▶ Начать Даф Йоми'
+      color: 'amber',
+      btnText: 'Начать'
     },
     {
       id: 'rambam_3',
@@ -200,8 +251,8 @@ export const Dashboard: React.FC = () => {
       sessionId: 'daily-rambam_3',
       ref: 'Mishneh Torah, Sabbath 1',
       icon: Sparkles,
-      color: 'from-blue-500/20 to-cyan-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30',
-      btnText: '▶ Начать Рамбам'
+      color: 'blue',
+      btnText: 'Начать'
     },
     {
       id: 'chitas',
@@ -210,8 +261,8 @@ export const Dashboard: React.FC = () => {
       sessionId: 'daily-chitas',
       ref: 'Deuteronomy 2:1',
       icon: Calendar,
-      color: 'from-emerald-500/20 to-teal-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
-      btnText: '▶ Начать ХИТАШ'
+      color: 'emerald',
+      btnText: 'Начать'
     }
   ];
 
@@ -226,7 +277,7 @@ export const Dashboard: React.FC = () => {
     },
     {
       id: 'timeline',
-      title: 'Таймлайн Мудрецов',
+      title: 'Таймлайн',
       subtitle: 'Хронология поколений от Танаив до Ахроним',
       path: '/timeline',
       icon: Milestone,
@@ -243,7 +294,7 @@ export const Dashboard: React.FC = () => {
     {
       id: 'map',
       title: 'Седер Иштальшелус',
-      subtitle: 'Карта цепочки передачи учения Торы',
+      subtitle: 'Карта цепочки Седер Иштальшелус',
       path: '/lab/map',
       icon: Map,
       badge: 'Интерактивная карта'
@@ -295,12 +346,8 @@ export const Dashboard: React.FC = () => {
         completed: Boolean(item.completed),
         priority: getPriority(item),
         icon: isRambam ? Sparkles : isChitas ? Calendar : BookOpen,
-        color: isRambam
-          ? 'from-blue-500/10 to-cyan-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30'
-          : isChitas
-          ? 'from-emerald-500/10 to-teal-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-          : 'from-amber-500/10 to-orange-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30',
-        btnText: item.completed ? '✓ Открыть' : '▶ Начать'
+        color: isRambam ? 'blue' : isChitas ? 'emerald' : 'amber',
+        btnText: item.completed ? 'Открыть' : 'Начать'
       };
     });
 
@@ -326,30 +373,35 @@ export const Dashboard: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <TopBar />
       
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8 animate-in fade-in duration-300">
-        
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-10 animate-in fade-in duration-300">
+
         {/* Header Greeting & Jewish Calendar Banner */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 via-primary/10 to-blue-500/10 border border-border p-6 sm:p-8 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-3">
-                👋 Шалом! 
-                <span className="text-sm font-normal text-muted-foreground bg-background/60 backdrop-blur px-3 py-1 rounded-full border border-border">
-                  Рабочий Кабинет
-                </span>
+        <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 sm:p-10 shadow-sm">
+          {/* subtle top accent line, evoking a manuscript rule */}
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-500/60 via-primary/50 to-blue-500/60" />
+
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 relative z-10">
+            <div className="space-y-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Рабочий кабинет
+              </span>
+              <h1 className="font-serif text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+                Шалом!
               </h1>
-              <p className="text-muted-foreground mt-2 text-sm sm:text-base flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-primary" />
-                <span className="font-semibold text-foreground">{todayDates.hebrew}</span>
-                <span>•</span>
-                <span>{todayDates.secular}</span>
+              <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm sm:text-base">
+                <span className="font-serif font-semibold text-foreground">{todayDates.hebrew}</span>
+                <span className="text-border">•</span>
+                <span className="text-muted-foreground">{todayDates.secular}</span>
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2 text-xs">
+            <div className="flex flex-wrap gap-2">
               {todayDates.events.map((ev, idx) => (
-                <span key={idx} className="bg-primary/10 text-primary font-medium px-3 py-1.5 rounded-lg border border-primary/20 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" />
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground/80"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
                   {ev}
                 </span>
               ))}
@@ -362,14 +414,14 @@ export const Dashboard: React.FC = () => {
           
           {/* Daily Learning Block (2 Cols) */}
           <Card className="lg:col-span-2 shadow-sm border-border">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+            <CardHeader className="pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <CardTitle className="font-serif text-xl font-semibold flex items-center gap-2.5">
                     <BookOpen className="w-5 h-5 text-primary" />
-                    📚 ДНЕВНЫЕ УРОКИ (Дейлики)
+                    Дневные уроки
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="mt-1">
                     Ваши текущие дневные учебные циклы
                   </CardDescription>
                 </div>
@@ -380,7 +432,7 @@ export const Dashboard: React.FC = () => {
                     type="button"
                     className={cn(
                       "px-3 py-1 text-xs font-semibold rounded-md transition-all",
-                      dailyTab === 'active' ? "bg-background text-foreground shadow-sm font-bold" : "text-muted-foreground hover:text-foreground"
+                      dailyTab === 'active' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                     )}
                     onClick={() => setDailyTab('active')}
                   >
@@ -390,7 +442,7 @@ export const Dashboard: React.FC = () => {
                     type="button"
                     className={cn(
                       "px-3 py-1 text-xs font-semibold rounded-md transition-all",
-                      dailyTab === 'completed' ? "bg-background text-foreground shadow-sm font-bold" : "text-muted-foreground hover:text-foreground"
+                      dailyTab === 'completed' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                     )}
                     onClick={() => setDailyTab('completed')}
                   >
@@ -401,42 +453,52 @@ export const Dashboard: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {visibleDailyItems.length === 0 ? (
-                <div className="text-center p-6 text-xs text-muted-foreground font-medium">
-                  {dailyTab === 'active' ? 'Все сегодняшние уроки пройдены! 🎉' : 'Нет пройденных уроков'}
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  {dailyTab === 'active' ? 'Все сегодняшние уроки пройдены.' : 'Нет пройденных уроков'}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {visibleDailyItems.map((item) => {
                     const Icon = item.icon;
+                    const accent = LESSON_ACCENTS[item.color] || LESSON_ACCENTS.amber;
                     return (
-                      <div 
-                        key={item.id} 
+                      <div
+                        key={item.id}
                         className={cn(
-                          "rounded-xl p-3 border bg-gradient-to-br flex items-center justify-between transition-all hover:shadow-md gap-3",
-                          item.color
+                          "rounded-lg border border-border border-l-4 bg-muted/20 p-3.5 flex items-center justify-between gap-3 transition-all hover:bg-muted/40",
+                          accent.border
                         )}
                       >
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <Icon className="w-3.5 h-3.5 opacity-70 shrink-0" />
-                            <span className="text-[11px] font-bold uppercase tracking-wider opacity-80 truncate">{item.title}</span>
+                        <div className="min-w-0 flex items-start gap-3">
+                          <div className={cn("shrink-0 rounded-md p-1.5", accent.iconBg)}>
+                            <Icon className={cn("w-3.5 h-3.5", accent.iconText)} />
                           </div>
-                          <p className="text-sm font-bold font-serif line-clamp-1 text-foreground/90">{item.subtitle}</p>
+                          <div className="min-w-0 space-y-0.5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground truncate block">
+                              {item.title}
+                            </span>
+                            <p className="text-sm font-medium font-serif line-clamp-1 text-foreground">{item.subtitle}</p>
+                          </div>
                         </div>
                         <Button
                           size="sm"
                           variant={item.completed ? "outline" : "default"}
-                          className="h-8 px-3 text-xs font-semibold shrink-0 gap-1.5 shadow-sm"
+                          className="h-8 px-3 text-xs font-semibold shrink-0 gap-1.5"
                           onClick={async () => {
+                            const targetRef = item.ref || item.sessionId || 'Chullin 87a';
                             try {
                               if (item.sessionId) {
                                 await api.createDailySessionLazy(item.sessionId);
                                 navigate(`/daily/${item.sessionId}`);
                               } else {
-                                navigate(`/study/${encodeURIComponent(item.ref)}`);
+                                navigate(`/study/${encodeURIComponent(targetRef)}`);
                               }
                             } catch {
-                              navigate(`/study/${encodeURIComponent(item.ref)}`);
+                              if (item.sessionId) {
+                                navigate(`/daily/${item.sessionId}`);
+                              } else {
+                                navigate(`/study/${encodeURIComponent(targetRef)}`);
+                              }
                             }
                           }}
                         >
@@ -466,22 +528,24 @@ export const Dashboard: React.FC = () => {
 
           {/* Zmanim Widget (1 Col) */}
           <Card className="shadow-sm border-border flex flex-col justify-between">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <CardHeader className="pb-4">
+              <CardTitle className="font-serif text-xl font-semibold flex items-center gap-2.5">
                 <Clock className="w-5 h-5 text-primary" />
-                ⏱ ЗМАНИМ (Галахическое время)
+                Зманим
               </CardTitle>
-              <CardDescription>Расписание для: <span className="font-semibold text-foreground">{zmanimLocationName}</span></CardDescription>
+              <CardDescription>
+                Галахическое время для <span className="font-semibold text-foreground">{zmanimLocationName}</span>
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 flex-1 flex flex-col justify-between">
-              <div className="space-y-2.5">
+            <CardContent className="flex-1 flex flex-col justify-between">
+              <div className="divide-y divide-border/60">
                 {zmanimList.map((z, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-muted/40 text-xs">
-                    <div>
-                      <span className="font-semibold block">{z.label}</span>
-                      <span className="text-[10px] text-muted-foreground">{z.desc}</span>
+                  <div key={idx} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0 pr-3">
+                      <span className="text-sm font-medium text-foreground block truncate">{z.label}</span>
+                      <span className="text-xs text-muted-foreground">{z.desc}</span>
                     </div>
-                    <span className="font-mono font-bold text-sm text-primary">{z.time}</span>
+                    <span className="font-mono font-semibold text-sm text-primary tabular-nums shrink-0">{z.time}</span>
                   </div>
                 ))}
               </div>
@@ -489,12 +553,12 @@ export const Dashboard: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full justify-between mt-4 font-semibold text-xs"
+                className="w-full justify-between mt-5 font-semibold text-xs"
                 onClick={() => navigate('/clock')}
               >
                 <span className="flex items-center gap-2">
                   <Compass className="w-4 h-4 text-primary" />
-                  Открыть Астро-карту
+                  Открыть астро-карту
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
@@ -505,9 +569,8 @@ export const Dashboard: React.FC = () => {
 
         {/* Modules & Tools Grid */}
         <div className="space-y-4">
-          <h2 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            🚀 МОДУЛИ И ИНСТРУМЕНТЫ
+          <h2 className="font-serif text-2xl font-semibold tracking-tight">
+            Модули и инструменты
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -517,22 +580,24 @@ export const Dashboard: React.FC = () => {
                 <div
                   key={mod.id}
                   onClick={() => navigate(mod.path)}
-                  className="group relative rounded-xl border border-border p-5 bg-card hover:bg-muted/40 transition-all cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-between gap-4"
+                  className="group relative rounded-xl border border-border p-5 bg-card hover:border-primary/40 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between gap-5"
                 >
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="p-2.5 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                         <Icon className="w-5 h-5" />
                       </div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                         {mod.badge}
                       </span>
                     </div>
-                    <h3 className="font-bold text-base group-hover:text-primary transition-colors">{mod.title}</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{mod.subtitle}</p>
+                    <div>
+                      <h3 className="font-serif font-semibold text-base group-hover:text-primary transition-colors">{mod.title}</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed mt-1">{mod.subtitle}</p>
+                    </div>
                   </div>
 
-                  <div className="flex items-center text-xs font-semibold text-primary gap-1 pt-2 border-t border-border/40">
+                  <div className="flex items-center text-xs font-semibold text-primary gap-1 pt-3 border-t border-border/40">
                     <span>Открыть модуль</span>
                     <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -544,36 +609,36 @@ export const Dashboard: React.FC = () => {
 
         {/* Recent Study Sessions */}
         <Card className="shadow-sm border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-bold flex items-center gap-2">
+          <CardHeader className="pb-4">
+            <CardTitle className="font-serif text-xl font-semibold flex items-center gap-2.5">
               <History className="w-5 h-5 text-primary" />
-              💬 ПОСЛЕДНИЕ СЕССИИ И ИЗУЧЕНИЯ
+              Последние сессии
             </CardTitle>
-            <CardDescription>Быстрое возобновление незавершенных сессий</CardDescription>
+            <CardDescription>Быстрое возобновление незавершённых сессий</CardDescription>
           </CardHeader>
           <CardContent>
             {loadingChats ? (
-              <div className="py-6 text-center text-xs text-muted-foreground">Загрузка сессий...</div>
+              <div className="py-6 text-center text-sm text-muted-foreground">Загрузка сессий…</div>
             ) : recentChats.length > 0 ? (
               <div className="divide-y divide-border">
                 {recentChats.map((chat) => (
-                  <div 
-                    key={chat.session_id} 
+                  <div
+                    key={chat.session_id}
                     onClick={() => navigate(`/study/${chat.session_id}`)}
-                    className="py-3 flex items-center justify-between hover:bg-muted/30 px-3 rounded-lg transition-colors cursor-pointer"
+                    className="py-3.5 flex items-center justify-between hover:bg-muted/30 px-3 -mx-3 rounded-lg transition-colors cursor-pointer"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-md bg-muted text-muted-foreground">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 rounded-md bg-muted text-muted-foreground shrink-0">
                         <BookOpen className="w-4 h-4" />
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-foreground">{chat.display_value || chat.name || chat.session_id}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium font-serif text-foreground truncate">{chat.display_value || chat.name || chat.session_id}</p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(chat.last_modified).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
-                    <Button size="sm" variant="ghost" className="gap-1 text-xs">
+                    <Button size="sm" variant="ghost" className="gap-1 text-xs shrink-0">
                       <span>Продолжить</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Button>
@@ -581,9 +646,9 @@ export const Dashboard: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                <p>История сессий пуста. Начните свое первое изучение!</p>
-                <Button size="sm" className="mt-3" onClick={() => navigate('/study')}>
+              <div className="py-10 text-center text-sm text-muted-foreground">
+                <p>История сессий пуста. Начните своё первое изучение.</p>
+                <Button size="sm" className="mt-4" onClick={() => navigate('/study')}>
                   Перейти в Astra Reader
                 </Button>
               </div>
