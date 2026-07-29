@@ -66,10 +66,26 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
   const [showHighlights, setShowHighlights] = useState<boolean>(true);
   const [showLegend, setShowLegend] = useState<boolean>(false);
 
-  // Auto-restore cached map when currentRef changes or component mounts
+  // Auto-restore cached map from in-memory cache or localStorage when currentRef changes or mounts
   useEffect(() => {
-    if (currentRef && GLOBAL_SUGYA_MAP_CACHE[currentRef]) {
+    if (!currentRef) return;
+
+    if (GLOBAL_SUGYA_MAP_CACHE[currentRef]) {
       setMapData(GLOBAL_SUGYA_MAP_CACHE[currentRef]);
+      return;
+    }
+
+    try {
+      const stored = localStorage.getItem(`SUGYA_MAP_CACHE_${currentRef}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        GLOBAL_SUGYA_MAP_CACHE[currentRef] = parsed;
+        setMapData(parsed);
+      } else {
+        setMapData(null);
+      }
+    } catch (e) {
+      setMapData(null);
     }
   }, [currentRef]);
 
@@ -96,6 +112,11 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
       setMapData(data);
       if (currentRef) {
         GLOBAL_SUGYA_MAP_CACHE[currentRef] = data;
+        try {
+          localStorage.setItem(`SUGYA_MAP_CACHE_${currentRef}`, JSON.stringify(data));
+        } catch (e) {
+          // ignore quota limits
+        }
       }
     } catch (err: any) {
       console.error('[SugyaMapContainer] Calculation error:', err);
