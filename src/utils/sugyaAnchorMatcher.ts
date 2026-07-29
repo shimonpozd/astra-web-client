@@ -154,16 +154,44 @@ export function scrollToAnchor(
   }
 }
 
-/**
- * Highlights all exact word/phrase ranges belonging to the calculated sugya map
- */
-export function applyWholeSugyaHighlight(
-  nodes?: Array<{ ref?: string; type?: string; start_anchor?: string; end_anchor?: string }>,
-  isVisible: boolean = true
-) {
+// Active sugya state for real-time MutationObserver auto-highlighting
+let activeSugyaNodes: Array<{ ref?: string; type?: string; start_anchor?: string; end_anchor?: string }> | null = null;
+let activeHighlightsVisible: boolean = true;
+let sugyaMutationObserver: MutationObserver | null = null;
+let reapplyDebounceTimer: any = null;
+
+function ensureSugyaMutationObserver() {
+  if (sugyaMutationObserver || typeof window === 'undefined') return;
+
+  sugyaMutationObserver = new MutationObserver((mutations) => {
+    let hasNewNodes = false;
+    for (const mutation of mutations) {
+      if (mutation.addedNodes.length > 0) {
+        hasNewNodes = true;
+        break;
+      }
+    }
+
+    if (hasNewNodes && activeSugyaNodes && activeHighlightsVisible) {
+      clearTimeout(reapplyDebounceTimer);
+      reapplyDebounceTimer = setTimeout(() => {
+        _reapplySugyaHighlightsInternal();
+      }, 120);
+    }
+  });
+
+  const targetNode = document.querySelector('#talmud-reader-container') || document.body;
+  sugyaMutationObserver.observe(targetNode, { childList: true, subtree: true });
+}
+
+function _reapplySugyaHighlightsInternal() {
+  if (!activeSugyaNodes || !activeHighlightsVisible) return;
+  
+  // Re-run matching without resetting activeSugyaNodes
+  const nodes = activeSugyaNodes;
+  const isVisible = activeHighlightsVisible;
   const TYPES = ['Statement', 'Question', 'Attack', 'Defense', 'Proof', 'Answer'];
 
-  // 1. Clear previous CSS Custom Highlights
   if ('Highlight' in window && 'highlights' in (window as any)) {
     for (const t of TYPES) {
       try {
@@ -174,21 +202,10 @@ export function applyWholeSugyaHighlight(
     }
   }
 
-  // Clear segment container tag classes
   const oldTagged = document.querySelectorAll('.sugya-segment-tag');
   oldTagged.forEach((el) => {
-    el.classList.remove(
-      'sugya-segment-tag',
-      'type-Statement',
-      'type-Question',
-      'type-Attack',
-      'type-Defense',
-      'type-Proof',
-      'type-Answer'
-    );
+    el.classList.remove('sugya-segment-tag');
   });
-
-  if (!isVisible || !nodes || nodes.length === 0) return;
 
   const rangesByType: Record<string, Range[]> = {
     Statement: [],
@@ -208,9 +225,8 @@ export function applyWholeSugyaHighlight(
     if (!targetElement) continue;
 
     const nodeType = node.type && rangesByType[node.type] ? node.type : 'Statement';
-    targetElement.classList.add('sugya-segment-tag', `type-${nodeType}`);
+    targetElement.classList.add('sugya-segment-tag');
 
-    // If start_anchor is provided, construct exact phrase Range inside text
     if (node.start_anchor) {
       try {
         const textContent = targetElement.textContent || '';
@@ -258,12 +274,11 @@ export function applyWholeSugyaHighlight(
           }
         }
       } catch (err) {
-        console.warn('[SugyaAnchorMatcher] Phrase range building failed for node:', node, err);
+        // ignore
       }
     }
   }
 
-  // Register CSS Custom Highlights per taxonomy type
   if ('Highlight' in window && 'highlights' in (window as any)) {
     for (const [t, ranges] of Object.entries(rangesByType)) {
       if (ranges.length > 0) {
@@ -271,11 +286,25 @@ export function applyWholeSugyaHighlight(
           const highlight = new (window as any).Highlight(...ranges);
           (CSS as any).highlights.set(`sugya-highlight-${t}`, highlight);
         } catch (err) {
-          console.warn(`[SugyaAnchorMatcher] Failed to set sugya-highlight-${t}:`, err);
+          // ignore
         }
       }
     }
   }
+}
+
+/**
+ * Highlights all exact word/phrase ranges belonging to the calculated sugya map
+ */
+export function applyWholeSugyaHighlight(
+  nodes?: Array<{ ref?: string; type?: string; start_anchor?: string; end_anchor?: string }>,
+  isVisible: boolean = true
+) {
+  activeSugyaNodes = isVisible ? (nodes || null) : null;
+  activeHighlightsVisible = isVisible;
+  ensureSugyaMutationObserver();
+
+  _reapplySugyaHighlightsInternal();
 }
 
 /**
