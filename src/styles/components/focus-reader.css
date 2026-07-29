@@ -1,0 +1,119 @@
+/* =============================================================================
+   FOCUS READER COMPONENT STYLES
+   Стили режима чтения FocusReader (элементы управления, активные сегменты, типы)
+   ============================================================================= */
+
+:root {
+  --focus-accent: #c2a970;
+}
+
+/* Focusreader controls: unified accent and sizes */
+.fr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  width: 28px;
+  border: 1px solid var(--focus-accent);
+  border-radius: 9999px;
+  color: var(--focus-accent);
+  background: color-mix(in oklab, var(--focus-accent) 0%, hsl(var(--background)));
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.fr-btn:hover {
+  background: color-mix(in oklab, var(--focus-accent) 12%, hsl(var(--background)));
+}
+
+.fr-btn.is-active {
+  background: color-mix(in oklab, var(--focus-accent) 18%, hsl(var(--background)));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--focus-accent) 36%, hsl(var(--background)));
+}
+
+.fr-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--focus-accent);
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--focus-accent) 12%, hsl(var(--background)));
+  color: var(--focus-accent);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.fr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--focus-accent);
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--focus-accent) 12%, hsl(var(--background)));
+  color: var(--focus-accent);
+  font-size: 12px;
+  line-height: 1;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.fr-chip:hover {
+  background: color-mix(in oklab, var(--focus-accent) 16%, hsl(var(--background)));
+}
+
+.fr-chip.is-active {
+  background: color-mix(in oklab, var(--focus-accent) 22%, hsl(var(--background)));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--focus-accent) 36%, hsl(var(--background)));
+}
+
+/* Микро-типографика для иврита */
+.focusreader .hebrew {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-variant-ligatures: common-ligatures;
+  font-feature-settings: "ccmp" 1, "kern" 1;
+}
+
+/* Единое определение фокусного выделения FocusReader */
+.focus-reader-selected {
+  @apply border border-border/60 ring-2 ring-primary ring-offset-2 ring-offset-background;
+  --tw-ring-width: 2px !important;
+  --tw-ring-color: rgb(59 130 246 / 0.5) !important;
+  --tw-ring-offset-width: 2px !important;
+  --tw-ring-offset-color: hsl(var(--background)) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  drop-shadow: none !important;
+}
+
+.focus-reader-active {
+  @apply border border-border/60;
+  box-shadow: none !important;
+}
+
+/* Сброс всех внешних теней в FocusReader */
+.focusreader,
+.focusreader *,
+.focusreader .seg,
+.focusreader .seg *,
+.focusreader .seg *::before,
+.focusreader .seg *::after {
+  text-shadow: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  drop-shadow: none !important;
+}
+
+.focusreader .seg:focus,
+.focusreader .seg:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.focusreader .sticky {
+  box-shadow: none !important;
+}

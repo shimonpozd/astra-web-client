@@ -1,0 +1,291 @@
+/* =============================================================================
+   СИСТЕМА ДОКУМЕНТОВ (.doc) - стили для контента сообщений
+   Все стили типографики и элементов контента должны находиться здесь
+   ============================================================================= */
+
+@layer components {
+
+  /* Контейнер для ВСЕГО doc.v1 */
+  .doc {
+    @apply mx-auto max-w-[85ch] antialiased;
+    font-size: 16px;
+    line-height: 1.75;
+    color: var(--doc-fg);
+  }
+
+  /* 
+   * ЦВЕТОВАЯ СХЕМА ДОКУМЕНТОВ
+   * Все цвета производные от основной темы для консистентности
+   * Процентные значения подобраны для оптимального контраста
+   */
+  :root {
+    --doc-fg: var(--foreground);
+    /* Основной текст */
+    --doc-dim: color-mix(in oklab, var(--doc-fg) 75%, black);
+    /* Приглушённый текст */
+    --doc-accent: #b8d3ea;
+    /* Акцентный цвет (мягкий синий) */
+    --doc-muted: color-mix(in oklab, var(--doc-fg) 55%, black);
+    /* Очень приглушённый */
+    --doc-border: color-mix(in oklab, var(--doc-fg) 14%, black);
+    /* Границы */
+    --doc-code-bg: color-mix(in oklab, var(--doc-fg) 5.5%, black);
+    /* Фон кода */
+    --doc-quote-bg: color-mix(in oklab, var(--doc-fg) 3.2%, black);
+    /* Фон цитат */
+    --doc-hr: color-mix(in oklab, var(--doc-fg) 9%, black);
+    /* Разделители */
+    --doc-link: #86b3cf;
+    /* Ссылки */
+    --doc-link-hover: #a9c8db;
+    /* Ссылки при наведении */
+  }
+
+  /* Базовый вертикальный ритм */
+  .doc p,
+  .doc ul,
+  .doc ol,
+  .doc blockquote,
+  .doc pre,
+  .doc table,
+  .doc hr {
+    @apply mb-4;
+  }
+
+  /* Абзацы с улучшенными переносами */
+  .doc p {
+    @apply selection:bg-white/20;
+    text-wrap: pretty;
+    hyphens: auto;
+    word-break: normal;
+  }
+
+  /* Заголовки с балансировкой строк и консистентными размерами */
+  .doc h1,
+  .doc h2,
+  .doc h3,
+  .doc h4,
+  .doc h5,
+  .doc h6 {
+    text-wrap: balance;
+    font-weight: 600;
+    color: var(--doc-fg);
+    margin: 1.5rem 0 0.75rem 0;
+  }
+
+  .doc h1 {
+    font-size: 1.875rem;
+    line-height: 1.2;
+  }
+
+  .doc h2 {
+    font-size: 1.5rem;
+    line-height: 1.3;
+  }
+
+  .doc h3 {
+    font-size: 1.25rem;
+    line-height: 1.4;
+  }
+
+  .doc h4 {
+    font-size: 1.125rem;
+    line-height: 1.4;
+  }
+
+  .doc h5 {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  .doc h6 {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  /* Ссылки */
+  .doc a {
+    color: var(--doc-link);
+    text-decoration: none;
+    border-bottom: 1px dashed color-mix(in oklab, var(--doc-link) 50%, transparent);
+  }
+
+  .doc a:hover {
+    color: var(--doc-link-hover);
+    border-bottom-style: solid;
+  }
+
+  .doc a:focus-visible {
+    outline: 2px solid var(--doc-link);
+    outline-offset: 2px;
+  }
+
+  /* Жирный/курсив */
+  .doc strong {
+    @apply font-semibold;
+  }
+
+  .doc em {
+    @apply italic;
+  }
+
+  /* Инлайн код с унифицированным фоном */
+  .doc code {
+    @apply text-[0.95em] px-1 py-0.5 rounded;
+    background: var(--doc-code-bg);
+  }
+
+  /* Многострочный код с унифицированным фоном */
+  .doc pre {
+    @apply rounded-xl p-4 overflow-auto;
+    border: 1px solid var(--doc-border);
+    background: var(--doc-code-bg);
+  }
+
+  .doc pre code {
+    @apply p-0 bg-transparent;
+  }
+
+  /* Цитаты */
+  .doc blockquote {
+    border-left: 2px solid var(--doc-border);
+    background: color-mix(in oklab, var(--doc-fg) 2.2%, transparent);
+    padding: 0.5rem 1rem 0.5rem 1rem;
+    margin: 0 0 1rem 0;
+    border-radius: 0.5rem;
+    color: var(--doc-dim);
+  }
+
+  /* убираем лишние вертикальные пробелы внутри цитаты */
+  .doc blockquote> :first-child {
+    margin-top: 0;
+  }
+
+  .doc blockquote> :last-child {
+    margin-bottom: 0;
+  }
+
+  /* вложенные цитаты/списки не раздувают вертикальный ритм */
+  .doc li>blockquote {
+    margin: 0.5rem 0;
+  }
+
+  /* Списки */
+  .doc ul {
+    @apply list-disc ms-6;
+  }
+
+  .doc ol {
+    @apply list-decimal ms-6;
+  }
+
+  .doc li {
+    @apply mb-1;
+  }
+
+  .doc li>ul,
+  .doc li>ol {
+    @apply mt-1 mb-0;
+  }
+
+  /* Горизонтальная линия */
+  .doc hr {
+    @apply my-6;
+    border: none;
+    border-top: 1px solid var(--doc-hr);
+  }
+
+  /* Таблицы */
+  .doc table {
+    @apply w-full border-collapse text-[15px];
+  }
+
+  .doc th,
+  .doc td {
+    @apply border border-[var(--doc-border)] px-3 py-2;
+  }
+
+  .doc th {
+    @apply font-medium;
+  }
+
+  /* Термины - элегантные карточки */
+  .doc .term {
+    @apply mb-4 rounded-xl border;
+    padding: 1rem 1.25rem;
+    background: color-mix(in oklab, var(--doc-accent) 8%, transparent);
+    border-color: color-mix(in oklab, var(--doc-accent) 20%, transparent);
+    position: relative;
+    transition: all 0.2s ease;
+  }
+
+  .doc .term:hover {
+    background: color-mix(in oklab, var(--doc-accent) 12%, transparent);
+    border-color: color-mix(in oklab, var(--doc-accent) 30%, transparent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px color-mix(in oklab, var(--doc-accent) 15%, transparent);
+  }
+
+  .doc .term::before {
+    content: "📖";
+    position: absolute;
+    top: 1rem;
+    right: 1.25rem;
+    font-size: 1rem;
+    opacity: 0.6;
+  }
+
+  .doc .term .term-title {
+    @apply font-semibold text-base;
+    color: var(--doc-fg);
+    margin: 0 0 0.5rem 0;
+    padding-right: 2rem;
+    line-height: 1.4;
+  }
+
+  .doc .term .term-definition,
+  .doc .term p {
+    color: var(--doc-dim);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .doc .term p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Изображения */
+  .doc figure {
+    @apply my-4;
+  }
+
+  .doc img {
+    @apply rounded-xl border border-[var(--doc-border)] mx-auto;
+  }
+
+  .doc figcaption {
+    @apply text-sm text-[var(--doc-muted)] mt-2 text-center;
+  }
+
+  /* RTL и иврит */
+  .doc[dir="rtl"],
+  .doc :where([dir="rtl"], [lang="he"], [lang="he-IL"], [lang="ar"]) {
+    direction: rtl;
+  }
+
+  .doc :where([lang="he"], [lang="he-IL"]) {
+    font-family: "Noto Rashi Hebrew", "Mugrabi", "Noto Sans Hebrew",
+      "Times New Roman", serif;
+    font-size: 1.3em;
+    line-height: 1.6;
+  }
+
+  /* Клавиши */
+  .doc kbd {
+    @apply px-2 py-1 text-xs font-mono rounded;
+    background: var(--doc-code-bg);
+    border: 1px solid var(--doc-border);
+    color: var(--doc-fg);
+  }
+}

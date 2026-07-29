@@ -1,0 +1,102 @@
+/* =============================================================================
+   ЦВЕТОВАЯ СИСТЕМА - единая тёплая тема для светлого и тёмного режимов
+   Единственный источник цветовых токенов приложения
+   ============================================================================= */
+
+@layer base {
+  :root {
+    /* 📖 Тёплая светлая тема для чтения */
+    --background: 42 33% 95%;
+    /* #f8f5ec — бумажный фон */
+    --foreground: 30 20% 20%;
+    /* #3b322d — мягкий тёмно-коричневый текст */
+    --card: 42 33% 96%;
+    /* #faf7ee — карточки чуть светлее */
+    --card-foreground: 30 20% 20%;
+    /* #3b322d — текст на карточках */
+    --popover: 42 33% 95%;
+    /* #f8f5ec — как основной фон */
+    --popover-foreground: 30 20% 20%;
+    /* #3b322d — текст в поповерах */
+    --primary: 210 40% 55%;
+    /* #5b8bb5 — приглушенный синий */
+    --primary-foreground: 42 33% 95%;
+    /* #f8f5ec — светлый текст на синем */
+    --secondary: 42 20% 88%;
+    /* #e8e2d6 — нейтральный бежевый */
+    --secondary-foreground: 30 20% 20%;
+    /* #3b322d — тёмный текст на бежевом */
+    --muted: 42 20% 92%;
+    /* #ede8dc — приглушенный фон */
+    --muted-foreground: 30 10% 40%;
+    /* #5c5248 — приглушенный текст */
+    --accent: 42 20% 88%;
+    /* #e8e2d6 — акцентный цвет */
+    --accent-foreground: 30 20% 20%;
+    /* #3b322d — текст на акценте */
+    --destructive: 0 65% 55%;
+    /* #c55555 — красный для ошибок */
+    --destructive-foreground: 42 33% 95%;
+    /* #f8f5ec — светлый текст на красном */
+    --border: 30 15% 80%;
+    /* #d1c7b8 — мягкие границы */
+    --input: 30 15% 80%;
+    /* #d1c7b8 — поля ввода */
+    --ring: 30 20% 30%;
+    /* #4d4138 — фокус-кольцо */
+    --radius: 0.5rem;
+    /* Радиус скругления */
+
+    /* Segments: theme-aware subtle borders */
+    --seg-border: color-mix(in oklab, hsl(var(--foreground)) 12%, hsl(var(--background)));
+    --seg-separator: color-mix(in oklab, hsl(var(--foreground)) 10%, hsl(var(--background)));
+    --seg-chrome-border: color-mix(in oklab, hsl(var(--foreground)) 14%, hsl(var(--background)));
+  }
+
+  .dark {
+    /* 🌙 Тёплая тёмная тема для чтения */
+    --background: 28 16% 15%;
+    /* #1F1A17 – глубокий кофе */
+    --foreground: 42 28% 90%;
+    /* #ECE6DA – кремовый текст */
+
+    --card: 28 14% 14%;
+    --card-foreground: var(--foreground);
+    --popover: 28 16% 12%;
+    --popover-foreground: var(--foreground);
+
+    --primary: 42 40% 60%;
+    /* #D4B259 – золото светлее на тёмном */
+    --primary-foreground: 28 16% 12%;
+
+    --secondary: 28 12% 22%;
+    --secondary-foreground: var(--foreground);
+
+    --muted: 28 10% 20%;
+    --muted-foreground: 42 18% 72%;
+
+    --accent: 42 38% 58%;
+    /* #CDAF57 – тёплый золотой акцент */
+    --accent-foreground: 28 16% 12%;
+
+    --destructive: 3 60% 62%;
+    --destructive-foreground: var(--foreground);
+
+    --border: 28 12% 26%;
+    --input: var(--border);
+    --ring: 42 32% 86%;
+
+    /* Bookshelf theme variables */
+    --bg: 28 16% 15%;
+    /* #1F1A17 – глубокий кофе */
+    --panel: 28 14% 14%;
+    /* #1b1916 – карточки */
+    --text: 42 28% 90%;
+    /* #e9e3d7 – кремовый текст */
+
+    /* Segments: tuned for dark mode slightly higher contrast */
+    --seg-border: color-mix(in oklab, hsl(var(--foreground)) 18%, hsl(var(--background)));
+    --seg-separator: color-mix(in oklab, hsl(var(--foreground)) 14%, hsl(var(--background)));
+    --seg-chrome-border: color-mix(in oklab, hsl(var(--foreground)) 20%, hsl(var(--background)));
+  }
+}

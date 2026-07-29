@@ -1,0 +1,97 @@
+/* =============================================================================
+   ПАНЕЛИ И layout-УТИЛИТЫ
+   Единые стили панелей, карточек, отступов и полей ввода сообщений
+   ============================================================================= */
+
+@layer components {
+  /* Внешние панели - единый цвет (сайдбары, топбар, bookshelf) */
+  .panel-outer {
+    @apply bg-card/60 backdrop-blur-sm border-border/50;
+  }
+
+  /* Внутренние области - светлее (viewport, composer, workbench) */
+  .panel-inner {
+    @apply bg-background/95;
+  }
+
+  /* Карточки внутри панелей */
+  .panel-card {
+    @apply bg-card border-border/40;
+  }
+
+  /*
+   * СИСТЕМА ВЫДЕЛЕНИЯ - единые стили для фокуса и активных состояний
+   */
+
+  /* Основное выделение панелей */
+  .panel-selected {
+    @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+
+  /* Активное состояние (discussion focus) */
+  .panel-active {
+    @apply ring-2 ring-primary/60;
+  }
+
+  /* Hover состояние */
+  .panel-hover {
+    @apply ring-1 ring-border hover:ring-primary/30;
+  }
+
+  /*
+   * СИСТЕМА РАССТОЯНИЙ - консистентные отступы для всего интерфейса
+   */
+
+  /* Стандартные паддинги для панелей */
+  .panel-padding {
+    @apply px-4 py-3;
+  }
+
+  .panel-padding-sm {
+    @apply px-3 py-2;
+  }
+
+  .panel-padding-lg {
+    @apply px-6 py-4;
+  }
+
+  /* Стандартные gap для flex/grid */
+  .gap-standard {
+    @apply gap-3;
+  }
+
+  .gap-compact {
+    @apply gap-2;
+  }
+
+  .gap-spacious {
+    @apply gap-4;
+  }
+
+  /* Вертикальные расстояния между элементами */
+  .space-standard {
+    @apply space-y-4;
+  }
+
+  .space-compact {
+    @apply space-y-2;
+  }
+
+  .space-messages {
+    @apply space-y-6;
+  }
+
+  /* Убираем кольцо выделения у textarea в composer */
+  .composer-textarea {
+    @apply focus:ring-0 focus-visible:ring-0 focus:outline-none focus-visible:outline-none;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  .composer-textarea:focus,
+  .composer-textarea:focus-visible {
+    box-shadow: none !important;
+    outline: none !important;
+    border: none !important;
+  }
+}

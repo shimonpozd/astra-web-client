@@ -1,0 +1,33 @@
+/* =============================================================================
+   REACT FLOW COMPONENT STYLES
+   Стили слоев, соединений и кастомных элементов карт знаний (React Flow)
+   ============================================================================= */
+
+/* React Flow layering & interaction */
+.react-flow__edges {
+  z-index: 5;
+}
+
+.react-flow__nodes {
+  z-index: 10;
+}
+
+.react-flow__handle {
+  pointer-events: auto !important;
+  cursor: crosshair !important;
+}
+
+.react-flow__connection-line {
+  pointer-events: none;
+}
+
+/* Force edges visible and interactive */
+.react-flow__edge-path,
+.react-flow__connection-path {
+  stroke: hsl(var(--primary)) !important;
+  stroke-width: 2px !important;
+}
+
+.react-flow__edge {
+  pointer-events: visibleStroke;
+}

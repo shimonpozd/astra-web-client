@@ -21,6 +21,7 @@ export interface SugyaNode {
 
 export interface SugyaMapData {
   sugya_title: string;
+  mishnah_summary?: string;
   markdown_tree: string;
   nodes: SugyaNode[];
 }

@@ -1,0 +1,285 @@
+/* =============================================================================
+   SUGYA HIGHLIGHTS & ENTITY STYLES
+   Стили подсветок сущностей (мудрецы, концепты, ДХ), Sugya Mind Map и ::highlight()
+   ============================================================================= */
+
+/* Entity highlights (Мудрецы, Концепты, Диббур Хамат) */
+.hover-target {
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  padding: 0 2px;
+  border-radius: 4px;
+}
+
+.hover-target:hover {
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.55);
+}
+
+.highlight-sage {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: 2px;
+  color: inherit;
+  transition: all 0.2s ease;
+}
+
+.highlight-sage-zugot {
+  border-color: color-mix(in srgb, #f7d674 60%, transparent);
+}
+
+.highlight-sage-tannaim {
+  border-color: color-mix(in srgb, #8ec5ff 60%, transparent);
+}
+
+.highlight-sage-amoraim {
+  border-color: color-mix(in srgb, #77e2c1 60%, transparent);
+}
+
+.highlight-sage-achronim {
+  border-color: color-mix(in srgb, #ff9aa2 60%, transparent);
+}
+
+.highlight-concept {
+  background: color-mix(in srgb, #c8b8ff 10%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, #c8b8ff 60%, transparent);
+  border-radius: 2px;
+  color: inherit;
+  transition: all 0.2s ease;
+}
+
+.highlight-dh {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 3px;
+  transition: all 0.2s ease;
+  user-select: text;
+  font-weight: 600;
+}
+
+.highlight-dh.dh-rashi {
+  background-color: color-mix(in srgb, #f59e0b 20%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, #d97706 70%, transparent);
+  color: #b45309;
+}
+
+.dark .highlight-dh.dh-rashi {
+  background-color: color-mix(in srgb, #f59e0b 25%, transparent);
+  border-bottom-color: #f59e0b;
+  color: #fbbf24;
+}
+
+.highlight-dh.dh-rashi:hover {
+  background-color: color-mix(in srgb, #f59e0b 35%, transparent);
+  border-bottom-color: #d97706;
+}
+
+.highlight-dh.dh-tosafot {
+  background-color: color-mix(in srgb, #3b82f6 20%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, #2563eb 70%, transparent);
+  color: #1d4ed8;
+}
+
+.dark .highlight-dh.dh-tosafot {
+  background-color: color-mix(in srgb, #3b82f6 25%, transparent);
+  border-bottom-color: #60a5fa;
+  color: #93c5fd;
+}
+
+.highlight-dh.dh-tosafot:hover {
+  background-color: color-mix(in srgb, #3b82f6 35%, transparent);
+  border-bottom-color: #2563eb;
+}
+
+.highlight-dh.dh-rashi.dh-tosafot {
+  background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 25%, transparent), color-mix(in srgb, #3b82f6 25%, transparent));
+  border-bottom: 2px solid color-mix(in srgb, #d97706 70%, transparent);
+}
+
+.dark .highlight-dh.dh-rashi.dh-tosafot {
+  background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 30%, transparent), color-mix(in srgb, #3b82f6 30%, transparent));
+  border-bottom-color: #f59e0b;
+}
+
+.highlight-dh.active {
+  background-color: color-mix(in srgb, #f59e0b 50%, transparent) !important;
+  border-bottom: 2px solid #d97706 !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.7);
+  transform: scale(1.05);
+}
+
+.highlight-dh.dh-tosafot.active {
+  background-color: color-mix(in srgb, #3b82f6 50%, transparent) !important;
+  border-bottom: 2px solid #2563eb !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.7);
+}
+
+/* Sugya Mind Map Soft Highlight & Pulse Animations */
+::highlight(sugya-anchor-highlight) {
+  background-color: rgba(245, 158, 11, 0.35);
+  color: inherit;
+}
+
+/* Sugya Phrase-Level Word Highlights by Taxonomy */
+::highlight(sugya-highlight-Statement) {
+  background-color: rgba(59, 130, 246, 0.30);
+  color: inherit;
+  text-decoration: underline #3b82f6 2.5px;
+}
+
+::highlight(sugya-highlight-Question) {
+  background-color: rgba(168, 85, 247, 0.30);
+  color: inherit;
+  text-decoration: underline #a855f7 2.5px;
+}
+
+::highlight(sugya-highlight-Attack) {
+  background-color: rgba(239, 68, 68, 0.30);
+  color: inherit;
+  text-decoration: underline #ef4444 2.5px;
+}
+
+::highlight(sugya-highlight-Defense) {
+  background-color: rgba(34, 197, 94, 0.30);
+  color: inherit;
+  text-decoration: underline #22c55e 2.5px;
+}
+
+::highlight(sugya-highlight-Proof) {
+  background-color: rgba(14, 165, 233, 0.30);
+  color: inherit;
+  text-decoration: underline #0ea5e9 2.5px;
+}
+
+::highlight(sugya-highlight-Answer) {
+  background-color: rgba(245, 158, 11, 0.30);
+  color: inherit;
+  text-decoration: underline #f59e0b 2.5px;
+}
+
+.sugya-segment-pulse {
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.sugya-segment-pulse.sugya-pulse-active {
+  animation: sugyaPulse 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.sugya-segment-pulse.type-Statement.sugya-pulse-active {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+.sugya-segment-pulse.type-Question.sugya-pulse-active {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+}
+
+.sugya-segment-pulse.type-Attack.sugya-pulse-active {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+.sugya-segment-pulse.type-Defense.sugya-pulse-active {
+  background-color: rgba(34, 197, 94, 0.15) !important;
+}
+
+.sugya-segment-pulse.type-Proof.sugya-pulse-active {
+  background-color: rgba(14, 165, 233, 0.15) !important;
+}
+
+.sugya-segment-pulse.type-Answer.sugya-pulse-active {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+/* Persistent selected sugya node highlights */
+.sugya-segment-pulse.sugya-highlight-selected {
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.sugya-segment-pulse.type-Statement.sugya-highlight-selected {
+  background-color: rgba(59, 130, 246, 0.25) !important;
+  border-left: 4px solid #3b82f6 !important;
+}
+
+.sugya-segment-pulse.type-Question.sugya-highlight-selected {
+  background-color: rgba(168, 85, 247, 0.25) !important;
+  border-left: 4px solid #a855f7 !important;
+}
+
+.sugya-segment-pulse.type-Attack.sugya-highlight-selected {
+  background-color: rgba(239, 68, 68, 0.25) !important;
+  border-left: 4px solid #ef4444 !important;
+}
+
+.sugya-segment-pulse.type-Defense.sugya-highlight-selected {
+  background-color: rgba(34, 197, 94, 0.25) !important;
+  border-left: 4px solid #22c55e !important;
+}
+
+.sugya-segment-pulse.type-Proof.sugya-highlight-selected {
+  background-color: rgba(14, 165, 233, 0.25) !important;
+  border-left: 4px solid #0ea5e9 !important;
+}
+
+.sugya-segment-pulse.type-Answer.sugya-highlight-selected {
+  background-color: rgba(245, 158, 11, 0.25) !important;
+  border-left: 4px solid #f59e0b !important;
+}
+
+/* Whole Sugya Tagging Margin & Background Accent */
+.sugya-segment-tag {
+  transition: background-color 0.25s ease, border-left 0.25s ease;
+  border-radius: 4px;
+}
+
+.sugya-segment-tag.type-Statement {
+  background-color: rgba(59, 130, 246, 0.14) !important;
+  border-left: 4px solid #3b82f6 !important;
+}
+
+.sugya-segment-tag.type-Question {
+  background-color: rgba(168, 85, 247, 0.14) !important;
+  border-left: 4px solid #a855f7 !important;
+}
+
+.sugya-segment-tag.type-Attack {
+  background-color: rgba(239, 68, 68, 0.14) !important;
+  border-left: 4px solid #ef4444 !important;
+}
+
+.sugya-segment-tag.type-Defense {
+  background-color: rgba(34, 197, 94, 0.14) !important;
+  border-left: 4px solid #22c55e !important;
+}
+
+.sugya-segment-tag.type-Proof {
+  background-color: rgba(14, 165, 233, 0.14) !important;
+  border-left: 4px solid #0ea5e9 !important;
+}
+
+.sugya-segment-tag.type-Answer {
+  background-color: rgba(245, 158, 11, 0.14) !important;
+  border-left: 4px solid #f59e0b !important;
+}
+
+/* Sugya Hover Glow */
+.sugya-node-hover-active {
+  box-shadow: 0 0 18px 4px rgba(245, 158, 11, 0.5) !important;
+  outline: 2px solid rgba(245, 158, 11, 0.8) !important;
+  outline-offset: 1px;
+  filter: brightness(1.12);
+  z-index: 10;
+}
+
+@keyframes sugyaPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+    opacity: 0.8;
+  }
+  30% {
+    box-shadow: 0 0 16px 4px rgba(245, 158, 11, 0.3);
+    opacity: 1;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+    opacity: 1;
+  }
+}

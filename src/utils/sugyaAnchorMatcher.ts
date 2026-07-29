@@ -225,7 +225,7 @@ function _reapplySugyaHighlightsInternal() {
     if (!targetElement) continue;
 
     const nodeType = node.type && rangesByType[node.type] ? node.type : 'Statement';
-    targetElement.classList.add('sugya-segment-tag');
+    targetElement.classList.add('sugya-segment-tag', `type-${nodeType}`);
 
     if (node.start_anchor) {
       try {
