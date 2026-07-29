@@ -85,26 +85,54 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
     });
   }, []);
 
-  // Auto-restore cached map from in-memory cache or localStorage when currentRef changes or mounts
+  // Auto-restore cached map from memory/localStorage or fetch from PostgreSQL DB on mount
   useEffect(() => {
     if (!currentRef) return;
 
-    if (GLOBAL_SUGYA_MAP_CACHE[currentRef]) {
-      setMapData(GLOBAL_SUGYA_MAP_CACHE[currentRef]);
+    // 1. Check in-memory cache with ref normalization
+    const normalizedRef = currentRef.replace(/[: ]/g, '.');
+    const existing =
+      GLOBAL_SUGYA_MAP_CACHE[currentRef] ||
+      GLOBAL_SUGYA_MAP_CACHE[normalizedRef];
+
+    if (existing) {
+      setMapData(existing);
       return;
     }
 
+    // 2. Check localStorage
     try {
-      const stored = localStorage.getItem(`SUGYA_MAP_CACHE_${currentRef}`);
+      const stored =
+        localStorage.getItem(`SUGYA_MAP_CACHE_${currentRef}`) ||
+        localStorage.getItem(`SUGYA_MAP_CACHE_${normalizedRef}`);
+
       if (stored) {
         const parsed: SugyaMapData = JSON.parse(stored);
         cacheMapForTopic(parsed, currentRef);
         setMapData(parsed);
+        return;
       }
     } catch (e) {
       // ignore
     }
-  }, [currentRef, cacheMapForTopic]);
+
+    // 3. Auto-fetch from PostgreSQL DB backend (0ms cached lookup, 0 cost)
+    let isMounted = true;
+    calculateSugyaMap(currentRef, segments, undefined, false)
+      .then((data) => {
+        if (isMounted && data && data.nodes && data.nodes.length > 0) {
+          cacheMapForTopic(data, currentRef);
+          setMapData(data);
+        }
+      })
+      .catch(() => {
+        // Silently ignore if no map exists in DB yet
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentRef, segments, cacheMapForTopic]);
 
   // Apply or toggle whole-sugya text highlights whenever mapData, showHighlights or currentRef updates
   useEffect(() => {
