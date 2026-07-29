@@ -271,10 +271,10 @@ export const CommentaryColumn: React.FC<CommentaryColumnProps> = ({
                   activeSegmentRef && !isAnchorActive && !isCommentActive ? "opacity-50 hover:opacity-100" : "opacity-100",
                   isCommentActive
                     ? isRashi
-                      ? "bg-amber-500/25 border-amber-500 ring-2 ring-amber-500/60 shadow-md scale-[1.01]"
-                      : "bg-blue-500/25 border-blue-500 ring-2 ring-blue-500/60 shadow-md scale-[1.01]"
+                      ? "daf-comment-active-rashi"
+                      : "daf-comment-active-tosafot"
                     : isAnchorActive
-                    ? "bg-amber-500/10 border-amber-500/60 dark:bg-amber-500/15"
+                    ? "daf-comment-anchor-active"
                     : isRead
                     ? "border-emerald-500/60 bg-emerald-500/10 dark:bg-emerald-500/15 shadow-sm"
                     : "border-transparent hover:bg-muted/40"

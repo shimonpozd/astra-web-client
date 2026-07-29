@@ -47,70 +47,127 @@
   transition: all 0.2s ease;
 }
 
+:root {
+  /* Переменные подсветок отрывков Талмуда */
+  --daf-active-bg: color-mix(in oklab, hsl(var(--primary)) 14%, transparent);
+  --daf-active-border: hsl(var(--primary));
+  --daf-active-text: inherit;
+
+  --daf-rashi-bg: color-mix(in srgb, #f59e0b 20%, transparent);
+
+  --daf-rashi-color: #b45309;
+
+  --daf-tosafot-bg: color-mix(in srgb, #3b82f6 20%, transparent);
+
+  --daf-tosafot-color: #1d4ed8;
+}
+
+.dark {
+  --daf-active-bg: color-mix(in oklab, hsl(var(--primary)) 18%, transparent);
+  --daf-active-border: hsl(var(--primary));
+  --daf-active-text: inherit;
+
+  --daf-rashi-bg: color-mix(in srgb, #f59e0b 25%, transparent);
+  --daf-rashi-border: #f59e0b;
+  --daf-rashi-color: #fbbf24;
+
+  --daf-tosafot-bg: color-mix(in srgb, #3b82f6 25%, transparent);
+  --daf-tosafot-border: #60a5fa;
+  --daf-tosafot-color: #93c5fd;
+}
+
+/* Стили подсветок сущностей и отрывков */
 .highlight-dh {
   cursor: pointer;
-  border-radius: 3px;
-  padding: 0 3px;
+  border-radius: 0;
+  padding: 0;
   transition: all 0.2s ease;
   user-select: text;
-  font-weight: 600;
+  font-weight: inherit;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 .highlight-dh.dh-rashi {
-  background-color: color-mix(in srgb, #f59e0b 20%, transparent);
-  border-bottom: 2px solid color-mix(in srgb, #d97706 70%, transparent);
-  color: #b45309;
-}
-
-.dark .highlight-dh.dh-rashi {
-  background-color: color-mix(in srgb, #f59e0b 25%, transparent);
-  border-bottom-color: #f59e0b;
-  color: #fbbf24;
+  background-color: transparent !important;
+  border-bottom: none !important;
+  color: var(--daf-rashi-color);
+  box-shadow: none !important;
 }
 
 .highlight-dh.dh-rashi:hover {
-  background-color: color-mix(in srgb, #f59e0b 35%, transparent);
-  border-bottom-color: #d97706;
+  background-color: transparent !important;
 }
 
 .highlight-dh.dh-tosafot {
-  background-color: color-mix(in srgb, #3b82f6 20%, transparent);
-  border-bottom: 2px solid color-mix(in srgb, #2563eb 70%, transparent);
-  color: #1d4ed8;
-}
-
-.dark .highlight-dh.dh-tosafot {
-  background-color: color-mix(in srgb, #3b82f6 25%, transparent);
-  border-bottom-color: #60a5fa;
-  color: #93c5fd;
+  background-color: transparent !important;
+  border-bottom: none !important;
+  color: var(--daf-tosafot-color);
+  box-shadow: none !important;
 }
 
 .highlight-dh.dh-tosafot:hover {
-  background-color: color-mix(in srgb, #3b82f6 35%, transparent);
-  border-bottom-color: #2563eb;
+  background-color: transparent !important;
 }
 
 .highlight-dh.dh-rashi.dh-tosafot {
-  background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 25%, transparent), color-mix(in srgb, #3b82f6 25%, transparent));
-  border-bottom: 2px solid color-mix(in srgb, #d97706 70%, transparent);
-}
-
-.dark .highlight-dh.dh-rashi.dh-tosafot {
-  background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 30%, transparent), color-mix(in srgb, #3b82f6 30%, transparent));
-  border-bottom-color: #f59e0b;
+  background-color: transparent !important;
+  border-bottom: none !important;
+  color: var(--daf-rashi-color);
+  box-shadow: none !important;
 }
 
 .highlight-dh.active {
-  background-color: color-mix(in srgb, #f59e0b 50%, transparent) !important;
-  border-bottom: 2px solid #d97706 !important;
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.7);
-  transform: scale(1.05);
+  background-color: transparent !important;
+  border-bottom: none !important;
+  color: var(--daf-rashi-color) !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .highlight-dh.dh-tosafot.active {
-  background-color: color-mix(in srgb, #3b82f6 50%, transparent) !important;
-  border-bottom: 2px solid #2563eb !important;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.7);
+  background-color: transparent !important;
+  border-bottom: none !important;
+  color: var(--daf-tosafot-color) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* =============================================================================
+   СЕМАНТИЧЕСКИЕ КЛАССЫ ВЫДЕЛЕНИЯ ОТРЫВКОВ ДАФА (ТАЛМУД)
+   ============================================================================= */
+
+/* Активный выбранный отрывок текста Гемары - обычное нормальное начертание текста */
+.daf-segment-active {
+  opacity: 1 !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font-weight: inherit !important;
+  border-radius: 0;
+  padding: 0;
+}
+
+/* Активная карточка комментария (Раши) в боковой колонке */
+.daf-comment-active-rashi {
+  background-color: var(--daf-rashi-bg) !important;
+  border-color: var(--daf-rashi-border) !important;
+  box-shadow: none !important;
+}
+
+/* Активная карточка комментария (Тосафот) в боковой колонке */
+.daf-comment-active-tosafot {
+  background-color: var(--daf-tosafot-bg) !important;
+  border-color: var(--daf-tosafot-border) !important;
+  box-shadow: none !important;
+}
+
+/* Якорь / связанный комментарий */
+.daf-comment-anchor-active {
+  background-color: color-mix(in oklab, var(--daf-active-border) 10%, transparent) !important;
+  border-color: color-mix(in oklab, var(--daf-active-border) 50%, transparent) !important;
 }
 
 /* Sugya Mind Map Soft Highlight & Pulse Animations */
@@ -274,10 +331,12 @@
     box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
     opacity: 0.8;
   }
+
   30% {
     box-shadow: 0 0 16px 4px rgba(245, 158, 11, 0.3);
     opacity: 1;
   }
+
   100% {
     box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
     opacity: 1;

@@ -1078,7 +1078,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                         "cursor-pointer transition-all duration-200 select-text inline",
                         activeSegmentRef 
                           ? (isActive 
-                              ? "opacity-100 bg-amber-500/20 dark:bg-amber-500/25 border-b-2 border-amber-500 dark:border-amber-400 rounded-none px-0.5 py-0" 
+                              ? "daf-segment-active" 
                               : "text-stone-400 dark:text-stone-500 opacity-60 hover:opacity-90")
                           : "opacity-100 hover:bg-primary/5 rounded-none"
                       )}
@@ -1113,7 +1113,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                       className={cn(
                         "p-5 rounded-2xl border transition-all duration-200 cursor-pointer relative group space-y-3",
                         isActive
-                          ? "bg-amber-500/10 border-amber-500/60 shadow-md ring-1 ring-amber-500/30"
+                          ? "daf-comment-anchor-active shadow-md"
                           : "bg-card/60 border-border/50 hover:bg-muted/40 hover:border-border"
                       )}
                       onClick={(e) => handleGemaraClick(e, segment.ref)}
