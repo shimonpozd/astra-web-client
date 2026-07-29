@@ -1105,3 +1105,174 @@
   border-bottom: 2px solid #2563eb !important;
   box-shadow: 0 0 12px rgba(59, 130, 246, 0.7);
 }
+
+/* Sugya Mind Map Soft Highlight & Pulse Animations */
+::highlight(sugya-anchor-highlight) {
+  background-color: rgba(245, 158, 11, 0.35);
+  color: inherit;
+}
+
+/* Sugya Phrase-Level Word Highlights by Taxonomy */
+::highlight(sugya-highlight-Statement) {
+  background-color: rgba(59, 130, 246, 0.22);
+  color: inherit;
+  text-decoration: underline #3b82f6 2px;
+}
+
+::highlight(sugya-highlight-Question) {
+  background-color: rgba(168, 85, 247, 0.22);
+  color: inherit;
+  text-decoration: underline #a855f7 2px;
+}
+
+::highlight(sugya-highlight-Attack) {
+  background-color: rgba(239, 68, 68, 0.22);
+  color: inherit;
+  text-decoration: underline #ef4444 2px;
+}
+
+::highlight(sugya-highlight-Defense) {
+  background-color: rgba(34, 197, 94, 0.22);
+  color: inherit;
+  text-decoration: underline #22c55e 2px;
+}
+
+::highlight(sugya-highlight-Proof) {
+  background-color: rgba(14, 165, 233, 0.22);
+  color: inherit;
+  text-decoration: underline #0ea5e9 2px;
+}
+
+::highlight(sugya-highlight-Answer) {
+  background-color: rgba(245, 158, 11, 0.22);
+  color: inherit;
+  text-decoration: underline #f59e0b 2px;
+}
+
+.sugya-segment-pulse {
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.sugya-segment-pulse.sugya-pulse-active {
+  animation: sugyaPulse 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.sugya-segment-pulse.type-Statement.sugya-pulse-active {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+.sugya-segment-pulse.type-Question.sugya-pulse-active {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+}
+
+.sugya-segment-pulse.type-Attack.sugya-pulse-active {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+.sugya-segment-pulse.type-Defense.sugya-pulse-active {
+  background-color: rgba(34, 197, 94, 0.15) !important;
+}
+
+.sugya-segment-pulse.type-Proof.sugya-pulse-active {
+  background-color: rgba(14, 165, 233, 0.15) !important;
+}
+
+.sugya-segment-pulse.type-Answer.sugya-pulse-active {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+/* Persistent selected sugya node highlights */
+.sugya-segment-pulse.sugya-highlight-selected {
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.sugya-segment-pulse.type-Statement.sugya-highlight-selected {
+  background-color: rgba(59, 130, 246, 0.25) !important;
+  border-left: 4px solid #3b82f6 !important;
+}
+
+.sugya-segment-pulse.type-Question.sugya-highlight-selected {
+  background-color: rgba(168, 85, 247, 0.25) !important;
+  border-left: 4px solid #a855f7 !important;
+}
+
+.sugya-segment-pulse.type-Attack.sugya-highlight-selected {
+  background-color: rgba(239, 68, 68, 0.25) !important;
+  border-left: 4px solid #ef4444 !important;
+}
+
+.sugya-segment-pulse.type-Defense.sugya-highlight-selected {
+  background-color: rgba(34, 197, 94, 0.25) !important;
+  border-left: 4px solid #22c55e !important;
+}
+
+.sugya-segment-pulse.type-Proof.sugya-highlight-selected {
+  background-color: rgba(14, 165, 233, 0.25) !important;
+  border-left: 4px solid #0ea5e9 !important;
+}
+
+.sugya-segment-pulse.type-Answer.sugya-highlight-selected {
+  background-color: rgba(245, 158, 11, 0.25) !important;
+  border-left: 4px solid #f59e0b !important;
+}
+
+/* Whole Sugya Tagging */
+.sugya-segment-tag {
+  transition: background-color 0.25s ease, border-left 0.25s ease;
+  border-radius: 4px;
+}
+
+.sugya-segment-tag.type-Statement {
+  background-color: rgba(59, 130, 246, 0.18) !important;
+  border-left: 4px solid #3b82f6 !important;
+}
+
+.sugya-segment-tag.type-Question {
+  background-color: rgba(168, 85, 247, 0.18) !important;
+  border-left: 4px solid #a855f7 !important;
+}
+
+.sugya-segment-tag.type-Attack {
+  background-color: rgba(239, 68, 68, 0.18) !important;
+  border-left: 4px solid #ef4444 !important;
+}
+
+.sugya-segment-tag.type-Defense {
+  background-color: rgba(34, 197, 94, 0.18) !important;
+  border-left: 4px solid #22c55e !important;
+}
+
+.sugya-segment-tag.type-Proof {
+  background-color: rgba(14, 165, 233, 0.18) !important;
+  border-left: 4px solid #0ea5e9 !important;
+}
+
+.sugya-segment-tag.type-Answer {
+  background-color: rgba(245, 158, 11, 0.18) !important;
+  border-left: 4px solid #f59e0b !important;
+}
+
+/* Sugya Hover Glow */
+.sugya-node-hover-active {
+  box-shadow: 0 0 18px 4px rgba(245, 158, 11, 0.5) !important;
+  outline: 2px solid rgba(245, 158, 11, 0.8) !important;
+  outline-offset: 1px;
+  filter: brightness(1.12);
+  z-index: 10;
+}
+
+@keyframes sugyaPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+    opacity: 0.8;
+  }
+  30% {
+    box-shadow: 0 0 16px 4px rgba(245, 158, 11, 0.3);
+    opacity: 1;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+    opacity: 1;
+  }
+}

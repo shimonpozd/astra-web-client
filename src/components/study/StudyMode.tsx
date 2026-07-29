@@ -18,7 +18,8 @@ import { TANAKH_BOOKS } from '../../data/tanakh';
 import { getChapterSizesForWork } from '../../lib/sefariaShapeCache';
 import { buildStudyQuickActions } from '../../utils/studyQuickActions';
 import { emitGamificationEvent } from '../../contexts/GamificationContext';
-import { calcTextXp, docToPlainText } from '../../utils/xpUtils';
+import { SugyaMapContainer } from './SugyaMapContainer';
+import { cn } from '../../lib/utils';
 import type { PanelActions, Persona } from '../../types/chat';
 
 interface StudyChatPanelProps {
@@ -38,6 +39,9 @@ interface StudyChatPanelProps {
   availablePersonas?: Persona[];
   onPersonaChange?: (persona: Persona) => void;
   layoutMode?: 'horizontal' | 'vertical';
+  currentRef?: string;
+  segments?: TextSegment[];
+  snapshot?: StudySnapshot | null;
 }
 
 export function StudyChatPanel({
@@ -57,128 +61,173 @@ export function StudyChatPanel({
   availablePersonas,
   onPersonaChange,
   layoutMode = 'horizontal',
+  currentRef,
+  segments,
+  snapshot,
 }: StudyChatPanelProps) {
+  const [panelMode, setPanelMode] = useState<'chat' | 'map'>('chat');
   const containerClass = `flex flex-col min-h-0 ${className || ''}`;
+
+  const activeRef = currentRef || snapshot?.ref;
+  const activeSegments = segments || snapshot?.segments;
 
   return (
     <div className={containerClass}>
-      <div className="flex-1 min-h-0 overflow-y-auto panel-padding-sm">
-        <ChatViewport messages={messages.map((m) => ({ ...m, id: String(m.id) }))} isLoading={isLoadingMessages} />
+      {/* Mode Switcher Header */}
+      <div className="flex items-center justify-between border-b border-border/20 px-3 py-1.5 bg-muted/20 flex-shrink-0">
+        <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg">
+          <button
+            type="button"
+            onClick={() => setPanelMode('chat')}
+            className={cn(
+              "px-3 py-1 text-xs rounded-md font-medium transition-all flex items-center gap-1.5",
+              panelMode === 'chat'
+                ? "bg-background text-foreground shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            💬 Чат
+          </button>
+          <button
+            type="button"
+            onClick={() => setPanelMode('map')}
+            className={cn(
+              "px-3 py-1 text-xs rounded-md font-medium transition-all flex items-center gap-1.5",
+              panelMode === 'map'
+                ? "bg-background text-foreground shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            🗺️ Карта Сугии
+          </button>
+        </div>
       </div>
-      <div className="flex-shrink-0 panel-padding">
-        <MessageComposer
-          onSendMessage={async (message) => {
-            if (!studySessionId) return;
-            setIsSending(true);
-            const assistantMessageId = crypto.randomUUID();
-            const assistantMessage: any = {
-              id: assistantMessageId,
-              role: 'assistant',
-              content: '',
-              content_type: 'text.v1',
-              timestamp: Date.now(),
-            };
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: crypto.randomUUID(),
-                role: 'user',
-                content: message,
-                content_type: 'text.v1',
-                timestamp: Date.now(),
-              },
-              assistantMessage,
-            ]);
 
-            let assistantText = '';
-            let assistantDoc: any = null;
+      {panelMode === 'map' ? (
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <SugyaMapContainer currentRef={activeRef} segments={activeSegments} />
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 min-h-0 overflow-y-auto panel-padding-sm">
+            <ChatViewport messages={messages.map((m) => ({ ...m, id: String(m.id) }))} isLoading={isLoadingMessages} />
+          </div>
+          <div className="flex-shrink-0 panel-padding">
+            <MessageComposer
+              onSendMessage={async (message) => {
+                if (!studySessionId) return;
+                setIsSending(true);
+                const assistantMessageId = crypto.randomUUID();
+                const assistantMessage: any = {
+                  id: assistantMessageId,
+                  role: 'assistant',
+                  content: '',
+                  content_type: 'text.v1',
+                  timestamp: Date.now(),
+                };
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: crypto.randomUUID(),
+                    role: 'user',
+                    content: message,
+                    content_type: 'text.v1',
+                    timestamp: Date.now(),
+                  },
+                  assistantMessage,
+                ]);
 
-            // XP за вопрос
-            const askAmount = calcTextXp(message);
-            if (askAmount > 0) {
-              emitGamificationEvent({
-                amount: askAmount,
-                source: 'chat',
-                verb: 'ask',
-                label: `Вопрос · ${message.length} симв.`,
-                meta: {
-                  session_id: studySessionId,
-                  chars: message.length,
-                  event_id: ['study', 'ask', studySessionId || '', Math.ceil(Date.now() / 5000)].join('|'),
-                },
-              });
-            }
-            await api.sendStudyMessage(
-              studySessionId,
-              message,
-              {
-                onChunk: (chunk) => {
-                  assistantText += chunk;
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === assistantMessageId
-                        ? {
-                            ...msg,
-                            content: `${typeof msg.content === 'string' ? msg.content : ''}${chunk}`,
-                            content_type: 'text.v1',
-                          }
-                        : msg,
-                    ),
-                  );
-                },
-                onDoc: (doc) => {
-                  assistantDoc = doc;
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === assistantMessageId
-                        ? { ...msg, content: doc, content_type: 'doc.v1' }
-                        : msg,
-                    ),
-                  );
-                },
-                onComplete: () => {
-                  setIsSending(false);
-                  const replyText = assistantDoc ? docToPlainText(assistantDoc) : assistantText;
-                  const amount = calcTextXp(replyText);
-                  if (amount > 0) {
-                    emitGamificationEvent({
-                      amount,
-                      source: 'chat',
-                      verb: 'reply',
-                      label: `Study чат · ${replyText.length} симв.`,
-                      meta: {
-                        session_id: studySessionId,
-                        chars: replyText.length,
-                        event_id: ['study', 'reply', studySessionId || '', Math.ceil(Date.now() / 5000)].join('|'),
-                      },
-                    });
-                  }
-                  refreshStudySnapshot();
-                },
-                onError: (error) => {
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === assistantMessageId
-                        ? { ...msg, content: `Error: ${error.message}`, content_type: 'text.v1' }
-                        : msg,
-                    ),
-                  );
-                  setIsSending(false);
-                },
-              },
-              agentId,
-              selectedPanelId ?? undefined,
-            );
-          }}
-          disabled={isSending}
-          discussionFocusRef={discussionFocusRef ?? undefined}
-          panelActions={panelActions}
-          currentPersona={currentPersona}
-          availablePersonas={availablePersonas}
-          onPersonaChange={onPersonaChange}
-          layoutMode={layoutMode}
-        />
-      </div>
+                let assistantText = '';
+                let assistantDoc: any = null;
+
+                // XP за вопрос
+                const askAmount = calcTextXp(message);
+                if (askAmount > 0) {
+                  emitGamificationEvent({
+                    amount: askAmount,
+                    source: 'chat',
+                    verb: 'ask',
+                    label: `Вопрос · ${message.length} симв.`,
+                    meta: {
+                      session_id: studySessionId,
+                      chars: message.length,
+                      event_id: ['study', 'ask', studySessionId || '', Math.ceil(Date.now() / 5000)].join('|'),
+                    },
+                  });
+                }
+                await api.sendStudyMessage(
+                  studySessionId,
+                  message,
+                  {
+                    onChunk: (chunk) => {
+                      assistantText += chunk;
+                      setMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === assistantMessageId
+                            ? {
+                                ...msg,
+                                content: `${typeof msg.content === 'string' ? msg.content : ''}${chunk}`,
+                                content_type: 'text.v1',
+                              }
+                            : msg,
+                        ),
+                      );
+                    },
+                    onDoc: (doc) => {
+                      assistantDoc = doc;
+                      setMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === assistantMessageId
+                            ? { ...msg, content: doc, content_type: 'doc.v1' }
+                            : msg,
+                        ),
+                      );
+                    },
+                    onComplete: () => {
+                      setIsSending(false);
+                      const replyText = assistantDoc ? docToPlainText(assistantDoc) : assistantText;
+                      const amount = calcTextXp(replyText);
+                      if (amount > 0) {
+                        emitGamificationEvent({
+                          amount,
+                          source: 'chat',
+                          verb: 'reply',
+                          label: `Study чат · ${replyText.length} симв.`,
+                          meta: {
+                            session_id: studySessionId,
+                            chars: replyText.length,
+                            event_id: ['study', 'reply', studySessionId || '', Math.ceil(Date.now() / 5000)].join('|'),
+                          },
+                        });
+                      }
+                      refreshStudySnapshot();
+                    },
+                    onError: (error) => {
+                      setMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === assistantMessageId
+                            ? { ...msg, content: `Error: ${error.message}`, content_type: 'text.v1' }
+                            : msg,
+                        ),
+                      );
+                      setIsSending(false);
+                    },
+                  },
+                  agentId,
+                  selectedPanelId ?? undefined,
+                );
+              }}
+              disabled={isSending}
+              discussionFocusRef={discussionFocusRef ?? undefined}
+              panelActions={panelActions}
+              currentPersona={currentPersona}
+              availablePersonas={availablePersonas}
+              onPersonaChange={onPersonaChange}
+              layoutMode={layoutMode}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -789,6 +838,7 @@ export default function StudyMode({
               agentId={agentId}
               selectedPanelId={selectedPanelId}
               discussionFocusRef={snapshot?.discussion_focus_ref}
+              snapshot={snapshot}
               panelActions={composerPanelActions}
               currentPersona={currentPersona}
               availablePersonas={availablePersonas}

@@ -25,6 +25,7 @@ import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
 import ProfileInspectorModal from '../ProfileInspectorModal';
 import { parseRefSmart } from '../../../utils/refUtils';
+import { scrollToAnchor } from '../../../utils/sugyaAnchorMatcher';
 
 import {
   TraditionalComment,
@@ -1071,6 +1072,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                   return (
                     <span 
                       key={segment.ref}
+                      data-ref={segment.ref}
                       ref={el => gemaraRefs.current[segment.ref] = el}
                       className={cn(
                         "cursor-pointer transition-all duration-200 select-text inline",

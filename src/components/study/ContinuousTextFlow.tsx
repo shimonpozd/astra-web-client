@@ -121,6 +121,7 @@ export const ContinuousTextFlow = memo(({
               <React.Fragment key={segment.ref}>
                 <div
                   className="relative group"
+                  data-ref={segment.ref}
                   onClick={() => {
                     onNavigateToRef?.(normalizedRef, segment);
                   }}
