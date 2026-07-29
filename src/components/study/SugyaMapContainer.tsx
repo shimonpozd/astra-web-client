@@ -324,17 +324,17 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
         {!isLoading && mapData && (
           <div className="space-y-3">
             {/* Sugya Title Banner */}
-            <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs font-semibold text-amber-800 dark:text-amber-200">
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-sm font-bold text-amber-900 dark:text-amber-200 leading-snug">
               📜 {mapData.sugya_title}
             </div>
 
             {/* Governing Mishnah Summary Banner */}
             {mapData.mishnah_summary && (
-              <div className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/15 text-[11px] text-amber-900/90 dark:text-amber-300/90 leading-relaxed space-y-1">
-                <div className="font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs sm:text-sm text-foreground leading-relaxed space-y-1.5 shadow-sm">
+                <div className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5 text-xs sm:text-sm">
                   <span>📖 Исходная Мишна темы:</span>
                 </div>
-                <p>{mapData.mishnah_summary}</p>
+                <p className="font-medium">{mapData.mishnah_summary}</p>
               </div>
             )}
 

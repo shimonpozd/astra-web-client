@@ -25,7 +25,7 @@ import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
 import ProfileInspectorModal from '../ProfileInspectorModal';
 import { parseRefSmart } from '../../../utils/refUtils';
-import { scrollToAnchor } from '../../../utils/sugyaAnchorMatcher';
+import { scrollToAnchor, highlightMindMapNodeOnHover } from '../../../utils/sugyaAnchorMatcher';
 
 import {
   TraditionalComment,
@@ -1083,6 +1083,8 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                           : "opacity-100 hover:bg-primary/5 rounded-none"
                       )}
                       onClick={(e) => handleGemaraClick(e, segment.ref)}
+                      onMouseEnter={() => highlightMindMapNodeOnHover(segment.ref, true)}
+                      onMouseLeave={() => highlightMindMapNodeOnHover(segment.ref, false)}
                       onDoubleClick={() => {
                         const word = window.getSelection()?.toString() || '';
                         const hebrewText = segment.he_text || segment.heText || '';

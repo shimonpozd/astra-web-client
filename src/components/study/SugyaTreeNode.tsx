@@ -69,6 +69,7 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
   return (
     <div className="flex flex-col space-y-1 my-1">
       <div
+        data-sugya-node-ref={node.ref}
         className={cn(
           "group flex items-start gap-2 p-2 rounded-lg border border-border/40 bg-card/60 hover:bg-accent/40 transition-all cursor-pointer select-none",
           config.borderClass,
@@ -120,17 +121,10 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
             )}
           </div>
 
-          {/* Node Title */}
-          <div className="text-xs font-medium leading-relaxed text-foreground group-hover:text-primary transition-colors">
+          {/* Node Title (Main Russian Explanation) */}
+          <div className="text-[13px] sm:text-sm font-semibold leading-snug text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
             {node.title}
           </div>
-
-          {/* Hebrew Anchors Preview */}
-          {(node.start_anchor || node.end_anchor) && (
-            <div className="text-[11px] text-amber-700/80 dark:text-amber-300/80 font-hebrew text-right dir-rtl opacity-80" dir="rtl">
-              « {node.start_anchor} {node.end_anchor && node.end_anchor !== node.start_anchor ? `... ${node.end_anchor}` : ''} »
-            </div>
-          )}
         </div>
       </div>
 

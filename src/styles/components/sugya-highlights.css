@@ -248,73 +248,75 @@
 /* Persistent selected sugya node highlights */
 .sugya-segment-pulse.sugya-highlight-selected {
   border-radius: 6px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  box-shadow: none !important;
+  border: none !important;
 }
 
 .sugya-segment-pulse.type-Statement.sugya-highlight-selected {
   background-color: rgba(59, 130, 246, 0.25) !important;
-  border-left: 4px solid #3b82f6 !important;
+  border: none !important;
 }
 
 .sugya-segment-pulse.type-Question.sugya-highlight-selected {
   background-color: rgba(168, 85, 247, 0.25) !important;
-  border-left: 4px solid #a855f7 !important;
+  border: none !important;
 }
 
 .sugya-segment-pulse.type-Attack.sugya-highlight-selected {
   background-color: rgba(239, 68, 68, 0.25) !important;
-  border-left: 4px solid #ef4444 !important;
+  border: none !important;
 }
 
 .sugya-segment-pulse.type-Defense.sugya-highlight-selected {
   background-color: rgba(34, 197, 94, 0.25) !important;
-  border-left: 4px solid #22c55e !important;
+  border: none !important;
 }
 
 .sugya-segment-pulse.type-Proof.sugya-highlight-selected {
   background-color: rgba(14, 165, 233, 0.25) !important;
-  border-left: 4px solid #0ea5e9 !important;
+  border: none !important;
 }
 
 .sugya-segment-pulse.type-Answer.sugya-highlight-selected {
   background-color: rgba(245, 158, 11, 0.25) !important;
-  border-left: 4px solid #f59e0b !important;
+  border: none !important;
 }
 
 /* Whole Sugya Tagging Margin & Background Accent */
 .sugya-segment-tag {
-  transition: background-color 0.25s ease, border-left 0.25s ease;
+  transition: background-color 0.25s ease;
   border-radius: 4px;
+  border: none !important;
 }
 
 .sugya-segment-tag.type-Statement {
   background-color: rgba(59, 130, 246, 0.14) !important;
-  border-left: 4px solid #3b82f6 !important;
+  border: none !important;
 }
 
 .sugya-segment-tag.type-Question {
   background-color: rgba(168, 85, 247, 0.14) !important;
-  border-left: 4px solid #a855f7 !important;
+  border: none !important;
 }
 
 .sugya-segment-tag.type-Attack {
   background-color: rgba(239, 68, 68, 0.14) !important;
-  border-left: 4px solid #ef4444 !important;
+  border: none !important;
 }
 
 .sugya-segment-tag.type-Defense {
   background-color: rgba(34, 197, 94, 0.14) !important;
-  border-left: 4px solid #22c55e !important;
+  border: none !important;
 }
 
 .sugya-segment-tag.type-Proof {
   background-color: rgba(14, 165, 233, 0.14) !important;
-  border-left: 4px solid #0ea5e9 !important;
+  border: none !important;
 }
 
 .sugya-segment-tag.type-Answer {
   background-color: rgba(245, 158, 11, 0.14) !important;
-  border-left: 4px solid #f59e0b !important;
+  border: none !important;
 }
 
 /* Sugya Hover Glow */
@@ -324,6 +326,17 @@
   outline-offset: 1px;
   filter: brightness(1.12);
   z-index: 10;
+}
+
+/* Sugya Mind Map Tree Node Hover Glow (when top Talmud text is hovered) */
+.sugya-tree-node-hover-active {
+  box-shadow: 0 0 16px 3px rgba(245, 158, 11, 0.5) !important;
+  outline: 2px solid rgba(245, 158, 11, 0.85) !important;
+  outline-offset: 1px;
+  background-color: rgba(245, 158, 11, 0.16) !important;
+  filter: brightness(1.1);
+  transform: scale(1.02);
+  z-index: 20;
 }
 
 @keyframes sugyaPulse {

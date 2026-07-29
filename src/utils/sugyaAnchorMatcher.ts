@@ -53,6 +53,101 @@ export function findSubstringIndicesInRawText(
   return { startIndex: -1, endIndex: -1 };
 }
 
+/**
+ * Creates a DOM Range for startAnchor to endAnchor within targetElement,
+ * accurately handling nikud/vowels and trimming trailing spaces/newlines to prevent underline artifacts.
+ */
+export function createPreciseAnchorRange(
+  targetElement: Element,
+  startAnchor: string,
+  endAnchor?: string
+): Range | null {
+  const nodeMap: { node: Text; startInRaw: number; endInRaw: number }[] = [];
+  const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT);
+  let rawText = '';
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text;
+    const text = node.textContent || '';
+    const startInRaw = rawText.length;
+    rawText += text;
+    const endInRaw = rawText.length;
+    nodeMap.push({ node, startInRaw, endInRaw });
+  }
+
+  if (rawText.length === 0) return null;
+
+  // Build character index map between clean text (without nikud) and raw text (with nikud)
+  const cleanToRawMap: number[] = [];
+  let cleanText = '';
+  for (let i = 0; i < rawText.length; i++) {
+    const ch = rawText[i];
+    if (!/[\u0591-\u05C7]/.test(ch)) {
+      cleanToRawMap.push(i);
+      cleanText += ch;
+    }
+  }
+
+  const cleanStart = stripHebrewVowels(startAnchor).trim();
+  if (!cleanStart) return null;
+
+  const cleanStartIdx = cleanText.indexOf(cleanStart);
+  if (cleanStartIdx === -1) return null;
+
+  let cleanEndIdx = -1;
+  const cleanEnd = endAnchor ? stripHebrewVowels(endAnchor).trim() : '';
+
+  if (cleanEnd) {
+    const lastIdx = cleanText.lastIndexOf(cleanEnd);
+    if (lastIdx !== -1 && lastIdx >= cleanStartIdx) {
+      cleanEndIdx = lastIdx + cleanEnd.length;
+    }
+  }
+
+  if (cleanEndIdx === -1) {
+    cleanEndIdx = cleanStartIdx + cleanStart.length;
+  }
+
+  // Trim trailing whitespace characters from cleanEndIdx
+  while (cleanEndIdx > cleanStartIdx && /\s/.test(cleanText[cleanEndIdx - 1])) {
+    cleanEndIdx--;
+  }
+
+  const rawStartIdx = cleanToRawMap[cleanStartIdx];
+  let rawEndIdx = cleanToRawMap[Math.min(cleanEndIdx, cleanToRawMap.length - 1)];
+
+  if (rawStartIdx === undefined) return null;
+
+  if (cleanEndIdx >= cleanToRawMap.length || rawEndIdx === undefined) {
+    rawEndIdx = rawText.length;
+  }
+
+  // Trim trailing raw text whitespace (spaces, newlines)
+  while (rawEndIdx > rawStartIdx && /\s/.test(rawText[rawEndIdx - 1])) {
+    rawEndIdx--;
+  }
+
+  if (rawStartIdx >= rawEndIdx) return null;
+
+  // Find corresponding DOM Text nodes
+  let startNodeInfo = nodeMap.find(m => rawStartIdx >= m.startInRaw && rawStartIdx < m.endInRaw);
+  let endNodeInfo = nodeMap.find(m => rawEndIdx > m.startInRaw && rawEndIdx <= m.endInRaw);
+
+  if (!startNodeInfo && nodeMap.length > 0) startNodeInfo = nodeMap[0];
+  if (!endNodeInfo && nodeMap.length > 0) endNodeInfo = nodeMap[nodeMap.length - 1];
+
+  if (!startNodeInfo || !endNodeInfo) return null;
+
+  try {
+    const range = document.createRange();
+    range.setStart(startNodeInfo.node, Math.max(0, rawStartIdx - startNodeInfo.startInRaw));
+    range.setEnd(endNodeInfo.node, Math.min((endNodeInfo.node.textContent || '').length, rawEndIdx - endNodeInfo.startInRaw));
+    return range;
+  } catch (err) {
+    return null;
+  }
+}
+
 export function scrollToAnchor(
   ref?: string,
   startAnchor?: string,
@@ -100,53 +195,10 @@ export function scrollToAnchor(
   // 5. Try CSS Custom Highlight API if available & anchors provided for word-level precision
   if (startAnchor && 'Highlight' in window && 'highlights' in (window as any)) {
     try {
-      const textContent = targetElement.textContent || '';
-      const cleanContent = stripHebrewVowels(textContent);
-      const cleanStart = stripHebrewVowels(startAnchor);
-      const cleanEnd = endAnchor ? stripHebrewVowels(endAnchor) : cleanStart;
-
-      const startIndex = cleanContent.indexOf(cleanStart);
-      let endIndex = cleanEnd ? cleanContent.lastIndexOf(cleanEnd) : -1;
-
-      if (startIndex !== -1) {
-        if (endIndex === -1 || endIndex < startIndex) {
-          endIndex = startIndex + cleanStart.length;
-        } else {
-          endIndex += cleanEnd.length;
-        }
-
-        // Find text nodes to build Range
-        const treeWalker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT);
-        let currentPos = 0;
-        let startNode: Node | null = null;
-        let startOffset = 0;
-        let endNode: Node | null = null;
-        let endOffset = 0;
-
-        while (treeWalker.nextNode()) {
-          const node = treeWalker.currentNode;
-          const nodeLen = (node.textContent || '').length;
-
-          if (!startNode && currentPos + nodeLen >= startIndex) {
-            startNode = node;
-            startOffset = Math.max(0, startIndex - currentPos);
-          }
-          if (startNode && currentPos + nodeLen >= endIndex) {
-            endNode = node;
-            endOffset = Math.min(nodeLen, endIndex - currentPos);
-            break;
-          }
-          currentPos += nodeLen;
-        }
-
-        if (startNode && endNode) {
-          const range = document.createRange();
-          range.setStart(startNode, startOffset);
-          range.setEnd(endNode, endOffset);
-
-          const highlight = new (window as any).Highlight(range);
-          (CSS as any).highlights.set('sugya-anchor-highlight', highlight);
-        }
+      const range = createPreciseAnchorRange(targetElement, startAnchor, endAnchor);
+      if (range) {
+        const highlight = new (window as any).Highlight(range);
+        (CSS as any).highlights.set('sugya-anchor-highlight', highlight);
       }
     } catch (err) {
       console.warn('[SugyaAnchorMatcher] CSS Highlight API failed, using segment pulse fallback', err);
@@ -189,7 +241,6 @@ function _reapplySugyaHighlightsInternal() {
   
   // Re-run matching without resetting activeSugyaNodes
   const nodes = activeSugyaNodes;
-  const isVisible = activeHighlightsVisible;
   const TYPES = ['Statement', 'Question', 'Attack', 'Defense', 'Proof', 'Answer'];
 
   if ('Highlight' in window && 'highlights' in (window as any)) {
@@ -229,49 +280,9 @@ function _reapplySugyaHighlightsInternal() {
 
     if (node.start_anchor) {
       try {
-        const textContent = targetElement.textContent || '';
-        const startRes = findSubstringIndicesInRawText(textContent, node.start_anchor);
-        const endRes = node.end_anchor
-          ? findSubstringIndicesInRawText(textContent, node.end_anchor)
-          : startRes;
-
-        let startIndex = startRes.startIndex;
-        let endIndex = endRes.endIndex !== -1 ? endRes.endIndex : (startIndex !== -1 ? startIndex + stripHebrewVowels(node.start_anchor).length : -1);
-
-        if (startIndex !== -1) {
-          if (endIndex === -1 || endIndex < startIndex) {
-            endIndex = startIndex + stripHebrewVowels(node.start_anchor).length;
-          }
-
-          const treeWalker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT);
-          let currentPos = 0;
-          let startNode: Node | null = null;
-          let startOffset = 0;
-          let endNode: Node | null = null;
-          let endOffset = 0;
-
-          while (treeWalker.nextNode()) {
-            const textNode = treeWalker.currentNode;
-            const nodeLen = (textNode.textContent || '').length;
-
-            if (!startNode && currentPos + nodeLen >= startIndex) {
-              startNode = textNode;
-              startOffset = Math.max(0, startIndex - currentPos);
-            }
-            if (startNode && currentPos + nodeLen >= endIndex) {
-              endNode = textNode;
-              endOffset = Math.min(nodeLen, endIndex - currentPos);
-              break;
-            }
-            currentPos += nodeLen;
-          }
-
-          if (startNode && endNode) {
-            const range = document.createRange();
-            range.setStart(startNode, startOffset);
-            range.setEnd(endNode, endOffset);
-            rangesByType[nodeType].push(range);
-          }
+        const range = createPreciseAnchorRange(targetElement, node.start_anchor, node.end_anchor);
+        if (range) {
+          rangesByType[nodeType].push(range);
         }
       } catch (err) {
         // ignore
@@ -310,7 +321,7 @@ export function applyWholeSugyaHighlight(
 /**
  * Highlights segment on hover over Mind Map tree node
  */
-export function highlightNodeHover(ref?: string, nodeType?: string, isHovered: boolean = true) {
+export function highlightNodeHover(ref?: string, _nodeType?: string, isHovered: boolean = true) {
   if (!ref) return;
   const targetElement =
     document.querySelector(`[data-ref="${CSS.escape(ref)}"]`) ||
@@ -323,4 +334,36 @@ export function highlightNodeHover(ref?: string, nodeType?: string, isHovered: b
   } else {
     targetElement.classList.remove('sugya-node-hover-active');
   }
+}
+
+/**
+ * Highlights Mind Map tree node on hover over Talmud text segment in reader
+ */
+export function highlightMindMapNodeOnHover(ref?: string, isHovered: boolean = true) {
+  if (!ref) return;
+
+  try {
+    const targetElements = document.querySelectorAll(`[data-sugya-node-ref="${CSS.escape(ref)}"]`);
+    if (targetElements.length > 0) {
+      targetElements.forEach((el) => {
+        if (isHovered) {
+          el.classList.add('sugya-tree-node-hover-active');
+        } else {
+          el.classList.remove('sugya-tree-node-hover-active');
+        }
+      });
+      return;
+    }
+  } catch (e) {
+    // fallback without CSS.escape
+  }
+
+  const fallbackElements = document.querySelectorAll(`[data-sugya-node-ref="${ref}"]`);
+  fallbackElements.forEach((el) => {
+    if (isHovered) {
+      el.classList.add('sugya-tree-node-hover-active');
+    } else {
+      el.classList.remove('sugya-tree-node-hover-active');
+    }
+  });
 }
