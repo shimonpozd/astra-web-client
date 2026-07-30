@@ -1,3 +1,5 @@
+import { isRefOverlap } from '../../../../utils/refUtils';
+
 export const escapeRegExp = (str: string): string => {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 };
@@ -71,11 +73,9 @@ export const getPrevDafRef = (dafRef: string): string => {
   return dafRef;
 };
 
-// Helper to compare refs flexibly (ignoring dots, colons, spaces, commas, retaining range hyphens)
+// Helper to compare refs flexibly including range overlaps
 export const isSameRef = (ref1: string, ref2: string): boolean => {
-  if (!ref1 || !ref2) return false;
-  const normalize = (r: string) => r.replace(/[:\s,.]/g, '').toLowerCase();
-  return normalize(ref1) === normalize(ref2);
+  return isRefOverlap(ref1, ref2);
 };
 
 export const isHadranLine = (text?: string): boolean => {

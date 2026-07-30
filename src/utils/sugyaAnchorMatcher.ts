@@ -1,3 +1,5 @@
+import { isRefOverlap } from './refUtils';
+
 /**
  * Sugya Anchor Matcher & Smooth Scroll Helper
  * Locates segment elements in DOM by Sefaria ref, scrolls cleanly,
@@ -51,6 +53,39 @@ export function findSubstringIndicesInRawText(
   }
 
   return { startIndex: -1, endIndex: -1 };
+}
+
+/**
+ * Finds all DOM elements that match or overlap with the given Sefaria ref (supports single refs and ranges like Chullin 90b:18-20)
+ */
+export function getDOMTargetElementsForRef(ref?: string): Element[] {
+  if (!ref) return [];
+
+  try {
+    const exactQuery = document.querySelectorAll(`[data-ref="${CSS.escape(ref)}"]`);
+    if (exactQuery.length > 0) {
+      return Array.from(exactQuery);
+    }
+  } catch (e) {
+    // fallback if CSS.escape fails
+  }
+
+  const fallbackQuery = document.querySelectorAll(`[data-ref="${ref}"]`);
+  if (fallbackQuery.length > 0) {
+    return Array.from(fallbackQuery);
+  }
+
+  // Range match: check all elements with data-ref
+  const matched: Element[] = [];
+  const allRefElements = document.querySelectorAll('[data-ref]');
+  allRefElements.forEach((el) => {
+    const elRef = el.getAttribute('data-ref');
+    if (elRef && isRefOverlap(elRef, ref)) {
+      matched.push(el);
+    }
+  });
+
+  return matched;
 }
 
 /**
@@ -156,18 +191,16 @@ export function scrollToAnchor(
 ) {
   if (!ref) return;
 
-  // 1. Locate DOM element matching data-ref attribute or ref string
-  const targetElement = 
-    document.querySelector(`[data-ref="${CSS.escape(ref)}"]`) ||
-    document.querySelector(`[data-ref="${ref}"]`);
+  // 1. Locate DOM elements matching ref
+  const targetElements = getDOMTargetElementsForRef(ref);
 
-  if (!targetElement) {
+  if (targetElements.length === 0) {
     console.warn(`[SugyaAnchorMatcher] Segment element not found for ref: ${ref}`);
     return;
   }
 
-  // 2. Smooth scroll element into view centered
-  targetElement.scrollIntoView({
+  // 2. Smooth scroll first element into view centered
+  targetElements[0].scrollIntoView({
     behavior: 'smooth',
     block: 'center',
   });
@@ -188,14 +221,17 @@ export function scrollToAnchor(
     );
   });
 
-  // 4. Apply non-destructive persistent background highlight class & pulse
+  // 4. Apply non-destructive persistent background highlight class & pulse to matched elements
   const typeClass = nodeType ? `type-${nodeType}` : 'type-Statement';
-  targetElement.classList.add('sugya-segment-pulse', typeClass, 'sugya-pulse-active', 'sugya-highlight-selected');
+  targetElements.forEach((el) => {
+    el.classList.add('sugya-segment-pulse', typeClass, 'sugya-pulse-active', 'sugya-highlight-selected');
+  });
 
   // 5. Try CSS Custom Highlight API if available & anchors provided for word-level precision
   if (startAnchor && 'Highlight' in window && 'highlights' in (window as any)) {
     try {
-      const range = createPreciseAnchorRange(targetElement, startAnchor, endAnchor);
+      const container = targetElements.length === 1 ? targetElements[0] : (targetElements[0].parentElement || targetElements[0]);
+      const range = createPreciseAnchorRange(container, startAnchor, endAnchor);
       if (range) {
         const highlight = new (window as any).Highlight(range);
         (CSS as any).highlights.set('sugya-anchor-highlight', highlight);
@@ -269,18 +305,19 @@ function _reapplySugyaHighlightsInternal() {
 
   for (const node of nodes) {
     if (!node.ref) continue;
-    const targetElement =
-      document.querySelector(`[data-ref="${CSS.escape(node.ref)}"]`) ||
-      document.querySelector(`[data-ref="${node.ref}"]`);
+    const targetElements = getDOMTargetElementsForRef(node.ref);
 
-    if (!targetElement) continue;
+    if (targetElements.length === 0) continue;
 
     const nodeType = node.type && rangesByType[node.type] ? node.type : 'Statement';
-    targetElement.classList.add('sugya-segment-tag', `type-${nodeType}`);
+    for (const el of targetElements) {
+      el.classList.add('sugya-segment-tag', `type-${nodeType}`);
+    }
 
     if (node.start_anchor) {
       try {
-        const range = createPreciseAnchorRange(targetElement, node.start_anchor, node.end_anchor);
+        const container = targetElements.length === 1 ? targetElements[0] : (targetElements[0].parentElement || targetElements[0]);
+        const range = createPreciseAnchorRange(container, node.start_anchor, node.end_anchor);
         if (range) {
           rangesByType[nodeType].push(range);
         }
@@ -323,17 +360,14 @@ export function applyWholeSugyaHighlight(
  */
 export function highlightNodeHover(ref?: string, _nodeType?: string, isHovered: boolean = true) {
   if (!ref) return;
-  const targetElement =
-    document.querySelector(`[data-ref="${CSS.escape(ref)}"]`) ||
-    document.querySelector(`[data-ref="${ref}"]`);
-
-  if (!targetElement) return;
-
-  if (isHovered) {
-    targetElement.classList.add('sugya-node-hover-active');
-  } else {
-    targetElement.classList.remove('sugya-node-hover-active');
-  }
+  const targetElements = getDOMTargetElementsForRef(ref);
+  targetElements.forEach((el) => {
+    if (isHovered) {
+      el.classList.add('sugya-node-hover-active');
+    } else {
+      el.classList.remove('sugya-node-hover-active');
+    }
+  });
 }
 
 /**
@@ -342,28 +376,15 @@ export function highlightNodeHover(ref?: string, _nodeType?: string, isHovered: 
 export function highlightMindMapNodeOnHover(ref?: string, isHovered: boolean = true) {
   if (!ref) return;
 
-  try {
-    const targetElements = document.querySelectorAll(`[data-sugya-node-ref="${CSS.escape(ref)}"]`);
-    if (targetElements.length > 0) {
-      targetElements.forEach((el) => {
-        if (isHovered) {
-          el.classList.add('sugya-tree-node-hover-active');
-        } else {
-          el.classList.remove('sugya-tree-node-hover-active');
-        }
-      });
-      return;
-    }
-  } catch (e) {
-    // fallback without CSS.escape
-  }
-
-  const fallbackElements = document.querySelectorAll(`[data-sugya-node-ref="${ref}"]`);
-  fallbackElements.forEach((el) => {
-    if (isHovered) {
-      el.classList.add('sugya-tree-node-hover-active');
-    } else {
-      el.classList.remove('sugya-tree-node-hover-active');
+  const treeNodeElements = document.querySelectorAll('[data-sugya-node-ref]');
+  treeNodeElements.forEach((el) => {
+    const nodeRef = el.getAttribute('data-sugya-node-ref');
+    if (nodeRef && isRefOverlap(ref, nodeRef)) {
+      if (isHovered) {
+        el.classList.add('sugya-tree-node-hover-active');
+      } else {
+        el.classList.remove('sugya-tree-node-hover-active');
+      }
     }
   });
 }
