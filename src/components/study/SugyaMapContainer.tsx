@@ -168,7 +168,20 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
 
   const handleNodeClick = useCallback((node: SugyaNode) => {
     const targetRef = node.ref || currentRef;
-    scrollToAnchor(targetRef, node.start_anchor, node.end_anchor, node.type);
+    const refNodes = mapData?.nodes?.filter(n => n.ref === targetRef) || [];
+    const totalNodesForRef = refNodes.length;
+    const subIndex = typeof node.sub_index === 'number' ? node.sub_index : refNodes.indexOf(node);
+
+    scrollToAnchor(
+      targetRef,
+      node.start_anchor,
+      node.end_anchor,
+      node.type,
+      subIndex,
+      totalNodesForRef,
+      node.start_word_idx,
+      node.end_word_idx
+    );
 
     window.dispatchEvent(
       new CustomEvent('sugya-node-click', {
@@ -180,7 +193,7 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
         },
       })
     );
-  }, [currentRef]);
+  }, [currentRef, mapData]);
 
   const hierarchyTree = mapData?.nodes ? buildTreeFromNodes(mapData.nodes) : [];
 

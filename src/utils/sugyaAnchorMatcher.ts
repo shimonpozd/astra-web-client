@@ -92,10 +92,56 @@ export function getDOMTargetElementsForRef(ref?: string): Element[] {
  * Creates a DOM Range for startAnchor to endAnchor within targetElement,
  * accurately handling nikud/vowels and trimming trailing spaces/newlines to prevent underline artifacts.
  */
+export function createWordIndexRange(
+  targetElement: Element,
+  startWordIdx: number,
+  endWordIdx: number
+): Range | null {
+  const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT);
+  const wordsMap: { node: Text; startInNode: number; endInNode: number }[] = [];
+  let currentWordCount = 0;
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text;
+    const text = node.textContent || '';
+    const regex = /[\u05D0-\u05EA0-9]+/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(text)) !== null) {
+      if (currentWordCount >= startWordIdx && currentWordCount < endWordIdx) {
+        wordsMap.push({
+          node,
+          startInNode: match.index,
+          endInNode: match.index + match[0].length,
+        });
+      }
+      currentWordCount++;
+    }
+  }
+
+  if (wordsMap.length === 0) return null;
+
+  const startInfo = wordsMap[0];
+  const endInfo = wordsMap[wordsMap.length - 1];
+
+  try {
+    const range = document.createRange();
+    range.setStart(startInfo.node, startInfo.startInNode);
+    range.setEnd(endInfo.node, endInfo.endInNode);
+    return range;
+  } catch (err) {
+    return null;
+  }
+}
+
 export function createPreciseAnchorRange(
   targetElement: Element,
-  startAnchor: string,
-  endAnchor?: string
+  startAnchor?: string,
+  endAnchor?: string,
+  subIndex?: number,
+  totalNodesForRef?: number,
+  startWordIdx?: number,
+  endWordIdx?: number
 ): Range | null {
   const nodeMap: { node: Text; startInRaw: number; endInRaw: number }[] = [];
   const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT);
@@ -112,109 +158,125 @@ export function createPreciseAnchorRange(
 
   if (rawText.length === 0) return null;
 
-  // 1. Build letter-to-raw map (only Hebrew letters & numbers)
-  const letterToRawMap: number[] = [];
-  let lettersOnlyText = '';
-  for (let i = 0; i < rawText.length; i++) {
-    const ch = rawText[i];
-    if (/[\u05D0-\u05EA0-9]/.test(ch)) {
-      letterToRawMap.push(i);
-      lettersOnlyText += ch;
+  // 1. Try letter-mapped anchor matching if startAnchor provided
+  if (startAnchor) {
+    const letterToRawMap: number[] = [];
+    let lettersOnlyText = '';
+    for (let i = 0; i < rawText.length; i++) {
+      const ch = rawText[i];
+      if (/[\u05D0-\u05EA0-9]/.test(ch)) {
+        letterToRawMap.push(i);
+        lettersOnlyText += ch;
+      }
     }
-  }
 
-  if (lettersOnlyText.length === 0) return null;
+    if (lettersOnlyText.length > 0) {
+      const cleanStartLetters = startAnchor.replace(/[^\u05D0-\u05EA0-9]/g, '');
+      let startLetterIdx = cleanStartLetters ? lettersOnlyText.indexOf(cleanStartLetters) : -1;
+      if (startLetterIdx === -1 && startAnchor) {
+        const words = startAnchor.replace(/[^\u05D0-\u05EA0-9\s]/g, '').trim().split(/\s+/).filter(Boolean);
+        if (words.length > 0) {
+          const shortStart = words.slice(0, Math.min(3, words.length)).join('');
+          startLetterIdx = lettersOnlyText.indexOf(shortStart);
+        }
+      }
 
-  // 2. Clean start anchor to letters only
-  const cleanStartLetters = (startAnchor || '').replace(/[^\u05D0-\u05EA0-9]/g, '');
-  if (!cleanStartLetters) return null;
+      if (startLetterIdx !== -1) {
+        let endLetterIdx = -1;
+        const cleanEndLetters = endAnchor ? endAnchor.replace(/[^\u05D0-\u05EA0-9]/g, '') : '';
 
-  let startLetterIdx = lettersOnlyText.indexOf(cleanStartLetters);
-  if (startLetterIdx === -1) {
-    const words = (startAnchor || '').replace(/[^\u05D0-\u05EA0-9\s]/g, '').trim().split(/\s+/).filter(Boolean);
-    if (words.length > 0) {
-      const shortStart = words.slice(0, Math.min(3, words.length)).join('');
-      startLetterIdx = lettersOnlyText.indexOf(shortStart);
-    }
-  }
+        if (cleanEndLetters) {
+          const lastIdx = lettersOnlyText.lastIndexOf(cleanEndLetters);
+          if (lastIdx !== -1 && lastIdx >= startLetterIdx) {
+            endLetterIdx = lastIdx + cleanEndLetters.length;
+          } else {
+            const endWords = endAnchor!.replace(/[^\u05D0-\u05EA0-9\s]/g, '').trim().split(/\s+/).filter(Boolean);
+            if (endWords.length > 0) {
+              const shortEnd = endWords.slice(Math.max(0, endWords.length - 3)).join('');
+              const fIdx = lettersOnlyText.lastIndexOf(shortEnd);
+              if (fIdx !== -1 && fIdx >= startLetterIdx) {
+                endLetterIdx = fIdx + shortEnd.length;
+              }
+            }
+          }
+        }
 
-  if (startLetterIdx === -1) return null;
+        if (endLetterIdx === -1) {
+          endLetterIdx = startLetterIdx + cleanStartLetters.length;
+        }
 
-  // 3. Clean end anchor to letters only
-  let endLetterIdx = -1;
-  const cleanEndLetters = endAnchor ? endAnchor.replace(/[^\u05D0-\u05EA0-9]/g, '') : '';
+        const rawStartIdx = letterToRawMap[startLetterIdx];
+        const rawEndIdxChar = letterToRawMap[Math.min(endLetterIdx - 1, letterToRawMap.length - 1)];
 
-  if (cleanEndLetters) {
-    const lastIdx = lettersOnlyText.lastIndexOf(cleanEndLetters);
-    if (lastIdx !== -1 && lastIdx >= startLetterIdx) {
-      endLetterIdx = lastIdx + cleanEndLetters.length;
-    } else {
-      const endWords = endAnchor!.replace(/[^\u05D0-\u05EA0-9\s]/g, '').trim().split(/\s+/).filter(Boolean);
-      if (endWords.length > 0) {
-        const shortEnd = endWords.slice(Math.max(0, endWords.length - 3)).join('');
-        const fIdx = lettersOnlyText.lastIndexOf(shortEnd);
-        if (fIdx !== -1 && fIdx >= startLetterIdx) {
-          endLetterIdx = fIdx + shortEnd.length;
+        if (rawStartIdx !== undefined && rawEndIdxChar !== undefined && rawStartIdx < rawEndIdxChar + 1) {
+          const rawEndIdx = rawEndIdxChar + 1;
+          let startNodeInfo = nodeMap.find(m => rawStartIdx >= m.startInRaw && rawStartIdx < m.endInRaw);
+          let endNodeInfo = nodeMap.find(m => rawEndIdx > m.startInRaw && rawEndIdx <= m.endInRaw);
+
+          if (!startNodeInfo && nodeMap.length > 0) startNodeInfo = nodeMap[0];
+          if (!endNodeInfo && nodeMap.length > 0) endNodeInfo = nodeMap[nodeMap.length - 1];
+
+          if (startNodeInfo && endNodeInfo) {
+            try {
+              const range = document.createRange();
+              range.setStart(startNodeInfo.node, Math.max(0, rawStartIdx - startNodeInfo.startInRaw));
+              range.setEnd(endNodeInfo.node, Math.min((endNodeInfo.node.textContent || '').length, rawEndIdx - endNodeInfo.startInRaw));
+              return range;
+            } catch (err) {
+              // ignore
+            }
+          }
         }
       }
     }
   }
 
-  if (endLetterIdx === -1) {
-    endLetterIdx = startLetterIdx + cleanStartLetters.length;
+  // 2. Try explicit word index bounds
+  if (typeof startWordIdx === 'number' && typeof endWordIdx === 'number' && endWordIdx > startWordIdx) {
+    const range = createWordIndexRange(targetElement, startWordIdx, endWordIdx);
+    if (range) return range;
   }
 
-  const rawStartIdx = letterToRawMap[startLetterIdx];
-  const rawEndIdxChar = letterToRawMap[Math.min(endLetterIdx - 1, letterToRawMap.length - 1)];
-
-  if (rawStartIdx === undefined || rawEndIdxChar === undefined) return null;
-
-  const rawEndIdx = rawEndIdxChar + 1;
-
-  if (rawStartIdx >= rawEndIdx) return null;
-
-  // Find corresponding DOM Text nodes
-  let startNodeInfo = nodeMap.find(m => rawStartIdx >= m.startInRaw && rawStartIdx < m.endInRaw);
-  let endNodeInfo = nodeMap.find(m => rawEndIdx > m.startInRaw && rawEndIdx <= m.endInRaw);
-
-  if (!startNodeInfo && nodeMap.length > 0) startNodeInfo = nodeMap[0];
-  if (!endNodeInfo && nodeMap.length > 0) endNodeInfo = nodeMap[nodeMap.length - 1];
-
-  if (!startNodeInfo || !endNodeInfo) return null;
-
-  try {
-    const range = document.createRange();
-    range.setStart(startNodeInfo.node, Math.max(0, rawStartIdx - startNodeInfo.startInRaw));
-    range.setEnd(endNodeInfo.node, Math.min((endNodeInfo.node.textContent || '').length, rawEndIdx - endNodeInfo.startInRaw));
-    return range;
-  } catch (err) {
-    return null;
+  // 3. Proportional division if segment has multiple nodes
+  if (typeof subIndex === 'number' && typeof totalNodesForRef === 'number' && totalNodesForRef > 1) {
+    const text = targetElement.textContent || '';
+    const totalWords = (text.match(/[\u05D0-\u05EA0-9]+/g) || []).length;
+    if (totalWords > 0) {
+      const wStart = Math.floor((totalWords * subIndex) / totalNodesForRef);
+      const wEnd = subIndex === totalNodesForRef - 1
+        ? totalWords
+        : Math.floor((totalWords * (subIndex + 1)) / totalNodesForRef);
+      const range = createWordIndexRange(targetElement, wStart, Math.max(wStart + 1, wEnd));
+      if (range) return range;
+    }
   }
+
+  return null;
 }
 
 export function scrollToAnchor(
   ref?: string,
   startAnchor?: string,
   endAnchor?: string,
-  nodeType?: string
+  nodeType?: string,
+  subIndex?: number,
+  totalNodesForRef?: number,
+  startWordIdx?: number,
+  endWordIdx?: number
 ) {
   if (!ref) return;
 
-  // 1. Locate DOM elements matching ref
   const targetElements = getDOMTargetElementsForRef(ref);
-
   if (targetElements.length === 0) {
     console.warn(`[SugyaAnchorMatcher] Segment element not found for ref: ${ref}`);
     return;
   }
 
-  // 2. Smooth scroll first element into view centered
   targetElements[0].scrollIntoView({
     behavior: 'smooth',
     block: 'center',
   });
 
-  // 3. Remove old highlights from previous node selections
   const oldActive = document.querySelectorAll('.sugya-segment-pulse, .sugya-container-active');
   oldActive.forEach((el) => {
     el.classList.remove(
@@ -234,11 +296,18 @@ export function scrollToAnchor(
   const typeClass = nodeType ? `type-${nodeType}` : 'type-Statement';
   let phraseHighlighted = false;
 
-  // 4. Try CSS Custom Highlight API if anchors provided for phrase-level precision
-  if (startAnchor && 'Highlight' in window && 'highlights' in (window as any)) {
+  if ('Highlight' in window && 'highlights' in (window as any)) {
     try {
       const container = targetElements.length === 1 ? targetElements[0] : (targetElements[0].parentElement || targetElements[0]);
-      const range = createPreciseAnchorRange(container, startAnchor, endAnchor);
+      const range = createPreciseAnchorRange(
+        container,
+        startAnchor,
+        endAnchor,
+        subIndex,
+        totalNodesForRef,
+        startWordIdx,
+        endWordIdx
+      );
       if (range) {
         const highlight = new (window as any).Highlight(range);
         (CSS as any).highlights.set('sugya-anchor-highlight', highlight);
@@ -252,7 +321,6 @@ export function scrollToAnchor(
     }
   }
 
-  // 5. Apply container styling: if phrase was highlighted, only add subtle container border instead of full background pulse
   targetElements.forEach((el) => {
     if (phraseHighlighted) {
       el.classList.add('sugya-container-active', typeClass);
@@ -263,7 +331,15 @@ export function scrollToAnchor(
 }
 
 // Active sugya state for real-time MutationObserver auto-highlighting
-let activeSugyaNodes: Array<{ ref?: string; type?: string; start_anchor?: string; end_anchor?: string }> | null = null;
+let activeSugyaNodes: Array<{
+  ref?: string;
+  type?: string;
+  start_anchor?: string;
+  end_anchor?: string;
+  sub_index?: number;
+  start_word_idx?: number;
+  end_word_idx?: number;
+}> | null = null;
 let activeHighlightsVisible: boolean = true;
 let sugyaMutationObserver: MutationObserver | null = null;
 let reapplyDebounceTimer: any = null;
@@ -295,7 +371,6 @@ function ensureSugyaMutationObserver() {
 function _reapplySugyaHighlightsInternal() {
   if (!activeSugyaNodes || !activeHighlightsVisible) return;
   
-  // Re-run matching without resetting activeSugyaNodes
   const nodes = activeSugyaNodes;
   const TYPES = ['Statement', 'Question', 'Attack', 'Defense', 'Proof', 'Answer'];
 
@@ -323,6 +398,14 @@ function _reapplySugyaHighlightsInternal() {
     Answer: [],
   };
 
+  const nodesByRef = new Map<string, typeof nodes>();
+  for (const node of nodes) {
+    if (!node.ref) continue;
+    const list = nodesByRef.get(node.ref) || [];
+    list.push(node);
+    nodesByRef.set(node.ref, list);
+  }
+
   const segmentTypesMap = new Map<Element, Set<string>>();
 
   for (const node of nodes) {
@@ -330,6 +413,10 @@ function _reapplySugyaHighlightsInternal() {
     const targetElements = getDOMTargetElementsForRef(node.ref);
 
     if (targetElements.length === 0) continue;
+
+    const refNodes = nodesByRef.get(node.ref) || [node];
+    const totalNodesForRef = refNodes.length;
+    const subIndex = typeof node.sub_index === 'number' ? node.sub_index : refNodes.indexOf(node);
 
     const nodeType = node.type && rangesByType[node.type] ? node.type : 'Statement';
     for (const el of targetElements) {
@@ -339,16 +426,22 @@ function _reapplySugyaHighlightsInternal() {
       segmentTypesMap.get(el)!.add(nodeType);
     }
 
-    if (node.start_anchor) {
-      try {
-        const container = targetElements.length === 1 ? targetElements[0] : (targetElements[0].parentElement || targetElements[0]);
-        const range = createPreciseAnchorRange(container, node.start_anchor, node.end_anchor);
-        if (range) {
-          rangesByType[nodeType].push(range);
-        }
-      } catch (err) {
-        // ignore
+    try {
+      const container = targetElements.length === 1 ? targetElements[0] : (targetElements[0].parentElement || targetElements[0]);
+      const range = createPreciseAnchorRange(
+        container,
+        node.start_anchor,
+        node.end_anchor,
+        subIndex,
+        totalNodesForRef,
+        node.start_word_idx,
+        node.end_word_idx
+      );
+      if (range) {
+        rangesByType[nodeType].push(range);
       }
+    } catch (err) {
+      // ignore
     }
   }
 
