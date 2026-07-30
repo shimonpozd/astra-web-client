@@ -112,55 +112,64 @@ export function createPreciseAnchorRange(
 
   if (rawText.length === 0) return null;
 
-  // Build character index map between clean text (without nikud) and raw text (with nikud)
-  const cleanToRawMap: number[] = [];
-  let cleanText = '';
+  // 1. Build letter-to-raw map (only Hebrew letters & numbers)
+  const letterToRawMap: number[] = [];
+  let lettersOnlyText = '';
   for (let i = 0; i < rawText.length; i++) {
     const ch = rawText[i];
-    if (!/[\u0591-\u05C7]/.test(ch)) {
-      cleanToRawMap.push(i);
-      cleanText += ch;
+    if (/[\u05D0-\u05EA0-9]/.test(ch)) {
+      letterToRawMap.push(i);
+      lettersOnlyText += ch;
     }
   }
 
-  const cleanStart = stripHebrewVowels(startAnchor).trim();
-  if (!cleanStart) return null;
+  if (lettersOnlyText.length === 0) return null;
 
-  const cleanStartIdx = cleanText.indexOf(cleanStart);
-  if (cleanStartIdx === -1) return null;
+  // 2. Clean start anchor to letters only
+  const cleanStartLetters = (startAnchor || '').replace(/[^\u05D0-\u05EA0-9]/g, '');
+  if (!cleanStartLetters) return null;
 
-  let cleanEndIdx = -1;
-  const cleanEnd = endAnchor ? stripHebrewVowels(endAnchor).trim() : '';
-
-  if (cleanEnd) {
-    const lastIdx = cleanText.lastIndexOf(cleanEnd);
-    if (lastIdx !== -1 && lastIdx >= cleanStartIdx) {
-      cleanEndIdx = lastIdx + cleanEnd.length;
+  let startLetterIdx = lettersOnlyText.indexOf(cleanStartLetters);
+  if (startLetterIdx === -1) {
+    const words = (startAnchor || '').replace(/[^\u05D0-\u05EA0-9\s]/g, '').trim().split(/\s+/).filter(Boolean);
+    if (words.length > 0) {
+      const shortStart = words.slice(0, Math.min(3, words.length)).join('');
+      startLetterIdx = lettersOnlyText.indexOf(shortStart);
     }
   }
 
-  if (cleanEndIdx === -1) {
-    cleanEndIdx = cleanStartIdx + cleanStart.length;
+  if (startLetterIdx === -1) return null;
+
+  // 3. Clean end anchor to letters only
+  let endLetterIdx = -1;
+  const cleanEndLetters = endAnchor ? endAnchor.replace(/[^\u05D0-\u05EA0-9]/g, '') : '';
+
+  if (cleanEndLetters) {
+    const lastIdx = lettersOnlyText.lastIndexOf(cleanEndLetters);
+    if (lastIdx !== -1 && lastIdx >= startLetterIdx) {
+      endLetterIdx = lastIdx + cleanEndLetters.length;
+    } else {
+      const endWords = endAnchor!.replace(/[^\u05D0-\u05EA0-9\s]/g, '').trim().split(/\s+/).filter(Boolean);
+      if (endWords.length > 0) {
+        const shortEnd = endWords.slice(Math.max(0, endWords.length - 3)).join('');
+        const fIdx = lettersOnlyText.lastIndexOf(shortEnd);
+        if (fIdx !== -1 && fIdx >= startLetterIdx) {
+          endLetterIdx = fIdx + shortEnd.length;
+        }
+      }
+    }
   }
 
-  // Trim trailing whitespace characters from cleanEndIdx
-  while (cleanEndIdx > cleanStartIdx && /\s/.test(cleanText[cleanEndIdx - 1])) {
-    cleanEndIdx--;
+  if (endLetterIdx === -1) {
+    endLetterIdx = startLetterIdx + cleanStartLetters.length;
   }
 
-  const rawStartIdx = cleanToRawMap[cleanStartIdx];
-  let rawEndIdx = cleanToRawMap[Math.min(cleanEndIdx, cleanToRawMap.length - 1)];
+  const rawStartIdx = letterToRawMap[startLetterIdx];
+  const rawEndIdxChar = letterToRawMap[Math.min(endLetterIdx - 1, letterToRawMap.length - 1)];
 
-  if (rawStartIdx === undefined) return null;
+  if (rawStartIdx === undefined || rawEndIdxChar === undefined) return null;
 
-  if (cleanEndIdx >= cleanToRawMap.length || rawEndIdx === undefined) {
-    rawEndIdx = rawText.length;
-  }
-
-  // Trim trailing raw text whitespace (spaces, newlines)
-  while (rawEndIdx > rawStartIdx && /\s/.test(rawText[rawEndIdx - 1])) {
-    rawEndIdx--;
-  }
+  const rawEndIdx = rawEndIdxChar + 1;
 
   if (rawStartIdx >= rawEndIdx) return null;
 
