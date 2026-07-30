@@ -76,8 +76,8 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
           "border-l-4"
         )}
         onClick={() => onNodeClick(node)}
-        onMouseEnter={() => highlightNodeHover(node.ref, node.type, true)}
-        onMouseLeave={() => highlightNodeHover(node.ref, node.type, false)}
+        onMouseEnter={() => highlightNodeHover(node.ref, node.type, true, node.start_anchor, node.end_anchor)}
+        onMouseLeave={() => highlightNodeHover(node.ref, node.type, false, node.start_anchor, node.end_anchor)}
       >
         {/* Expand / Collapse toggle */}
         {hasChildren ? (

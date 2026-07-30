@@ -206,12 +206,13 @@ export function scrollToAnchor(
   });
 
   // 3. Remove old highlights from previous node selections
-  const oldActive = document.querySelectorAll('.sugya-segment-pulse');
+  const oldActive = document.querySelectorAll('.sugya-segment-pulse, .sugya-container-active');
   oldActive.forEach((el) => {
     el.classList.remove(
       'sugya-segment-pulse',
       'sugya-pulse-active',
       'sugya-highlight-selected',
+      'sugya-container-active',
       'type-Statement',
       'type-Question',
       'type-Attack',
@@ -221,13 +222,10 @@ export function scrollToAnchor(
     );
   });
 
-  // 4. Apply non-destructive persistent background highlight class & pulse to matched elements
   const typeClass = nodeType ? `type-${nodeType}` : 'type-Statement';
-  targetElements.forEach((el) => {
-    el.classList.add('sugya-segment-pulse', typeClass, 'sugya-pulse-active', 'sugya-highlight-selected');
-  });
+  let phraseHighlighted = false;
 
-  // 5. Try CSS Custom Highlight API if available & anchors provided for word-level precision
+  // 4. Try CSS Custom Highlight API if anchors provided for phrase-level precision
   if (startAnchor && 'Highlight' in window && 'highlights' in (window as any)) {
     try {
       const container = targetElements.length === 1 ? targetElements[0] : (targetElements[0].parentElement || targetElements[0]);
@@ -235,11 +233,24 @@ export function scrollToAnchor(
       if (range) {
         const highlight = new (window as any).Highlight(range);
         (CSS as any).highlights.set('sugya-anchor-highlight', highlight);
+        if (nodeType) {
+          (CSS as any).highlights.set(`sugya-highlight-${nodeType}`, highlight);
+        }
+        phraseHighlighted = true;
       }
     } catch (err) {
-      console.warn('[SugyaAnchorMatcher] CSS Highlight API failed, using segment pulse fallback', err);
+      console.warn('[SugyaAnchorMatcher] CSS Highlight API failed for phrase', err);
     }
   }
+
+  // 5. Apply container styling: if phrase was highlighted, only add subtle container border instead of full background pulse
+  targetElements.forEach((el) => {
+    if (phraseHighlighted) {
+      el.classList.add('sugya-container-active', typeClass);
+    } else {
+      el.classList.add('sugya-segment-pulse', typeClass, 'sugya-pulse-active', 'sugya-highlight-selected');
+    }
+  });
 }
 
 // Active sugya state for real-time MutationObserver auto-highlighting
@@ -356,11 +367,37 @@ export function applyWholeSugyaHighlight(
 }
 
 /**
- * Highlights segment on hover over Mind Map tree node
+ * Highlights segment / phrase on hover over Mind Map tree node
  */
-export function highlightNodeHover(ref?: string, _nodeType?: string, isHovered: boolean = true) {
+export function highlightNodeHover(
+  ref?: string,
+  _nodeType?: string,
+  isHovered: boolean = true,
+  startAnchor?: string,
+  endAnchor?: string
+) {
   if (!ref) return;
   const targetElements = getDOMTargetElementsForRef(ref);
+
+  if ('Highlight' in window && 'highlights' in (window as any)) {
+    try {
+      if (isHovered && startAnchor) {
+        const container = targetElements.length === 1 ? targetElements[0] : (targetElements[0]?.parentElement || targetElements[0]);
+        if (container) {
+          const range = createPreciseAnchorRange(container, startAnchor, endAnchor);
+          if (range) {
+            const highlight = new (window as any).Highlight(range);
+            (CSS as any).highlights.set('sugya-hover-highlight', highlight);
+          }
+        }
+      } else {
+        (CSS as any).highlights.delete('sugya-hover-highlight');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   targetElements.forEach((el) => {
     if (isHovered) {
       el.classList.add('sugya-node-hover-active');

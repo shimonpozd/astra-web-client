@@ -282,6 +282,20 @@
   border: none !important;
 }
 
+/* Container border indicator when exact phrase range is highlighted */
+.sugya-container-active {
+  border-left: 3.5px solid hsl(var(--primary)) !important;
+  background-color: transparent !important;
+  transition: border-color 0.2s ease;
+}
+
+.sugya-container-active.type-Statement { border-left-color: #3b82f6 !important; }
+.sugya-container-active.type-Question { border-left-color: #a855f7 !important; }
+.sugya-container-active.type-Attack { border-left-color: #ef4444 !important; }
+.sugya-container-active.type-Defense { border-left-color: #22c55e !important; }
+.sugya-container-active.type-Proof { border-left-color: #0ea5e9 !important; }
+.sugya-container-active.type-Answer { border-left-color: #f59e0b !important; }
+
 /* Whole Sugya Tagging Margin & Background Accent */
 .sugya-segment-tag {
   transition: background-color 0.25s ease;
