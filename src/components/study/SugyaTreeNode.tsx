@@ -117,6 +117,11 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
               <span className="text-[10px] text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded flex items-center gap-1 font-mono">
                 <Bookmark className="w-2.5 h-2.5 opacity-60" />
                 {node.ref}
+                {typeof node.sub_index === 'number' && node.sub_index > 0 && (
+                  <span className="text-amber-600 dark:text-amber-400 font-bold ml-0.5">
+                    #{node.sub_index + 1}
+                  </span>
+                )}
               </span>
             )}
           </div>

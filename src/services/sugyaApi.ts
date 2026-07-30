@@ -15,8 +15,11 @@ export interface SugyaNode {
   type: SugyaNodeType;
   title: string;
   ref?: string;
+  sub_index?: number;
   start_anchor?: string;
   end_anchor?: string;
+  start_word_idx?: number;
+  end_word_idx?: number;
 }
 
 export interface SugyaMapData {
