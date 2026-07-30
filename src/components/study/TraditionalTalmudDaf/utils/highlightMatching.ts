@@ -226,15 +226,23 @@ export function extractGemaraWordTokens(html: string): TextToken[] {
 export function matchWordsEqual(w1: string, w2: string): boolean {
   if (w1 === w2) return true;
 
-  // Допускаем разницу в приставках (например, в тексте "ואמר", а в DH "אמר")
-  // Проверяем, оканчивается ли более длинное слово на более короткое
+  // 1. Prefix difference check (e.g., Gemara "ואמר" vs DH "אמר", "בדבורה" vs "דבורה")
   if (w1.length > w2.length && w1.endsWith(w2)) {
-    const diff = w1.length - w2.length;
-    if (diff <= 2) return true; // Разница в 1-2 буквы спереди
+    if (w1.length - w2.length <= 2) return true;
   }
   if (w2.length > w1.length && w2.endsWith(w1)) {
-    const diff = w2.length - w1.length;
-    if (diff <= 2) return true;
+    if (w2.length - w1.length <= 2) return true;
+  }
+
+  // 2. Matres lectionis (כתיב מלא / כתיב חסר - vowels י and ו)
+  // e.g. "ובצורות" vs "ובצורת" or "גדולות" vs "גדלת"
+  if (w1.length >= 3 && w2.length >= 3) {
+    const norm1 = w1.replace(/[יו]/g, '');
+    const norm2 = w2.replace(/[יו]/g, '');
+    if (norm1.length >= 2 && norm1 === norm2) return true;
+
+    if (norm1.length > norm2.length && norm1.endsWith(norm2) && norm1.length - norm2.length <= 2) return true;
+    if (norm2.length > norm1.length && norm2.endsWith(norm1) && norm2.length - norm1.length <= 2) return true;
   }
 
   return false;
@@ -246,27 +254,33 @@ export const highlightDhInGemara = (
   _activeRef: string | null = null,
   _hoveredRef: string | null = null
 ) => {
-  if (!text) return text;
+  if (!text || !commentsForSegment || commentsForSegment.length === 0) return text;
 
   const tokens = extractGemaraWordTokens(text);
   if (tokens.length === 0) return text;
 
-  const gapWordsRegex = /^(ופרכינן|פירש|כלומר|והכי|כגון|וזהו|וכו|וגו|כו|ע)$/i;
+  const tokenMatchData = tokens.map(() => ({
+    commentRefs: new Set<string>(),
+    isRashi: false,
+    isTosafot: false,
+  }));
 
-  const sortedComments = [...commentsForSegment]
+  const gapWordsRegex = /^(ופרכינן|פירש|פי'|כלומר|והכי|כגון|וזהו|וכו|וגו|כו|ע)$/i;
+
+  const preparedComments = commentsForSegment
     .map(c => {
       const { dh } = parseCommentDh(c.he);
-      const rawWords = (dh || '')
+      const rawWords = (dh || c.dh || '')
         .replace(/[\u0591-\u05C7\u200E\u200F]/g, '')
         .replace(/["'""().,!?;:\-\[\]{}–—ׇ]/g, ' ')
         .split(/\s+/);
 
-      const cleanWords: { clean: string }[] = [];
+      const cleanWords: string[] = [];
 
       for (const w of rawWords) {
         if (gapWordsRegex.test(w)) break;
         if (w && w.length >= 2) {
-          cleanWords.push({ clean: w });
+          cleanWords.push(w);
         }
       }
 
@@ -275,11 +289,9 @@ export const highlightDhInGemara = (
     .filter(item => item.cleanWords.length > 0)
     .sort((a, b) => b.cleanWords.length - a.cleanWords.length);
 
-  const matches: { startHtml: number; endHtml: number; commentRefs: string[]; isRashi: boolean; isTosafot: boolean }[] = [];
-
-  for (const item of sortedComments) {
+  for (const item of preparedComments) {
     const dhWords = item.cleanWords;
-    let bestMatch: { startTokenIdx: number; endTokenIdx: number; count: number } | null = null;
+    let bestMatch: { startTokenIdx: number; count: number } | null = null;
 
     for (let tIdx = 0; tIdx < tokens.length; tIdx++) {
       let count = 0;
@@ -289,7 +301,7 @@ export const highlightDhInGemara = (
         count < dhWords.length &&
         matchWordsEqual(
           tokens[tIdx + count].clean,
-          dhWords[count].clean
+          dhWords[count]
         )
       ) {
         count++;
@@ -297,45 +309,106 @@ export const highlightDhInGemara = (
 
       if (count >= 2 || (count === 1 && dhWords.length === 1)) {
         if (!bestMatch || count > bestMatch.count) {
-          bestMatch = { startTokenIdx: tIdx, endTokenIdx: tIdx + count - 1, count };
+          bestMatch = { startTokenIdx: tIdx, count };
         }
       }
     }
 
     if (bestMatch) {
-      const startHtml = tokens[bestMatch.startTokenIdx].startHtml;
-      const endHtml = tokens[bestMatch.endTokenIdx].endHtml;
       const isRashi = item.comment.commentator.toLowerCase().includes('rashi');
       const isTosafot = item.comment.commentator.toLowerCase().includes('tosafot');
 
-      const existingMatch = matches.find(m => m.startHtml === startHtml && m.endHtml === endHtml);
-      if (existingMatch) {
-        if (!existingMatch.commentRefs.includes(item.comment.ref)) {
-          existingMatch.commentRefs.push(item.comment.ref);
-        }
-        if (isRashi) existingMatch.isRashi = true;
-        if (isTosafot) existingMatch.isTosafot = true;
-      } else {
-        const overlaps = matches.some(m => Math.max(m.startHtml, startHtml) < Math.min(m.endHtml, endHtml));
-        if (!overlaps) {
-          matches.push({
-            startHtml,
-            endHtml,
-            commentRefs: [item.comment.ref],
-            isRashi,
-            isTosafot,
-          });
-        }
+      for (let i = 0; i < bestMatch.count; i++) {
+        const idx = bestMatch.startTokenIdx + i;
+        tokenMatchData[idx].commentRefs.add(item.comment.ref);
+        if (isRashi) tokenMatchData[idx].isRashi = true;
+        if (isTosafot) tokenMatchData[idx].isTosafot = true;
       }
     }
   }
 
-  if (matches.length === 0) return text;
+  const rangesToWrap: {
+    startHtml: number;
+    endHtml: number;
+    commentRefs: string[];
+    isRashi: boolean;
+    isTosafot: boolean;
+  }[] = [];
 
-  matches.sort((a, b) => b.startHtml - a.startHtml);
+  let currentRange: {
+    startTokenIdx: number;
+    endTokenIdx: number;
+    refsKey: string;
+    commentRefs: string[];
+    isRashi: boolean;
+    isTosafot: boolean;
+  } | null = null;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const data = tokenMatchData[i];
+    if (data.commentRefs.size === 0) {
+      if (currentRange) {
+        rangesToWrap.push({
+          startHtml: tokens[currentRange.startTokenIdx].startHtml,
+          endHtml: tokens[currentRange.endTokenIdx].endHtml,
+          commentRefs: currentRange.commentRefs,
+          isRashi: currentRange.isRashi,
+          isTosafot: currentRange.isTosafot,
+        });
+        currentRange = null;
+      }
+      continue;
+    }
+
+    const refsArr = Array.from(data.commentRefs).sort();
+    const refsKey = refsArr.join('|');
+
+    if (!currentRange) {
+      currentRange = {
+        startTokenIdx: i,
+        endTokenIdx: i,
+        refsKey,
+        commentRefs: refsArr,
+        isRashi: data.isRashi,
+        isTosafot: data.isTosafot,
+      };
+    } else if (currentRange.refsKey === refsKey) {
+      currentRange.endTokenIdx = i;
+    } else {
+      rangesToWrap.push({
+        startHtml: tokens[currentRange.startTokenIdx].startHtml,
+        endHtml: tokens[currentRange.endTokenIdx].endHtml,
+        commentRefs: currentRange.commentRefs,
+        isRashi: currentRange.isRashi,
+        isTosafot: currentRange.isTosafot,
+      });
+      currentRange = {
+        startTokenIdx: i,
+        endTokenIdx: i,
+        refsKey,
+        commentRefs: refsArr,
+        isRashi: data.isRashi,
+        isTosafot: data.isTosafot,
+      };
+    }
+  }
+
+  if (currentRange) {
+    rangesToWrap.push({
+      startHtml: tokens[currentRange.startTokenIdx].startHtml,
+      endHtml: tokens[currentRange.endTokenIdx].endHtml,
+      commentRefs: currentRange.commentRefs,
+      isRashi: currentRange.isRashi,
+      isTosafot: currentRange.isTosafot,
+    });
+  }
+
+  if (rangesToWrap.length === 0) return text;
+
+  rangesToWrap.sort((a, b) => b.startHtml - a.startHtml);
 
   let result = text;
-  for (const m of matches) {
+  for (const m of rangesToWrap) {
     const chunk = result.substring(m.startHtml, m.endHtml);
     const classes = ['highlight-dh'];
     if (m.isRashi) classes.push('dh-rashi');

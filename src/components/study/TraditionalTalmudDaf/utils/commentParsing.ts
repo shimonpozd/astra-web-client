@@ -18,6 +18,8 @@ export const parseCommentDh = (hebrewHtml: string) => {
     }
   }
 
+  dh = dh.replace(/^\d+\s*\/\s*\([^)]*\)\s*\/\s*/, '').trim();
+
   const cleanWords = dh
     .replace(/[֑-ׇ]/g, '')
     .replace(/["'""().,!?;:\-\[\]{}–—]/g, ' ')
