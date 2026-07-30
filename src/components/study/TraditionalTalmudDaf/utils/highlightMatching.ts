@@ -196,11 +196,9 @@ export function extractGemaraWordTokens(html: string): TextToken[] {
     } else {
       if (currentWord.length > 0 && wordStartHtml !== -1) {
         const clean = currentWord.replace(/[\u0591-\u05C7\u200E\u200F]/g, '');
-        const stem = clean.replace(/[יואה]/g, '');
         if (clean.length >= 2) {
           tokens.push({
             clean,
-            stem,
             startHtml: wordStartHtml,
             endHtml: wordEndHtml,
           });
@@ -213,11 +211,9 @@ export function extractGemaraWordTokens(html: string): TextToken[] {
 
   if (currentWord.length > 0 && wordStartHtml !== -1) {
     const clean = currentWord.replace(/[\u0591-\u05C7\u200E\u200F]/g, '');
-    const stem = clean.replace(/[יואה]/g, '');
     if (clean.length >= 2) {
       tokens.push({
         clean,
-        stem,
         startHtml: wordStartHtml,
         endHtml: wordEndHtml,
       });
@@ -227,9 +223,20 @@ export function extractGemaraWordTokens(html: string): TextToken[] {
   return tokens;
 }
 
-export function matchWordsEqual(w1: string, s1: string, w2: string, s2: string): boolean {
+export function matchWordsEqual(w1: string, w2: string): boolean {
   if (w1 === w2) return true;
-  if (s1.length >= 3 && s2.length >= 3 && s1 === s2) return true;
+
+  // Допускаем разницу в приставках (например, в тексте "ואמר", а в DH "אמר")
+  // Проверяем, оканчивается ли более длинное слово на более короткое
+  if (w1.length > w2.length && w1.endsWith(w2)) {
+    const diff = w1.length - w2.length;
+    if (diff <= 2) return true; // Разница в 1-2 буквы спереди
+  }
+  if (w2.length > w1.length && w2.endsWith(w1)) {
+    const diff = w2.length - w1.length;
+    if (diff <= 2) return true;
+  }
+
   return false;
 }
 
@@ -244,18 +251,25 @@ export const highlightDhInGemara = (
   const tokens = extractGemaraWordTokens(text);
   if (tokens.length === 0) return text;
 
+  const gapWordsRegex = /^(ופרכינן|פירש|כלומר|והכי|כגון|וזהו|וכו|וגו|כו|ע)$/i;
+
   const sortedComments = [...commentsForSegment]
     .map(c => {
       const { dh } = parseCommentDh(c.he);
-      const cleanWords = (dh || '')
+      const rawWords = (dh || '')
         .replace(/[\u0591-\u05C7\u200E\u200F]/g, '')
         .replace(/["'""().,!?;:\-\[\]{}–—ׇ]/g, ' ')
-        .split(/\s+/)
-        .filter(w => w && w.length >= 2 && !/^(ופרכינן|פירש|כלומר|והכי|כגון|וזהו|וכו|גו|וגו|ע)$/i.test(w))
-        .map(w => ({
-          clean: w,
-          stem: w.replace(/[יואה]/g, ''),
-        }));
+        .split(/\s+/);
+
+      const cleanWords: { clean: string }[] = [];
+
+      for (const w of rawWords) {
+        if (gapWordsRegex.test(w)) break;
+        if (w && w.length >= 2) {
+          cleanWords.push({ clean: w });
+        }
+      }
+
       return { comment: c, dh, cleanWords };
     })
     .filter(item => item.cleanWords.length > 0)
@@ -268,16 +282,14 @@ export const highlightDhInGemara = (
     let bestMatch: { startTokenIdx: number; endTokenIdx: number; count: number } | null = null;
 
     for (let tIdx = 0; tIdx < tokens.length; tIdx++) {
-      const dhStart = 0;
       let count = 0;
+
       while (
         tIdx + count < tokens.length &&
-        dhStart + count < dhWords.length &&
+        count < dhWords.length &&
         matchWordsEqual(
           tokens[tIdx + count].clean,
-          tokens[tIdx + count].stem,
-          dhWords[dhStart + count].clean,
-          dhWords[dhStart + count].stem
+          dhWords[count].clean
         )
       ) {
         count++;

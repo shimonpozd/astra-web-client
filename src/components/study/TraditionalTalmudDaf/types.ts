@@ -14,7 +14,6 @@ export type CompiledConceptHighlight = ConceptHighlight & { regexes: RegExp[] };
 
 export interface TextToken {
   clean: string;
-  stem: string;
   startHtml: number;
   endHtml: number;
 }
