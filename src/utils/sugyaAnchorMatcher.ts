@@ -302,7 +302,7 @@ function _reapplySugyaHighlightsInternal() {
 
   const oldTagged = document.querySelectorAll('.sugya-segment-tag');
   oldTagged.forEach((el) => {
-    el.classList.remove('sugya-segment-tag');
+    el.classList.remove('sugya-segment-tag', ...TYPES.map(t => `type-${t}`));
   });
 
   const rangesByType: Record<string, Range[]> = {
@@ -314,6 +314,8 @@ function _reapplySugyaHighlightsInternal() {
     Answer: [],
   };
 
+  const segmentTypesMap = new Map<Element, Set<string>>();
+
   for (const node of nodes) {
     if (!node.ref) continue;
     const targetElements = getDOMTargetElementsForRef(node.ref);
@@ -322,7 +324,10 @@ function _reapplySugyaHighlightsInternal() {
 
     const nodeType = node.type && rangesByType[node.type] ? node.type : 'Statement';
     for (const el of targetElements) {
-      el.classList.add('sugya-segment-tag', `type-${nodeType}`);
+      if (!segmentTypesMap.has(el)) {
+        segmentTypesMap.set(el, new Set());
+      }
+      segmentTypesMap.get(el)!.add(nodeType);
     }
 
     if (node.start_anchor) {
@@ -335,6 +340,14 @@ function _reapplySugyaHighlightsInternal() {
       } catch (err) {
         // ignore
       }
+    }
+  }
+
+  for (const [el, types] of segmentTypesMap.entries()) {
+    el.classList.add('sugya-segment-tag');
+    if (types.size === 1) {
+      const [singleType] = Array.from(types);
+      el.classList.add(`type-${singleType}`);
     }
   }
 
