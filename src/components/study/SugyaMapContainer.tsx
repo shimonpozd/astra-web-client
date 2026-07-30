@@ -3,6 +3,7 @@ import { Zap, RefreshCw, AlertCircle, Map, Layers, Eye, EyeOff, RotateCcw, Palet
 import { calculateSugyaMap, SugyaMapData, SugyaNode } from '../../services/sugyaApi';
 import { SugyaTreeNodeItem, TreeHierarchyNode } from './SugyaTreeNode';
 import { scrollToAnchor, applyWholeSugyaHighlight } from '../../utils/sugyaAnchorMatcher';
+import { isRefOverlap } from '../../utils/refUtils';
 import { Button } from '../ui/button';
 import { TextSegment } from '../../types/text';
 import { cn } from '../../lib/utils';
@@ -142,6 +143,21 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
     }, 150);
     return () => clearTimeout(timer);
   }, [mapData, showHighlights, currentRef]);
+
+  // Highlight and auto-scroll tree node in Sugya Map panel matching active ref in reader
+  useEffect(() => {
+    if (!currentRef) return;
+    const treeNodeElements = document.querySelectorAll('[data-sugya-node-ref]');
+    treeNodeElements.forEach((el) => {
+      const nodeRef = el.getAttribute('data-sugya-node-ref');
+      if (nodeRef && isRefOverlap(currentRef, nodeRef)) {
+        el.classList.add('sugya-tree-node-selected');
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else {
+        el.classList.remove('sugya-tree-node-selected');
+      }
+    });
+  }, [currentRef, mapData]);
 
   const handleCalculateMap = useCallback(async (forceRecalculate = false) => {
     if (!currentRef && (!segments || segments.length === 0)) {
