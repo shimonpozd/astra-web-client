@@ -265,13 +265,9 @@ export function createPreciseAnchorRange(
 
 export function scrollToAnchor(
   ref?: string,
-  startAnchor?: string,
-  endAnchor?: string,
-  nodeType?: string,
-  subIndex?: number,
-  totalNodesForRef?: number,
-  startWordIdx?: number,
-  endWordIdx?: number
+  _startAnchor?: string,
+  _endAnchor?: string,
+  nodeType?: string
 ) {
   if (!ref) return;
 
@@ -286,56 +282,19 @@ export function scrollToAnchor(
     block: 'center',
   });
 
-  const oldActive = document.querySelectorAll('.sugya-segment-pulse, .sugya-container-active');
+  const oldActive = document.querySelectorAll('.sugya-segment-pulse');
   oldActive.forEach((el) => {
     el.classList.remove(
       'sugya-segment-pulse',
       'sugya-pulse-active',
-      'sugya-highlight-selected',
-      'sugya-container-active',
-      'type-Statement',
-      'type-Question',
-      'type-Attack',
-      'type-Defense',
-      'type-Proof',
-      'type-Answer'
+      'sugya-highlight-selected'
     );
   });
 
   const typeClass = nodeType ? `type-${nodeType}` : 'type-Statement';
-  let phraseHighlighted = false;
-
-  if ('Highlight' in window && 'highlights' in (window as any)) {
-    try {
-      const container = targetElements.length === 1 ? targetElements[0] : (targetElements[0].parentElement || targetElements[0]);
-      const range = createPreciseAnchorRange(
-        container,
-        startAnchor,
-        endAnchor,
-        subIndex,
-        totalNodesForRef,
-        startWordIdx,
-        endWordIdx
-      );
-      if (range) {
-        const highlight = new (window as any).Highlight(range);
-        (CSS as any).highlights.set('sugya-anchor-highlight', highlight);
-        if (nodeType) {
-          (CSS as any).highlights.set(`sugya-highlight-${nodeType}`, highlight);
-        }
-        phraseHighlighted = true;
-      }
-    } catch (err) {
-      console.warn('[SugyaAnchorMatcher] CSS Highlight API failed for phrase', err);
-    }
-  }
 
   targetElements.forEach((el) => {
-    if (phraseHighlighted) {
-      el.classList.add('sugya-container-active', typeClass);
-    } else {
-      el.classList.add('sugya-segment-pulse', typeClass, 'sugya-pulse-active', 'sugya-highlight-selected');
-    }
+    el.classList.add('sugya-segment-pulse', typeClass, 'sugya-pulse-active', 'sugya-highlight-selected');
   });
 }
 
@@ -383,74 +342,24 @@ function _reapplySugyaHighlightsInternal() {
   const nodes = activeSugyaNodes;
   const TYPES = ['Statement', 'Question', 'Attack', 'Defense', 'Proof', 'Answer'];
 
-  if ('Highlight' in window && 'highlights' in (window as any)) {
-    for (const t of TYPES) {
-      try {
-        (CSS as any).highlights.delete(`sugya-highlight-${t}`);
-      } catch (e) {
-        // ignore
-      }
-    }
-  }
-
   const oldTagged = document.querySelectorAll('.sugya-segment-tag');
   oldTagged.forEach((el) => {
-    el.classList.remove('sugya-segment-tag', ...TYPES.map(t => `type-${t}`));
+    el.classList.remove('sugya-segment-tag', 'type-multi', ...TYPES.map(t => `type-${t}`));
   });
-
-  const rangesByType: Record<string, Range[]> = {
-    Statement: [],
-    Question: [],
-    Attack: [],
-    Defense: [],
-    Proof: [],
-    Answer: [],
-  };
-
-  const nodesByRef = new Map<string, typeof nodes>();
-  for (const node of nodes) {
-    if (!node.ref) continue;
-    const list = nodesByRef.get(node.ref) || [];
-    list.push(node);
-    nodesByRef.set(node.ref, list);
-  }
 
   const segmentTypesMap = new Map<Element, Set<string>>();
 
   for (const node of nodes) {
     if (!node.ref) continue;
     const targetElements = getDOMTargetElementsForRef(node.ref);
-
     if (targetElements.length === 0) continue;
 
-    const refNodes = nodesByRef.get(node.ref) || [node];
-    const totalNodesForRef = refNodes.length;
-    const subIndex = typeof node.sub_index === 'number' ? node.sub_index : refNodes.indexOf(node);
-
-    const nodeType = node.type && rangesByType[node.type] ? node.type : 'Statement';
+    const nodeType = node.type && TYPES.includes(node.type) ? node.type : 'Statement';
     for (const el of targetElements) {
       if (!segmentTypesMap.has(el)) {
         segmentTypesMap.set(el, new Set());
       }
       segmentTypesMap.get(el)!.add(nodeType);
-    }
-
-    try {
-      const container = targetElements.length === 1 ? targetElements[0] : (targetElements[0].parentElement || targetElements[0]);
-      const range = createPreciseAnchorRange(
-        container,
-        node.start_anchor,
-        node.end_anchor,
-        subIndex,
-        totalNodesForRef,
-        node.start_word_idx,
-        node.end_word_idx
-      );
-      if (range) {
-        rangesByType[nodeType].push(range);
-      }
-    } catch (err) {
-      // ignore
     }
   }
 
@@ -459,18 +368,10 @@ function _reapplySugyaHighlightsInternal() {
     if (types.size === 1) {
       const [singleType] = Array.from(types);
       el.classList.add(`type-${singleType}`);
-    }
-  }
-
-  if ('Highlight' in window && 'highlights' in (window as any)) {
-    for (const [t, ranges] of Object.entries(rangesByType)) {
-      if (ranges.length > 0) {
-        try {
-          const highlight = new (window as any).Highlight(...ranges);
-          (CSS as any).highlights.set(`sugya-highlight-${t}`, highlight);
-        } catch (err) {
-          // ignore
-        }
+    } else if (types.size > 1) {
+      el.classList.add('type-multi');
+      for (const t of types) {
+        el.classList.add(`type-${t}`);
       }
     }
   }

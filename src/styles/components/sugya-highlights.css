@@ -333,6 +333,24 @@
   border: none !important;
 }
 
+/* Multi-type compound segment background gradients */
+.sugya-segment-tag.type-multi {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(34, 197, 94, 0.16) 100%) !important;
+  border: none !important;
+}
+
+.sugya-segment-tag.type-multi.type-Question.type-Defense,
+.sugya-segment-tag.type-multi.type-Question.type-Answer {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.16) 0%, rgba(34, 197, 94, 0.16) 100%) !important;
+  border: none !important;
+}
+
+.sugya-segment-tag.type-multi.type-Statement.type-Defense,
+.sugya-segment-tag.type-multi.type-Statement.type-Answer {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.16) 0%, rgba(34, 197, 94, 0.16) 100%) !important;
+  border: none !important;
+}
+
 /* Sugya Hover Glow */
 .sugya-node-hover-active {
   box-shadow: 0 0 18px 4px rgba(245, 158, 11, 0.5) !important;
