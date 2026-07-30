@@ -453,6 +453,45 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     return result;
   }, [showVowels, showPunctuation]);
 
+  const isAmudA = useMemo(() => {
+    return (currentDafRef || dafRef || '').toLowerCase().endsWith('a');
+  }, [currentDafRef, dafRef]);
+
+  const defaultSet = DEFAULT_COMMENTARY_SETS[currentCategory] || DEFAULT_COMMENTARY_SETS.default;
+  const currentCategoryOverride = commentaryOverrides[currentCategory];
+
+  const leftTitle = currentCategoryOverride?.left || (currentCategory === 'talmud' ? (isAmudA ? 'Tosafot' : 'Rashi') : defaultSet.left);
+  const rightTitle = currentCategoryOverride?.right || (currentCategory === 'talmud' ? (isAmudA ? 'Rashi' : 'Tosafot') : defaultSet.right);
+
+  const matchCommentator = useCallback((comment: TraditionalComment, targetTitle: string) => {
+    if (!comment || !targetTitle) return false;
+    const target = targetTitle.toLowerCase().trim();
+
+    if (target === 'commentary' || target === 'комментарий' || target === 'все' || target === 'all') return true;
+
+    const cName = (comment.commentator || '').toLowerCase().trim();
+    const refName = (comment.ref || '').toLowerCase().trim();
+
+    if (target.includes('rashi') || target.includes('רש"י')) return cName.includes('rashi') || refName.includes('rashi');
+    if (target.includes('tosafot') || target.includes('תוספ')) return cName.includes('tosafot') || refName.includes('tosafot');
+    if (target.includes('ibn ezra') || target.includes('אבן עזרא')) return cName.includes('ezra') || refName.includes('ezra');
+    if (target.includes('ramban') || target.includes('רמב"ן')) return cName.includes('ramban') || refName.includes('ramban') || cName.includes('nachmanides');
+    if (target.includes('ralbag') || target.includes('רלב"ג')) return cName.includes('ralbag') || refName.includes('ralbag') || cName.includes('gersonides');
+    if (target.includes('sforno') || target.includes('ספורנו')) return cName.includes('sforno') || refName.includes('sforno');
+    if (target.includes('rashbam') || target.includes('רשב"ם')) return cName.includes('rashbam') || refName.includes('rashbam');
+    if (target.includes('radak') || target.includes('רד"ק')) return cName.includes('radak') || refName.includes('radak') || cName.includes('kimhi');
+    if (target.includes('metzudat') || target.includes('מצודת')) return cName.includes('metzudat') || refName.includes('metzudat');
+    if (target.includes('taz') || target.includes('טורי זהב')) return cName.includes('taz') || cName.includes('turei') || refName.includes('taz');
+    if (target.includes('shach') || target.includes('שפתי כהן')) return cName.includes('shach') || cName.includes('siftei') || refName.includes('shach');
+
+    const cleanTarget = target.replace(/[^a-z0-9]/gi, '');
+    const cleanCName = cName.replace(/[^a-z0-9]/gi, '');
+    const cleanRefName = refName.replace(/[^a-z0-9]/gi, '');
+
+    return (cleanCName.length > 0 && (cleanCName.includes(cleanTarget) || cleanTarget.includes(cleanCName))) ||
+           (cleanRefName.length > 0 && cleanRefName.includes(cleanTarget));
+  }, []);
+
   const commentsByAnchor = useMemo(() => {
     const map = new Map<string, TraditionalComment[]>();
     const normalize = (r: string) => (r || '').replace(/[:\s,.]/g, '').toLowerCase();
@@ -479,11 +518,14 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
       const processed = processText(hebrewText);
       const key = normalize(segment.ref);
       const segmentComments = commentsByAnchor.get(key) || [];
-      const withDh = segmentComments.length > 0 ? highlightDhInGemara(processed, segmentComments) : processed;
+      const activeComments = segmentComments.filter(
+        c => matchCommentator(c, leftTitle) || matchCommentator(c, rightTitle)
+      );
+      const withDh = activeComments.length > 0 ? highlightDhInGemara(processed, activeComments) : processed;
       const highlighted = hasHighlights ? renderHighlightedText(withDh, compiledSageHighlights, compiledConceptHighlights) : withDh;
       return `${highlighted}${idx < displaySegments.length - 1 ? ' ' : ''}`;
     });
-  }, [displaySegments, commentsByAnchor, processText, compiledSageHighlights, compiledConceptHighlights]);
+  }, [displaySegments, commentsByAnchor, processText, compiledSageHighlights, compiledConceptHighlights, leftTitle, rightTitle, matchCommentator]);
 
   useEffect(() => {
     const container = gemaraContainerRef.current;
@@ -758,51 +800,12 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     );
   };
 
-  const isAmudA = useMemo(() => {
-    return (currentDafRef || dafRef || '').toLowerCase().endsWith('a');
-  }, [currentDafRef, dafRef]);
-
-  const defaultSet = DEFAULT_COMMENTARY_SETS[currentCategory] || DEFAULT_COMMENTARY_SETS.default;
-  const currentCategoryOverride = commentaryOverrides[currentCategory];
-
-  const leftTitle = currentCategoryOverride?.left || (currentCategory === 'talmud' ? (isAmudA ? 'Tosafot' : 'Rashi') : defaultSet.left);
-  const rightTitle = currentCategoryOverride?.right || (currentCategory === 'talmud' ? (isAmudA ? 'Rashi' : 'Tosafot') : defaultSet.right);
-
   const isLeftOverridden = Boolean(currentCategoryOverride?.left);
   const isRightOverridden = Boolean(currentCategoryOverride?.right);
 
   const handleOpenBookshelfDrawer = useCallback((side: 'left' | 'right') => {
     setActiveDrawerSide(side);
     setIsBookshelfDrawerOpen(true);
-  }, []);
-
-  const matchCommentator = useCallback((comment: TraditionalComment, targetTitle: string) => {
-    if (!comment || !targetTitle) return false;
-    const target = targetTitle.toLowerCase().trim();
-
-    if (target === 'commentary' || target === 'комментарий' || target === 'все' || target === 'all') return true;
-
-    const cName = (comment.commentator || '').toLowerCase().trim();
-    const refName = (comment.ref || '').toLowerCase().trim();
-
-    if (target.includes('rashi') || target.includes('רש"י')) return cName.includes('rashi') || refName.includes('rashi');
-    if (target.includes('tosafot') || target.includes('תוספ')) return cName.includes('tosafot') || refName.includes('tosafot');
-    if (target.includes('ibn ezra') || target.includes('אבן עזרא')) return cName.includes('ezra') || refName.includes('ezra');
-    if (target.includes('ramban') || target.includes('רמב"ן')) return cName.includes('ramban') || refName.includes('ramban') || cName.includes('nachmanides');
-    if (target.includes('ralbag') || target.includes('רלב"ג')) return cName.includes('ralbag') || refName.includes('ralbag') || cName.includes('gersonides');
-    if (target.includes('sforno') || target.includes('ספורנו')) return cName.includes('sforno') || refName.includes('sforno');
-    if (target.includes('rashbam') || target.includes('רשב"ם')) return cName.includes('rashbam') || refName.includes('rashbam');
-    if (target.includes('radak') || target.includes('רד"ק')) return cName.includes('radak') || refName.includes('radak') || cName.includes('kimhi');
-    if (target.includes('metzudat') || target.includes('מצודת')) return cName.includes('metzudat') || refName.includes('metzudat');
-    if (target.includes('taz') || target.includes('טורי זהב')) return cName.includes('taz') || cName.includes('turei') || refName.includes('taz');
-    if (target.includes('shach') || target.includes('שפתי כהן')) return cName.includes('shach') || cName.includes('siftei') || refName.includes('shach');
-
-    const cleanTarget = target.replace(/[^a-z0-9]/gi, '');
-    const cleanCName = cName.replace(/[^a-z0-9]/gi, '');
-    const cleanRefName = refName.replace(/[^a-z0-9]/gi, '');
-
-    return (cleanCName.length > 0 && (cleanCName.includes(cleanTarget) || cleanTarget.includes(cleanCName))) ||
-           (cleanRefName.length > 0 && cleanRefName.includes(cleanTarget));
   }, []);
 
   const leftColumn = useMemo(() => {
