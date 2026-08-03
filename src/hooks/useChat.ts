@@ -250,7 +250,19 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
   }, []);
 
   const sendMessage = useCallback(async (text: string, context?: 'focus' | 'workbench-left' | 'workbench-right' | null) => {
-    if (!selectedChatId) return;
+    let chatId = selectedChatId;
+    if (!chatId) {
+      chatId = generateId();
+      const newChat: Chat = {
+        session_id: chatId,
+        name: text.slice(0, 30) || "Новый чат",
+        last_modified: new Date().toISOString(),
+        type: 'chat',
+      };
+      setChats((prev) => [newChat, ...prev]);
+      setSelectedChatId(chatId);
+      navigate(`/chat/${chatId}`);
+    }
 
     setIsSending(true);
 
@@ -275,7 +287,7 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
 
     const request: ChatRequest = {
       text,
-      session_id: selectedChatId!,
+      session_id: chatId,
       agent_id: agentId,
       context: context || undefined,
     };

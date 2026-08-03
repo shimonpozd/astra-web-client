@@ -75,7 +75,7 @@ export default function BrainChatWithBlocks({
 
     const request: ChatRequest = {
       text: input,
-      session_id: sessionId,
+      session_id: sessionId || crypto.randomUUID(),
       agent_id: persona
     };
 

@@ -1591,6 +1591,16 @@ async function sendMessage(request: ChatRequest, handler: StreamHandler): Promis
       body: JSON.stringify(request),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const json = JSON.parse(errorText);
+        if (json.detail) errorMessage = typeof json.detail === 'string' ? json.detail : JSON.stringify(json.detail);
+      } catch (e) {}
+      throw new Error(errorMessage);
+    }
+
     if (!response.body) {
       throw new Error("Response body is empty");
     }
@@ -1742,6 +1752,16 @@ async function sendMessageWithBlocks(request: ChatRequest, handler: StreamHandle
       },
       body: JSON.stringify(request),
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const json = JSON.parse(errorText);
+        if (json.detail) errorMessage = typeof json.detail === 'string' ? json.detail : JSON.stringify(json.detail);
+      } catch (e) {}
+      throw new Error(errorMessage);
+    }
 
     if (!response.body) {
       throw new Error("Response body is empty");
@@ -1938,6 +1958,16 @@ async function sendStudyMessage(
         selected_panel_id: selectedPanelId
       }),
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const json = JSON.parse(errorText);
+        if (json.detail) errorMessage = typeof json.detail === 'string' ? json.detail : JSON.stringify(json.detail);
+      } catch (e) {}
+      throw new Error(errorMessage);
+    }
 
     if (!response.body) {
       throw new Error("Response body is empty");
