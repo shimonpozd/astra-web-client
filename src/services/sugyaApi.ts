@@ -11,11 +11,16 @@ export type SugyaNodeType =
 
 export interface SugyaNode {
   id: string;
-  level: number;
+  level?: number;
   type: SugyaNodeType;
   title: string;
   ref?: string;
   sub_index?: number;
+  speaker?: string;
+  parent_id?: string | null;
+  relation_label?: string;
+  start_quote?: string;
+  end_quote?: string;
   start_anchor?: string;
   end_anchor?: string;
   start_word_idx?: number;
@@ -24,6 +29,7 @@ export interface SugyaNode {
 
 export interface SugyaMapData {
   sugya_title: string;
+  version?: number;
   mishnah_summary?: string;
   markdown_tree: string;
   nodes: SugyaNode[];

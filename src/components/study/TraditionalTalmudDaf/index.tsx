@@ -25,7 +25,7 @@ import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
 import ProfileInspectorModal from '../ProfileInspectorModal';
 import { parseRefSmart } from '../../../utils/refUtils';
-import { scrollToAnchor, highlightMindMapNodeOnHover } from '../../../utils/sugyaAnchorMatcher';
+import { scrollToAnchor, highlightMindMapNodeOnHover, applyWholeSugyaHighlight, applySugyaSpansToSegmentHtml, getActiveSugyaNodes } from '../../../utils/sugyaAnchorMatcher';
 
 import {
   TraditionalComment,
@@ -509,6 +509,23 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     return map;
   }, [comments]);
 
+  const [sugyaNodes, setSugyaNodes] = useState<any[] | null>(() => getActiveSugyaNodes());
+
+  useEffect(() => {
+    const handleSugyaUpdate = (e: any) => {
+      const nodes = e.detail || getActiveSugyaNodes();
+      setSugyaNodes(nodes);
+      if (nodes && nodes.length > 0) {
+        applyWholeSugyaHighlight(nodes, true);
+      }
+    };
+    window.addEventListener('sugya-nodes-updated', handleSugyaUpdate);
+    if (sugyaNodes && sugyaNodes.length > 0) {
+      applyWholeSugyaHighlight(sugyaNodes, true);
+    }
+    return () => window.removeEventListener('sugya-nodes-updated', handleSugyaUpdate);
+  }, [displaySegments]);
+
   const renderedSegmentHtmls = useMemo(() => {
     const hasHighlights = compiledSageHighlights.length > 0 || compiledConceptHighlights.length > 0;
     const normalize = (r: string) => (r || '').replace(/[:\s,.]/g, '').toLowerCase();
@@ -523,9 +540,10 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
       );
       const withDh = activeComments.length > 0 ? highlightDhInGemara(processed, activeComments) : processed;
       const highlighted = hasHighlights ? renderHighlightedText(withDh, compiledSageHighlights, compiledConceptHighlights) : withDh;
-      return `${highlighted}${idx < displaySegments.length - 1 ? ' ' : ''}`;
+      const withSugyaSpans = sugyaNodes && sugyaNodes.length > 0 ? applySugyaSpansToSegmentHtml(highlighted, segment.ref, sugyaNodes) : highlighted;
+      return `${withSugyaSpans}${idx < displaySegments.length - 1 ? ' ' : ''}`;
     });
-  }, [displaySegments, commentsByAnchor, processText, compiledSageHighlights, compiledConceptHighlights, leftTitle, rightTitle, matchCommentator]);
+  }, [displaySegments, commentsByAnchor, processText, compiledSageHighlights, compiledConceptHighlights, leftTitle, rightTitle, matchCommentator, sugyaNodes]);
 
   useEffect(() => {
     const container = gemaraContainerRef.current;

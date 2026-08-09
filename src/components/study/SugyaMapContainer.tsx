@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Zap, RefreshCw, AlertCircle, Map, Layers, Eye, EyeOff, RotateCcw, Palette, ChevronDown, ChevronUp } from 'lucide-react';
+import { Zap, RefreshCw, AlertCircle, Map as MapIcon, Layers, RotateCcw, Palette, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import { calculateSugyaMap, SugyaMapData, SugyaNode } from '../../services/sugyaApi';
 import { SugyaTreeNodeItem, TreeHierarchyNode } from './SugyaTreeNode';
 import { scrollToAnchor, applyWholeSugyaHighlight } from '../../utils/sugyaAnchorMatcher';
@@ -8,17 +8,26 @@ import { Button } from '../ui/button';
 import { TextSegment } from '../../types/text';
 import { cn } from '../../lib/utils';
 
-// Global in-memory cache surviving unmounts & full-screen mode toggles
-const GLOBAL_SUGYA_MAP_CACHE: Record<string, SugyaMapData> = {};
+// Global in-memory v4 cache surviving unmounts & full-screen mode toggles
+const GLOBAL_SUGYA_MAP_V4_CACHE: Record<string, SugyaMapData> = {};
 
 const TAXONOMY_LEGEND = [
-  { type: 'Statement', label: 'Утверждение / Тезис', colorBg: 'bg-blue-500/15 border-blue-500/40 text-blue-700 dark:text-blue-300', dot: 'bg-blue-500' },
-  { type: 'Question', label: 'Вопрос (Шеела)', colorBg: 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300', dot: 'bg-purple-500' },
-  { type: 'Attack', label: 'Атака / Возражение (Кушья)', colorBg: 'bg-red-500/15 border-red-500/40 text-red-700 dark:text-red-300', dot: 'bg-red-500' },
-  { type: 'Defense', label: 'Защита / Решение (Тируц)', colorBg: 'bg-green-500/15 border-green-500/40 text-green-700 dark:text-green-300', dot: 'bg-green-500' },
-  { type: 'Proof', label: 'Доказательство (Раайя)', colorBg: 'bg-sky-500/15 border-sky-500/40 text-sky-700 dark:text-sky-300', dot: 'bg-sky-500' },
-  { type: 'Answer', label: 'Ответ на вопрос', colorBg: 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300', dot: 'bg-amber-500' },
+  { type: 'Statement', label: 'Утверждение / Тезис', icon: '📌', colorBg: 'bg-blue-500/15 border-blue-500/40 text-blue-700 dark:text-blue-300', dot: 'bg-blue-500' },
+  { type: 'Question', label: 'Вопрос (Шеела)', icon: '❓', colorBg: 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300', dot: 'bg-purple-500' },
+  { type: 'Attack', label: 'Атака / Возражение (Кушья)', icon: '⚔️', colorBg: 'bg-red-500/15 border-red-500/40 text-red-700 dark:text-red-300', dot: 'bg-red-500' },
+  { type: 'Defense', label: 'Защита / Решение (Тируц)', icon: '🛡️', colorBg: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500' },
+  { type: 'Proof', label: 'Доказательство (Раайя)', icon: '🧾', colorBg: 'bg-sky-500/15 border-sky-500/40 text-sky-700 dark:text-sky-300', dot: 'bg-sky-500' },
+  { type: 'Answer', label: 'Ответ на вопрос', icon: '💡', colorBg: 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300', dot: 'bg-amber-500' },
 ];
+
+const TAXONOMY_ICONS: Record<string, string> = {
+  Statement: '📌',
+  Question: '❓',
+  Attack: '⚔️',
+  Defense: '🛡️',
+  Proof: '🧾',
+  Answer: '💡',
+};
 
 interface SugyaMapContainerProps {
   currentRef?: string;
@@ -26,32 +35,69 @@ interface SugyaMapContainerProps {
   className?: string;
 }
 
+/**
+ * Builds tree hierarchy using direct parent_id references,
+ * with cycle detection and orphan node fallback handling.
+ */
 export function buildTreeFromNodes(nodes: SugyaNode[]): TreeHierarchyNode[] {
   if (!nodes || nodes.length === 0) return [];
 
-  const rootNodes: TreeHierarchyNode[] = [];
-  const stack: { level: number; node: TreeHierarchyNode }[] = [];
+  const hasParentIds = nodes.some((n) => n.parent_id !== undefined);
 
-  for (const node of nodes) {
-    const treeNode: TreeHierarchyNode = {
-      ...node,
-      children: [],
-    };
-
-    const level = node.level || 1;
-
-    while (stack.length > 0 && stack[stack.length - 1].level >= level) {
-      stack.pop();
+  if (!hasParentIds) {
+    // Legacy fallback for nodes without parent_id
+    const rootNodes: TreeHierarchyNode[] = [];
+    const stack: { level: number; node: TreeHierarchyNode }[] = [];
+    for (const node of nodes) {
+      const treeNode: TreeHierarchyNode = { ...node, children: [] };
+      const level = node.level || 1;
+      while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+        stack.pop();
+      }
+      if (stack.length === 0) rootNodes.push(treeNode);
+      else stack[stack.length - 1].node.children.push(treeNode);
+      stack.push({ level, node: treeNode });
     }
-
-    if (stack.length === 0) {
-      rootNodes.push(treeNode);
-    } else {
-      stack[stack.length - 1].node.children.push(treeNode);
-    }
-
-    stack.push({ level, node: treeNode });
+    return rootNodes;
   }
+
+  const nodeMap = new Map<string, TreeHierarchyNode>();
+  const rootNodes: TreeHierarchyNode[] = [];
+
+  nodes.forEach((node) => {
+    nodeMap.set(node.id, { ...node, children: [] });
+  });
+
+  nodes.forEach((node) => {
+    const currentTreeNode = nodeMap.get(node.id);
+    if (!currentTreeNode) return;
+
+    if (node.parent_id && nodeMap.has(node.parent_id) && node.parent_id !== node.id) {
+      // Cycle detection: walk up from parent_id to check if node.id is an ancestor
+      let isCycle = false;
+      let currParentId: string | null | undefined = node.parent_id;
+      const visitedAncestors = new Set<string>();
+
+      while (currParentId) {
+        if (currParentId === node.id || visitedAncestors.has(currParentId)) {
+          isCycle = true;
+          break;
+        }
+        visitedAncestors.add(currParentId);
+        const ancestorNode = nodeMap.get(currParentId);
+        currParentId = ancestorNode?.parent_id;
+      }
+
+      if (!isCycle) {
+        const parentNode = nodeMap.get(node.parent_id);
+        parentNode?.children.push(currentTreeNode);
+      } else {
+        rootNodes.push(currentTreeNode);
+      }
+    } else {
+      rootNodes.push(currentTreeNode);
+    }
+  });
 
   return rootNodes;
 }
@@ -64,10 +110,9 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
   const [mapData, setMapData] = useState<SugyaMapData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showHighlights, setShowHighlights] = useState<boolean>(true);
   const [showLegend, setShowLegend] = useState<boolean>(false);
 
-  // Helper to store mapData for all refs in the sugya topic
+  // Helper to store mapData into V4 cache
   const cacheMapForTopic = useCallback((data: SugyaMapData, primaryRef?: string) => {
     const refsToSave = new Set<string>();
     if (primaryRef) refsToSave.add(primaryRef);
@@ -77,35 +122,36 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
     });
 
     refsToSave.forEach((r) => {
-      GLOBAL_SUGYA_MAP_CACHE[r] = data;
+      GLOBAL_SUGYA_MAP_V4_CACHE[r] = data;
       try {
-        localStorage.setItem(`SUGYA_MAP_CACHE_${r}`, JSON.stringify(data));
+        localStorage.setItem(`SUGYA_MAP_V4_CACHE_${r}`, JSON.stringify(data));
       } catch (e) {
         // ignore storage limits
       }
     });
   }, []);
 
-  // Auto-restore cached map from memory/localStorage or fetch from PostgreSQL DB on mount
+  // Auto-restore cached map from V4 memory/localStorage or fetch from PostgreSQL DB on mount
   useEffect(() => {
     if (!currentRef) return;
 
-    // 1. Check in-memory cache with ref normalization
+    setMapData(null);
+    setError(null);
+
     const normalizedRef = currentRef.replace(/[: ]/g, '.');
     const existing =
-      GLOBAL_SUGYA_MAP_CACHE[currentRef] ||
-      GLOBAL_SUGYA_MAP_CACHE[normalizedRef];
+      GLOBAL_SUGYA_MAP_V4_CACHE[currentRef] ||
+      GLOBAL_SUGYA_MAP_V4_CACHE[normalizedRef];
 
     if (existing) {
       setMapData(existing);
       return;
     }
 
-    // 2. Check localStorage
     try {
       const stored =
-        localStorage.getItem(`SUGYA_MAP_CACHE_${currentRef}`) ||
-        localStorage.getItem(`SUGYA_MAP_CACHE_${normalizedRef}`);
+        localStorage.getItem(`SUGYA_MAP_V4_CACHE_${currentRef}`) ||
+        localStorage.getItem(`SUGYA_MAP_V4_CACHE_${normalizedRef}`);
 
       if (stored) {
         const parsed: SugyaMapData = JSON.parse(stored);
@@ -117,7 +163,6 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
       // ignore
     }
 
-    // 3. Auto-fetch from PostgreSQL DB backend (0ms cached lookup, 0 cost)
     let isMounted = true;
     calculateSugyaMap(currentRef, segments, undefined, false)
       .then((data) => {
@@ -135,14 +180,10 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
     };
   }, [currentRef, segments, cacheMapForTopic]);
 
-  // Apply or toggle whole-sugya text highlights whenever mapData, showHighlights or currentRef updates
+  // Apply sugya text highlights and notify reader components whenever mapData or currentRef updates
   useEffect(() => {
-    applyWholeSugyaHighlight(mapData?.nodes, showHighlights);
-    const timer = setTimeout(() => {
-      applyWholeSugyaHighlight(mapData?.nodes, showHighlights);
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [mapData, showHighlights, currentRef]);
+    applyWholeSugyaHighlight(mapData?.nodes, true);
+  }, [mapData, currentRef]);
 
   // Highlight and auto-scroll tree node in Sugya Map panel matching active ref in reader
   useEffect(() => {
@@ -184,7 +225,16 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
 
   const handleNodeClick = useCallback((node: SugyaNode) => {
     const targetRef = node.ref || currentRef;
-    scrollToAnchor(targetRef, node.start_anchor, node.end_anchor, node.type);
+    scrollToAnchor(
+      targetRef,
+      node.start_anchor,
+      node.end_anchor,
+      node.type,
+      node.sub_index,
+      undefined,
+      node.start_word_idx,
+      node.end_word_idx
+    );
 
     window.dispatchEvent(
       new CustomEvent('sugya-node-click', {
@@ -205,7 +255,7 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
       {/* Container Header */}
       <div className="p-2.5 border-b border-border/20 flex items-center justify-between bg-muted/20 gap-2 flex-wrap">
         <div className="flex items-center gap-1.5">
-          <Map className="w-4 h-4 text-amber-500" />
+          <MapIcon className="w-4 h-4 text-amber-500" />
           <span className="font-semibold text-xs tracking-wide uppercase">
             Карта Сугии
           </span>
@@ -230,29 +280,6 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
             {showLegend ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
           </Button>
 
-          {/* Toggle Whole-Sugya Highlights Button */}
-          {mapData && (
-            <Button
-              size="sm"
-              variant="outline"
-              className={cn(
-                "h-7 px-2 text-[11px] gap-1 transition-all",
-                showHighlights
-                  ? "border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10"
-                  : "text-muted-foreground"
-              )}
-              title={showHighlights ? "Скрыть подсветку сугии в тексте" : "Показать подсветку сугии в тексте"}
-              onClick={() => setShowHighlights(!showHighlights)}
-            >
-              {showHighlights ? (
-                <Eye className="w-3.5 h-3.5 text-amber-500" />
-              ) : (
-                <EyeOff className="w-3.5 h-3.5" />
-              )}
-              <span>{showHighlights ? "Подсветка вкл" : "Подсветка выкл"}</span>
-            </Button>
-          )}
-
           {/* Calculate / Recalculate Button */}
           <Button
             size="sm"
@@ -273,6 +300,29 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
         </div>
       </div>
 
+      {/* Dialogue Flow Ribbon */}
+      {!isLoading && mapData && mapData.nodes && mapData.nodes.length > 0 && (
+        <div className="px-3 py-2 border-b border-border/15 bg-card/40 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex-shrink-0 mr-1">
+            Поток:
+          </span>
+          {mapData.nodes.map((node, idx) => (
+            <React.Fragment key={node.id}>
+              {idx > 0 && <ArrowRight className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />}
+              <button
+                type="button"
+                onClick={() => handleNodeClick(node)}
+                title={`${node.type}${node.speaker ? ` (${node.speaker})` : ''}: ${node.title}`}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent/60 hover:bg-amber-500/20 text-[11px] font-semibold transition-all flex-shrink-0 border border-border/30 hover:border-amber-500/40"
+              >
+                <span>{TAXONOMY_ICONS[node.type] || '📌'}</span>
+                {node.speaker && <span className="text-[10px] opacity-85 truncate max-w-[80px]">{node.speaker}</span>}
+              </button>
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+
       {/* Main Content Body */}
       <div className="flex-1 overflow-y-auto p-3 min-h-0 space-y-3">
         {/* Expandable Taxonomy Color Legend */}
@@ -290,14 +340,15 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
                     item.colorBg
                   )}
                 >
-                  <span className={cn("w-2 h-2 rounded-full flex-shrink-0", item.dot)} />
+                  <span>{item.icon}</span>
                   <span className="truncate">{item.label}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
-        {/* Loading Indicator / Skeleton */}
+
+        {/* Loading Indicator */}
         {isLoading && (
           <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center">
             <div className="relative">
@@ -307,7 +358,7 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
             <div className="space-y-1">
               <p className="text-xs font-semibold text-foreground">Анализируем логику сугии...</p>
               <p className="text-[11px] text-muted-foreground">
-                Строим иерархию тезисов, вопросов и возражений (H1–H6)
+                Быстрая типизация спанов и построение графа parent_id
               </p>
             </div>
           </div>
@@ -321,7 +372,7 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
           </div>
         )}
 
-        {/* Empty State when no map calculated yet */}
+        {/* Empty State */}
         {!isLoading && !mapData && !error && (
           <div className="flex flex-col items-center justify-center h-full p-6 text-center text-muted-foreground space-y-3">
             <div className="p-3 rounded-full bg-muted/40">
@@ -330,7 +381,7 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
             <div className="space-y-1">
               <p className="text-xs font-medium text-foreground">Интерактивная Карта Сугии</p>
               <p className="text-[11px] text-muted-foreground max-w-[220px]">
-                Нажмите «Просчитать сугию», чтобы распознать логическую структуру отрывка Гмары.
+                Нажмите «Просчитать», чтобы распознать логическую структуру отрывка Гмары.
               </p>
             </div>
           </div>
@@ -343,16 +394,6 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
             <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-sm font-bold text-amber-900 dark:text-amber-200 leading-snug">
               📜 {mapData.sugya_title}
             </div>
-
-            {/* Governing Mishnah Summary Banner */}
-            {mapData.mishnah_summary && (
-              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs sm:text-sm text-foreground leading-relaxed space-y-1.5 shadow-sm">
-                <div className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5 text-xs sm:text-sm">
-                  <span>📖 Исходная Мишна темы:</span>
-                </div>
-                <p className="font-medium">{mapData.mishnah_summary}</p>
-              </div>
-            )}
 
             {/* Tree Nodes Hierarchy */}
             <div className="space-y-1">

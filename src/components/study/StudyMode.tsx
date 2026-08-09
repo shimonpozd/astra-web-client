@@ -18,6 +18,7 @@ import { TANAKH_BOOKS } from '../../data/tanakh';
 import { getChapterSizesForWork } from '../../lib/sefariaShapeCache';
 import { buildStudyQuickActions } from '../../utils/studyQuickActions';
 import { emitGamificationEvent } from '../../contexts/GamificationContext';
+import { calcTextXp, docToPlainText } from '../../utils/xpUtils';
 import { SugyaMapContainer } from './SugyaMapContainer';
 import { cn } from '../../lib/utils';
 import type { PanelActions, Persona } from '../../types/chat';
@@ -115,7 +116,9 @@ export function StudyChatPanel({
           <div className="flex-shrink-0 panel-padding">
             <MessageComposer
               onSendMessage={async (message) => {
-                if (!studySessionId) return;
+                if (!studySessionId) {
+                  throw new Error('Сессия изучения не создана. Попробуйте обновить страницу.');
+                }
                 setIsSending(true);
                 const assistantMessageId = crypto.randomUUID();
                 const assistantMessage: any = {
@@ -155,67 +158,72 @@ export function StudyChatPanel({
                     },
                   });
                 }
-                await api.sendStudyMessage(
-                  studySessionId,
-                  message,
-                  {
-                    onChunk: (chunk) => {
-                      assistantText += chunk;
-                      setMessages((prev) =>
-                        prev.map((msg) =>
-                          msg.id === assistantMessageId
-                            ? {
-                                ...msg,
-                                content: `${typeof msg.content === 'string' ? msg.content : ''}${chunk}`,
-                                content_type: 'text.v1',
-                              }
-                            : msg,
-                        ),
-                      );
+                try {
+                  await api.sendStudyMessage(
+                    studySessionId,
+                    message,
+                    {
+                      onChunk: (chunk) => {
+                        assistantText += chunk;
+                        setMessages((prev) =>
+                          prev.map((msg) =>
+                            msg.id === assistantMessageId
+                              ? {
+                                  ...msg,
+                                  content: `${typeof msg.content === 'string' ? msg.content : ''}${chunk}`,
+                                  content_type: 'text.v1',
+                                }
+                              : msg,
+                          ),
+                        );
+                      },
+                      onDoc: (doc) => {
+                        assistantDoc = doc;
+                        setMessages((prev) =>
+                          prev.map((msg) =>
+                            msg.id === assistantMessageId
+                              ? { ...msg, content: doc, content_type: 'doc.v1' }
+                              : msg,
+                          ),
+                        );
+                      },
+                      onComplete: () => {
+                        setIsSending(false);
+                        const replyText = assistantDoc ? docToPlainText(assistantDoc) : assistantText;
+                        const amount = calcTextXp(replyText);
+                        if (amount > 0) {
+                          emitGamificationEvent({
+                            amount,
+                            source: 'chat',
+                            verb: 'reply',
+                            label: `Study чат · ${replyText.length} симв.`,
+                            meta: {
+                              session_id: studySessionId,
+                              chars: replyText.length,
+                              event_id: ['study', 'reply', studySessionId || '', Math.ceil(Date.now() / 5000)].join('|'),
+                            },
+                          });
+                        }
+                        refreshStudySnapshot();
+                      },
+                      onError: (error) => {
+                        setMessages((prev) =>
+                          prev.map((msg) =>
+                            msg.id === assistantMessageId
+                              ? { ...msg, content: `Error: ${error.message}`, content_type: 'text.v1' }
+                              : msg,
+                          ),
+                        );
+                        setIsSending(false);
+                      },
                     },
-                    onDoc: (doc) => {
-                      assistantDoc = doc;
-                      setMessages((prev) =>
-                        prev.map((msg) =>
-                          msg.id === assistantMessageId
-                            ? { ...msg, content: doc, content_type: 'doc.v1' }
-                            : msg,
-                        ),
-                      );
-                    },
-                    onComplete: () => {
-                      setIsSending(false);
-                      const replyText = assistantDoc ? docToPlainText(assistantDoc) : assistantText;
-                      const amount = calcTextXp(replyText);
-                      if (amount > 0) {
-                        emitGamificationEvent({
-                          amount,
-                          source: 'chat',
-                          verb: 'reply',
-                          label: `Study чат · ${replyText.length} симв.`,
-                          meta: {
-                            session_id: studySessionId,
-                            chars: replyText.length,
-                            event_id: ['study', 'reply', studySessionId || '', Math.ceil(Date.now() / 5000)].join('|'),
-                          },
-                        });
-                      }
-                      refreshStudySnapshot();
-                    },
-                    onError: (error) => {
-                      setMessages((prev) =>
-                        prev.map((msg) =>
-                          msg.id === assistantMessageId
-                            ? { ...msg, content: `Error: ${error.message}`, content_type: 'text.v1' }
-                            : msg,
-                        ),
-                      );
-                      setIsSending(false);
-                    },
-                  },
-                  agentId,
-                  selectedPanelId ?? undefined,
-                );
+                    agentId,
+                    selectedPanelId ?? undefined,
+                  );
+                } catch (err) {
+                  setIsSending(false);
+                  throw err;
+                }
               }}
               disabled={isSending}
               discussionFocusRef={discussionFocusRef ?? undefined}

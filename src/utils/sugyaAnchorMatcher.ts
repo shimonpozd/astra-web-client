@@ -1,452 +1,200 @@
 import { isRefOverlap } from './refUtils';
 
-/**
- * Sugya Anchor Matcher & Smooth Scroll Helper
- * Locates segment elements in DOM by Sefaria ref, scrolls cleanly,
- * and highlights start_anchor to end_anchor range with nikud tolerance.
- */
-
-// Helper to strip Hebrew vowels (nikud) and cantillation (taamim)
 export function stripHebrewVowels(text: string): string {
   if (!text) return '';
   return text
-    .replace(/[\u0591-\u05C7]/g, '') // remove nikud & taamim
-    .replace(/<[^>]+>/g, ' ')        // remove HTML tags
+    .replace(/[\u0591-\u05C7]/g, '') // strip nikud & taamim
+    .replace(/<[^>]+>/g, ' ')        // strip HTML tags
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-/**
- * Punctuation-tolerant substring index finder for Hebrew anchors
- */
-export function findSubstringIndicesInRawText(
-  rawText: string,
-  searchAnchor: string
-): { startIndex: number; endIndex: number } {
-  if (!rawText || !searchAnchor) return { startIndex: -1, endIndex: -1 };
-
-  const cleanRaw = stripHebrewVowels(rawText);
-  const cleanSearch = stripHebrewVowels(searchAnchor);
-
-  let idx = cleanRaw.indexOf(cleanSearch);
-  if (idx !== -1) {
-    return { startIndex: idx, endIndex: idx + cleanSearch.length };
-  }
-
-  // Normalize punctuation differences (commas, quotes, colons)
-  const cleanRawLetters = cleanRaw.replace(/[^\u05D0-\u05EA0-9]/g, ' ');
-  const cleanSearchLetters = cleanSearch.replace(/[^\u05D0-\u05EA0-9]/g, ' ');
-
-  const searchWords = cleanSearchLetters.trim().split(/\s+/).filter(Boolean);
-  if (searchWords.length === 0) return { startIndex: -1, endIndex: -1 };
-
-  const firstWordsPattern = searchWords.slice(0, Math.min(3, searchWords.length)).join('\\s+');
-  try {
-    const regex = new RegExp(firstWordsPattern, 'i');
-    const match = regex.exec(cleanRawLetters);
-
-    if (match) {
-      return { startIndex: match.index, endIndex: match.index + match[0].length };
-    }
-  } catch (e) {
-    // ignore regex parse errors
-  }
-
-  return { startIndex: -1, endIndex: -1 };
-}
-
-/**
- * Finds all DOM elements that match or overlap with the given Sefaria ref (supports single refs and ranges like Chullin 90b:18-20)
- */
 export function getDOMTargetElementsForRef(ref?: string): Element[] {
   if (!ref) return [];
-
   try {
     const exactQuery = document.querySelectorAll(`[data-ref="${CSS.escape(ref)}"]`);
-    if (exactQuery.length > 0) {
-      return Array.from(exactQuery);
-    }
-  } catch (e) {
-    // fallback if CSS.escape fails
-  }
+    if (exactQuery.length > 0) return Array.from(exactQuery);
+  } catch (e) {}
 
   const fallbackQuery = document.querySelectorAll(`[data-ref="${ref}"]`);
-  if (fallbackQuery.length > 0) {
-    return Array.from(fallbackQuery);
-  }
+  if (fallbackQuery.length > 0) return Array.from(fallbackQuery);
 
-  // Range match: check all elements with data-ref
   const matched: Element[] = [];
-  const allRefElements = document.querySelectorAll('[data-ref]');
-  allRefElements.forEach((el) => {
+  document.querySelectorAll('[data-ref]').forEach((el) => {
     const elRef = el.getAttribute('data-ref');
     if (elRef && isRefOverlap(elRef, ref)) {
       matched.push(el);
     }
   });
-
   return matched;
 }
 
-/**
- * Creates a DOM Range for startAnchor to endAnchor within targetElement,
- * accurately handling nikud/vowels and trimming trailing spaces/newlines to prevent underline artifacts.
- */
-export function createWordIndexRange(
-  targetElement: Element,
-  startWordIdx: number,
-  endWordIdx: number
-): Range | null {
-  const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT);
-  const wordsMap: { node: Text; startInNode: number; endInNode: number }[] = [];
-  let currentWordCount = 0;
+const TAXONOMY_ICONS: Record<string, string> = {
+  Statement: '📌',
+  Question: '❓',
+  Attack: '⚔️',
+  Defense: '🛡️',
+  Proof: '🧾',
+  Answer: '💡',
+};
 
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text;
-    const text = node.textContent || '';
-    const regex = /[\u05D0-\u05EA0-9]+/g;
-    let match: RegExpExecArray | null;
+function adjustIdxOutsideTag(htmlText: string, idx: number): number {
+  if (idx <= 0 || idx >= htmlText.length) return idx;
+  const lastOpen = htmlText.lastIndexOf('<', idx);
+  const lastClose = htmlText.lastIndexOf('>', idx);
 
-    while ((match = regex.exec(text)) !== null) {
-      if (currentWordCount >= startWordIdx && currentWordCount < endWordIdx) {
-        wordsMap.push({
-          node,
-          startInNode: match.index,
-          endInNode: match.index + match[0].length,
-        });
-      }
-      currentWordCount++;
+  if (lastOpen > lastClose) {
+    const closeIdx = htmlText.indexOf('>', idx);
+    if (closeIdx !== -1) {
+      return closeIdx + 1;
     }
   }
-
-  if (wordsMap.length === 0) return null;
-
-  const startInfo = wordsMap[0];
-  const endInfo = wordsMap[wordsMap.length - 1];
-
-  try {
-    const range = document.createRange();
-    range.setStart(startInfo.node, startInfo.startInNode);
-    range.setEnd(endInfo.node, endInfo.endInNode);
-    return range;
-  } catch (err) {
-    return null;
-  }
+  return idx;
 }
 
-export function createPreciseAnchorRange(
-  targetElement: Element,
-  startAnchor?: string,
-  endAnchor?: string,
-  subIndex?: number,
-  totalNodesForRef?: number,
-  startWordIdx?: number,
-  endWordIdx?: number
-): Range | null {
-  const nodeMap: { node: Text; startInRaw: number; endInRaw: number }[] = [];
-  const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT);
-  let rawText = '';
+/**
+ * Оборачивает фазы текста Гмары в Bidi-safe скобки ❪ ❫, микро-иконки и цветные подчёркивания.
+ */
+export function applySugyaSpansToSegmentHtml(
+  htmlText: string,
+  ref: string,
+  nodes?: Array<any>
+): string {
+  if (!htmlText || !nodes || nodes.length === 0 || !ref) return htmlText;
 
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text;
-    const text = node.textContent || '';
-    const startInRaw = rawText.length;
-    rawText += text;
-    const endInRaw = rawText.length;
-    nodeMap.push({ node, startInRaw, endInRaw });
+  const segNodes = nodes.filter((n) => n.ref && isRefOverlap(n.ref, ref));
+  if (segNodes.length === 0) return htmlText;
+
+  // 1. Построение карты буква -> индекс в сыром HTML (пропуская HTML-теги и никуд)
+  const letterToRawMap: number[] = [];
+  let lettersOnlyText = '';
+
+  let inTag = false;
+  for (let i = 0; i < htmlText.length; i++) {
+    const ch = htmlText[i];
+    if (ch === '<') { inTag = true; continue; }
+    if (ch === '>') { inTag = false; continue; }
+    if (inTag) continue;
+
+    if (/[\u05D0-\u05EA0-9]/.test(ch)) {
+      letterToRawMap.push(i);
+      lettersOnlyText += ch;
+    }
   }
 
-  if (rawText.length === 0) return null;
+  if (lettersOnlyText.length === 0) return htmlText;
 
-  // 1. Try letter-mapped anchor matching if startAnchor provided with Hebrew letters
-  const cleanStartLetters = startAnchor ? startAnchor.replace(/[^\u05D0-\u05EA0-9]/g, '') : '';
-  if (cleanStartLetters.length >= 2) {
-    const letterToRawMap: number[] = [];
-    let lettersOnlyText = '';
-    for (let i = 0; i < rawText.length; i++) {
-      const ch = rawText[i];
-      if (/[\u05D0-\u05EA0-9]/.test(ch)) {
-        letterToRawMap.push(i);
-        lettersOnlyText += ch;
-      }
-    }
+  // 2. Find start letter index for each node
+  const nodeMatches: Array<{ startLetterIdx: number; node: any }> = [];
 
-    if (lettersOnlyText.length > 0) {
-      let startLetterIdx = lettersOnlyText.indexOf(cleanStartLetters);
-      if (startLetterIdx === -1 && startAnchor) {
-        const words = startAnchor.replace(/[^\u05D0-\u05EA0-9\s]/g, '').trim().split(/\s+/).filter(Boolean);
-        for (const w of words) {
-          const cleanW = w.replace(/[^\u05D0-\u05EA0-9]/g, '');
-          if (cleanW.length >= 3) {
-            const idx = lettersOnlyText.indexOf(cleanW);
-            if (idx !== -1) {
-              startLetterIdx = idx;
-              break;
-            }
-          }
-        }
-      }
+  for (const node of segNodes) {
+    const startQuote = node.start_anchor || node.start_quote;
+    if (!startQuote) continue;
 
-      if (startLetterIdx !== -1) {
-        let endLetterIdx = -1;
-        const cleanEndLetters = endAnchor ? endAnchor.replace(/[^\u05D0-\u05EA0-9]/g, '') : '';
+    const cleanStart = stripHebrewVowels(startQuote).replace(/[^\u05D0-\u05EA0-9]/g, '');
+    if (cleanStart.length < 2) continue;
 
-        if (cleanEndLetters.length >= 2) {
-          const lastIdx = lettersOnlyText.lastIndexOf(cleanEndLetters);
-          if (lastIdx !== -1 && lastIdx >= startLetterIdx) {
-            endLetterIdx = lastIdx + cleanEndLetters.length;
-          } else {
-            const endWords = endAnchor!.replace(/[^\u05D0-\u05EA0-9\s]/g, '').trim().split(/\s+/).filter(Boolean);
-            for (let k = endWords.length - 1; k >= 0; k--) {
-              const cleanEW = endWords[k].replace(/[^\u05D0-\u05EA0-9]/g, '');
-              if (cleanEW.length >= 3) {
-                const fIdx = lettersOnlyText.lastIndexOf(cleanEW);
-                if (fIdx !== -1 && fIdx >= startLetterIdx) {
-                  endLetterIdx = fIdx + cleanEW.length;
-                  break;
-                }
-              }
-            }
-          }
-        }
-
-        if (endLetterIdx === -1) {
-          endLetterIdx = startLetterIdx + cleanStartLetters.length;
-        }
-
-        const rawStartIdx = letterToRawMap[startLetterIdx];
-        const rawEndIdxChar = letterToRawMap[Math.min(endLetterIdx - 1, letterToRawMap.length - 1)];
-
-        if (rawStartIdx !== undefined && rawEndIdxChar !== undefined && rawStartIdx < rawEndIdxChar + 1) {
-          const rawEndIdx = rawEndIdxChar + 1;
-          let startNodeInfo = nodeMap.find(m => rawStartIdx >= m.startInRaw && rawStartIdx < m.endInRaw);
-          let endNodeInfo = nodeMap.find(m => rawEndIdx > m.startInRaw && rawEndIdx <= m.endInRaw);
-
-          if (!startNodeInfo && nodeMap.length > 0) startNodeInfo = nodeMap[0];
-          if (!endNodeInfo && nodeMap.length > 0) endNodeInfo = nodeMap[nodeMap.length - 1];
-
-          if (startNodeInfo && endNodeInfo) {
-            try {
-              const range = document.createRange();
-              range.setStart(startNodeInfo.node, Math.max(0, rawStartIdx - startNodeInfo.startInRaw));
-              range.setEnd(endNodeInfo.node, Math.min((endNodeInfo.node.textContent || '').length, rawEndIdx - endNodeInfo.startInRaw));
-              return range;
-            } catch (err) {
-              // ignore
-            }
+    let startLetterIdx = lettersOnlyText.indexOf(cleanStart);
+    if (startLetterIdx === -1) {
+      const words = cleanStart.split(/\s+/).filter(Boolean);
+      for (const w of words) {
+        if (w.length >= 3) {
+          const idx = lettersOnlyText.indexOf(w);
+          if (idx !== -1) {
+            startLetterIdx = idx;
+            break;
           }
         }
       }
     }
-  }
 
-  // 2. Try explicit word index bounds
-  if (typeof startWordIdx === 'number' && typeof endWordIdx === 'number' && endWordIdx > startWordIdx) {
-    const range = createWordIndexRange(targetElement, startWordIdx, endWordIdx);
-    if (range) return range;
-  }
-
-  // 3. Proportional division if segment has multiple nodes
-  if (typeof subIndex === 'number' && typeof totalNodesForRef === 'number' && totalNodesForRef > 1) {
-    const text = targetElement.textContent || '';
-    const totalWords = (text.match(/[\u05D0-\u05EA0-9]+/g) || []).length;
-    if (totalWords > 0) {
-      const wStart = Math.floor((totalWords * subIndex) / totalNodesForRef);
-      const wEnd = subIndex === totalNodesForRef - 1
-        ? totalWords
-        : Math.floor((totalWords * (subIndex + 1)) / totalNodesForRef);
-      const range = createWordIndexRange(targetElement, wStart, Math.max(wStart + 1, wEnd));
-      if (range) return range;
+    if (startLetterIdx !== -1) {
+      nodeMatches.push({ startLetterIdx, node });
     }
   }
 
-  return null;
-}
+  if (nodeMatches.length === 0) return htmlText;
 
-export function scrollToAnchor(
-  ref?: string,
-  _startAnchor?: string,
-  _endAnchor?: string,
-  nodeType?: string
-) {
-  if (!ref) return;
+  // 3. Sort by start letter index ascending & construct contiguous Start-to-Start phrase boundaries
+  nodeMatches.sort((a, b) => a.startLetterIdx - b.startLetterIdx);
 
-  const targetElements = getDOMTargetElementsForRef(ref);
-  if (targetElements.length === 0) {
-    console.warn(`[SugyaAnchorMatcher] Segment element not found for ref: ${ref}`);
-    return;
-  }
+  const matches: Array<{ startRawIdx: number; endRawIdx: number; node: any }> = [];
 
-  targetElements[0].scrollIntoView({
-    behavior: 'smooth',
-    block: 'center',
-  });
+  for (let k = 0; k < nodeMatches.length; k++) {
+    const curr = nodeMatches[k];
+    const nextStartLetter = k + 1 < nodeMatches.length ? nodeMatches[k + 1].startLetterIdx : lettersOnlyText.length;
 
-  const oldActive = document.querySelectorAll('.sugya-segment-pulse');
-  oldActive.forEach((el) => {
-    el.classList.remove(
-      'sugya-segment-pulse',
-      'sugya-pulse-active',
-      'sugya-highlight-selected'
-    );
-  });
+    const startLetter = k === 0 ? 0 : curr.startLetterIdx;
+    const endLetter = Math.max(startLetter + 1, nextStartLetter);
 
-  const typeClass = nodeType ? `type-${nodeType}` : 'type-Statement';
+    let startRawIdx = adjustIdxOutsideTag(htmlText, letterToRawMap[startLetter]);
+    let endRawIdx = k === nodeMatches.length - 1
+      ? htmlText.length
+      : adjustIdxOutsideTag(htmlText, letterToRawMap[Math.min(endLetter, letterToRawMap.length - 1)] || htmlText.length);
 
-  targetElements.forEach((el) => {
-    el.classList.add('sugya-segment-pulse', typeClass, 'sugya-pulse-active', 'sugya-highlight-selected');
-  });
-}
-
-// Active sugya state for real-time MutationObserver auto-highlighting
-let activeSugyaNodes: Array<{
-  ref?: string;
-  type?: string;
-  start_anchor?: string;
-  end_anchor?: string;
-  sub_index?: number;
-  start_word_idx?: number;
-  end_word_idx?: number;
-}> | null = null;
-let activeHighlightsVisible: boolean = true;
-let sugyaMutationObserver: MutationObserver | null = null;
-let reapplyDebounceTimer: any = null;
-
-function ensureSugyaMutationObserver() {
-  if (sugyaMutationObserver || typeof window === 'undefined') return;
-
-  sugyaMutationObserver = new MutationObserver((mutations) => {
-    let hasNewNodes = false;
-    for (const mutation of mutations) {
-      if (mutation.addedNodes.length > 0) {
-        hasNewNodes = true;
-        break;
-      }
-    }
-
-    if (hasNewNodes && activeSugyaNodes && activeHighlightsVisible) {
-      clearTimeout(reapplyDebounceTimer);
-      reapplyDebounceTimer = setTimeout(() => {
-        _reapplySugyaHighlightsInternal();
-      }, 120);
-    }
-  });
-
-  const targetNode = document.querySelector('#talmud-reader-container') || document.body;
-  sugyaMutationObserver.observe(targetNode, { childList: true, subtree: true });
-}
-
-function _reapplySugyaHighlightsInternal() {
-  if (!activeSugyaNodes || !activeHighlightsVisible) return;
-  
-  const nodes = activeSugyaNodes;
-  const TYPES = ['Statement', 'Question', 'Attack', 'Defense', 'Proof', 'Answer'];
-
-  const oldTagged = document.querySelectorAll('.sugya-segment-tag');
-  oldTagged.forEach((el) => {
-    el.classList.remove('sugya-segment-tag', 'type-multi', ...TYPES.map(t => `type-${t}`));
-  });
-
-  const segmentTypesMap = new Map<Element, Set<string>>();
-
-  for (const node of nodes) {
-    if (!node.ref) continue;
-    const targetElements = getDOMTargetElementsForRef(node.ref);
-    if (targetElements.length === 0) continue;
-
-    const nodeType = node.type && TYPES.includes(node.type) ? node.type : 'Statement';
-    for (const el of targetElements) {
-      if (!segmentTypesMap.has(el)) {
-        segmentTypesMap.set(el, new Set());
-      }
-      segmentTypesMap.get(el)!.add(nodeType);
+    if (startRawIdx !== undefined && endRawIdx !== undefined && startRawIdx < endRawIdx) {
+      matches.push({ startRawIdx, endRawIdx, node: curr.node });
     }
   }
 
-  for (const [el, types] of segmentTypesMap.entries()) {
-    el.classList.add('sugya-segment-tag');
-    if (types.size === 1) {
-      const [singleType] = Array.from(types);
-      el.classList.add(`type-${singleType}`);
-    } else if (types.size > 1) {
-      el.classList.add('type-multi');
-      for (const t of types) {
-        el.classList.add(`type-${t}`);
-      }
-    }
+  if (matches.length === 0) return htmlText;
+
+  // 4. Sort in REVERSE order for safe HTML tag insertion from end of string to start
+  matches.sort((a, b) => b.startRawIdx - a.startRawIdx);
+
+  let result = htmlText;
+
+  for (const m of matches) {
+    const { startRawIdx, endRawIdx, node } = m;
+    const phrase = result.slice(startRawIdx, endRawIdx);
+
+    const icon = (node.type && TAXONOMY_ICONS[node.type]) || '📌';
+    const levelClass = node.level === 2 ? 'level-2' : 'level-1';
+    const typeClass = `type-${node.type || 'Statement'}`;
+    const tooltipText = `${node.speaker ? `[${node.speaker}] ` : ''}${node.title || ''}`;
+    const oddEvenClass = (node.sub_index || 0) % 2 === 0 ? 'sub-even' : 'sub-odd';
+    const wrapped = `<span class="sugya-span-text ${levelClass} ${typeClass} ${oddEvenClass} cursor-pointer transition-all hover:brightness-125" data-node-id="${node.id || ''}" title="${tooltipText.replace(/"/g, '&quot;')}">${phrase}</span>`;
+
+    result = result.slice(0, startRawIdx) + wrapped + result.slice(endRawIdx);
   }
+
+  return result;
 }
 
-/**
- * Highlights all exact word/phrase ranges belonging to the calculated sugya map
- */
-export function applyWholeSugyaHighlight(
-  nodes?: Array<{ ref?: string; type?: string; start_anchor?: string; end_anchor?: string }>,
-  isVisible: boolean = true
-) {
-  activeSugyaNodes = isVisible ? (nodes || null) : null;
-  activeHighlightsVisible = isVisible;
-  ensureSugyaMutationObserver();
-
-  _reapplySugyaHighlightsInternal();
-}
-
-/**
- * Highlights segment / phrase on hover over Mind Map tree node
- */
-export function highlightNodeHover(
-  ref?: string,
-  _nodeType?: string,
-  isHovered: boolean = true,
-  startAnchor?: string,
-  endAnchor?: string
-) {
+export function scrollToAnchor(ref?: string, _startAnchor?: string, _endAnchor?: string, _nodeType?: string) {
   if (!ref) return;
   const targetElements = getDOMTargetElementsForRef(ref);
+  if (targetElements.length === 0) return;
 
-  if ('Highlight' in window && 'highlights' in (window as any)) {
-    try {
-      if (isHovered && startAnchor) {
-        const container = targetElements.length === 1 ? targetElements[0] : (targetElements[0]?.parentElement || targetElements[0]);
-        if (container) {
-          const range = createPreciseAnchorRange(container, startAnchor, endAnchor);
-          if (range) {
-            const highlight = new (window as any).Highlight(range);
-            (CSS as any).highlights.set('sugya-hover-highlight', highlight);
-          }
-        }
-      } else {
-        (CSS as any).highlights.delete('sugya-hover-highlight');
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
+  targetElements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
+export function highlightNodeHover(ref?: string, _nodeType?: string, isHovered: boolean = true) {
+  if (!ref) return;
+  const targetElements = getDOMTargetElementsForRef(ref);
   targetElements.forEach((el) => {
-    if (isHovered) {
-      el.classList.add('sugya-node-hover-active');
-    } else {
-      el.classList.remove('sugya-node-hover-active');
-    }
+    if (isHovered) el.classList.add('sugya-node-hover-active');
+    else el.classList.remove('sugya-node-hover-active');
   });
 }
 
-/**
- * Highlights Mind Map tree node on hover over Talmud text segment in reader
- */
 export function highlightMindMapNodeOnHover(ref?: string, isHovered: boolean = true) {
   if (!ref) return;
-
-  const treeNodeElements = document.querySelectorAll('[data-sugya-node-ref]');
-  treeNodeElements.forEach((el) => {
+  document.querySelectorAll('[data-sugya-node-ref]').forEach((el) => {
     const nodeRef = el.getAttribute('data-sugya-node-ref');
     if (nodeRef && isRefOverlap(ref, nodeRef)) {
-      if (isHovered) {
-        el.classList.add('sugya-tree-node-hover-active');
-      } else {
-        el.classList.remove('sugya-tree-node-hover-active');
-      }
+      if (isHovered) el.classList.add('sugya-tree-node-hover-active');
+      else el.classList.remove('sugya-tree-node-hover-active');
     }
   });
+}
+
+export function applyWholeSugyaHighlight(nodes?: any[], isVisible: boolean = true) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sugya-nodes-updated', { detail: isVisible ? (nodes || null) : null }));
+  }
+}
+
+export function getActiveSugyaNodes() {
+  return null;
 }

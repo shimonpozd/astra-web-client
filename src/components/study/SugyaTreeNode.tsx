@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Bookmark } from 'lucide-react';
+import { ChevronDown, ChevronRight, Bookmark, User, CornerDownRight } from 'lucide-react';
 import { SugyaNode, SugyaNodeType } from '../../services/sugyaApi';
 import { highlightNodeHover, scrollToAnchor } from '../../utils/sugyaAnchorMatcher';
 import { cn } from '../../lib/utils';
@@ -70,14 +70,15 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
     <div className="flex flex-col space-y-1 my-1">
       <div
         data-sugya-node-ref={node.ref}
+        id={`sugya-tree-node-${node.id}`}
         className={cn(
           "group flex items-start gap-2 p-2 rounded-lg border border-border/40 bg-card/60 hover:bg-accent/40 transition-all cursor-pointer select-none",
           config.borderClass,
           "border-l-4"
         )}
         onClick={() => onNodeClick(node)}
-        onMouseEnter={() => highlightNodeHover(node.ref, node.type, true, node.start_anchor, node.end_anchor)}
-        onMouseLeave={() => highlightNodeHover(node.ref, node.type, false, node.start_anchor, node.end_anchor)}
+        onMouseEnter={() => highlightNodeHover(node.ref, node.type, true, node.start_anchor, node.end_anchor, node.sub_index, undefined, node.start_word_idx, node.end_word_idx)}
+        onMouseLeave={() => highlightNodeHover(node.ref, node.type, false, node.start_anchor, node.end_anchor, node.sub_index, undefined, node.start_word_idx, node.end_word_idx)}
       >
         {/* Expand / Collapse toggle */}
         {hasChildren ? (
@@ -112,6 +113,14 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
               <span>{config.label}</span>
             </span>
 
+            {/* Speaker Badge */}
+            {node.speaker && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/25">
+                <User className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                <span>{node.speaker}</span>
+              </span>
+            )}
+
             {/* Sefaria Ref */}
             {node.ref && (
               <span className="text-[10px] text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded flex items-center gap-1 font-mono">
@@ -130,6 +139,14 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
           <div className="text-[13px] sm:text-sm font-semibold leading-snug text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
             {node.title}
           </div>
+
+          {/* Relation Label (Logical connection to parent node) */}
+          {node.relation_label && (
+            <div className="text-[11px] text-muted-foreground/80 font-medium flex items-center gap-1 mt-0.5">
+              <CornerDownRight className="w-3 h-3 text-amber-500/70" />
+              <span>{node.relation_label}</span>
+            </div>
+          )}
         </div>
       </div>
 

@@ -202,6 +202,8 @@ export default function MessageComposer({
         if (!preserveInput) {
           setText(trimmed);
         }
+        const errMessage = error instanceof Error ? error.message : LOCALE.errors.genericError;
+        setStatusMessage(errMessage);
       } finally {
         setPending(false);
       }

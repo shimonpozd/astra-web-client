@@ -311,60 +311,65 @@ export function useChat(agentId: string = 'default', initialChatId?: string | nu
       });
     }
 
-    await api.sendMessage(request, {
-      onChunk: (chunk) => {
-        assistantText += chunk;
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? {
-                  ...msg,
-                  content: `${typeof msg.content === 'string' ? msg.content : ''}${chunk}`,
-                  content_type: 'text.v1'
-                }
-              : msg
-          )
-        );
-      },
-      onDoc: (doc) => {
-        assistantDoc = doc;
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? { ...msg, content: doc, content_type: 'doc.v1' }
-              : msg
-          )
-        );
-      },
-      onComplete: () => {
-        setIsSending(false);
-        const replyText = assistantDoc ? docToPlainText(assistantDoc) : assistantText;
-        const amount = calcTextXp(replyText);
-        if (amount > 0) {
-          emitGamificationEvent({
-            amount,
-            source: 'chat',
-            verb: 'reply',
-            label: `Ответ · ${replyText.length} симв.`,
-            meta: {
-              session_id: selectedChatId,
-              chars: replyText.length,
-              event_id: ['chat', 'reply', selectedChatId || '', Math.ceil(Date.now() / 5000)].join('|'),
-            },
-          });
-        }
-      },
-      onError: (error) => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? { ...msg, content: `Error: ${error.message}`, content_type: 'text.v1' }
-              : msg
-          )
-        );
-        setIsSending(false);
-      },
-    });
+    try {
+      await api.sendMessage(request, {
+        onChunk: (chunk) => {
+          assistantText += chunk;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? {
+                    ...msg,
+                    content: `${typeof msg.content === 'string' ? msg.content : ''}${chunk}`,
+                    content_type: 'text.v1'
+                  }
+                : msg
+            )
+          );
+        },
+        onDoc: (doc) => {
+          assistantDoc = doc;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: doc, content_type: 'doc.v1' }
+                : msg
+            )
+          );
+        },
+        onComplete: () => {
+          setIsSending(false);
+          const replyText = assistantDoc ? docToPlainText(assistantDoc) : assistantText;
+          const amount = calcTextXp(replyText);
+          if (amount > 0) {
+            emitGamificationEvent({
+              amount,
+              source: 'chat',
+              verb: 'reply',
+              label: `Ответ · ${replyText.length} симв.`,
+              meta: {
+                session_id: selectedChatId,
+                chars: replyText.length,
+                event_id: ['chat', 'reply', selectedChatId || '', Math.ceil(Date.now() / 5000)].join('|'),
+              },
+            });
+          }
+        },
+        onError: (error) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: `Error: ${error.message}`, content_type: 'text.v1' }
+                : msg
+            )
+          );
+          setIsSending(false);
+        },
+      });
+    } catch (err) {
+      setIsSending(false);
+      throw err;
+    }
 
   }, [agentId, selectedChatId]);
 
