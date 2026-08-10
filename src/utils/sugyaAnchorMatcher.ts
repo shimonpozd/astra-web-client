@@ -134,6 +134,20 @@ export function scrollToAnchor(ref?: string, _startAnchor?: string, _endAnchor?:
   targetElements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+export function setSelectedSugyaNode(nodeId?: string, nodeType?: string) {
+  highlightMindMapNodeOnHover(nodeId, nodeType, true);
+}
+
+export function clearSugyaHoverState() {
+  const treeRoot = document.querySelector('[data-sugya-tree-root]');
+  if (treeRoot) {
+    treeRoot.classList.remove('sugya-tree-has-hover');
+    treeRoot.querySelectorAll('.sugya-tree-node-hover-active').forEach((el) => {
+      el.classList.remove('sugya-tree-node-hover-active');
+    });
+  }
+}
+
 export function highlightNodeHover(_nodeId?: string, _nodeType?: string, _isHovered: boolean = true) {
   // Bottom-to-top hover disabled per user directive.
 }
