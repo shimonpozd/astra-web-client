@@ -45,20 +45,18 @@ export function buildCleanToRawMap(rawText: string): { cleanText: string; cleanT
 }
 
 /**
- * Renders inner content of clean text interval [rStart, rEnd] with active DH and Entity highlights.
- * Uses interval partitioning to ensure every raw character in [rStart, rEnd] is rendered EXACTLY ONCE.
+ * Renders Entity ranges (Sages & Concepts) over clean text interval [rStart, rEnd].
  */
-function renderInnerRanges(
+function renderEntityRanges(
   rStart: number,
   rEnd: number,
   rawText: string,
   cleanToRawStart: number[],
-  innerRanges: HighlightRange[]
+  entityRanges: HighlightRange[]
 ): string {
   if (rStart >= rEnd) return '';
 
-  // Filter ranges that overlap with [rStart, rEnd]
-  const activeRanges = innerRanges
+  const active = entityRanges
     .filter((r) => Math.max(r.start, rStart) < Math.min(r.end, rEnd))
     .map((r) => ({
       ...r,
@@ -66,18 +64,17 @@ function renderInnerRanges(
       end: Math.min(r.end, rEnd),
     }));
 
-  if (activeRanges.length === 0) {
+  if (active.length === 0) {
     const rawS = cleanToRawStart[rStart] ?? 0;
     const rawE = cleanToRawStart[rEnd] ?? rawS;
     return rawText.slice(rawS, rawE);
   }
 
-  // Collect all unique boundary points within [rStart, rEnd]
   const boundarySet = new Set<number>();
   boundarySet.add(rStart);
   boundarySet.add(rEnd);
 
-  for (const r of activeRanges) {
+  for (const r of active) {
     boundarySet.add(r.start);
     boundarySet.add(r.end);
   }
@@ -95,16 +92,15 @@ function renderInnerRanges(
     const rawE = cleanToRawStart[bEnd] ?? rawS;
     const rawChunk = rawText.slice(rawS, rawE);
 
-    // Find active inner ranges covering [bStart, bEnd]
-    const active = activeRanges.filter((r) => r.start <= bStart && r.end >= bEnd);
+    const activeInSlice = active.filter((r) => r.start <= bStart && r.end >= bEnd);
 
-    if (active.length === 0) {
+    if (activeInSlice.length === 0) {
       htmlResult += rawChunk;
     } else {
       const classesSet = new Set<string>();
       const attributesMap: Record<string, string> = {};
 
-      for (const r of active) {
+      for (const r of activeInSlice) {
         for (const cls of r.classes || []) {
           if (cls) classesSet.add(cls);
         }
@@ -131,10 +127,65 @@ function renderInnerRanges(
 }
 
 /**
- * Non-duplicating Hierarchical Highlight Composer:
- * 1. Wraps Sugya phrases in continuous unbroken outer <span> containers.
- * 2. Renders inner DH (Rashi/Tosafot) and Entity (Sages/Concepts) highlights inside Sugya spans (and gaps).
- * 3. Guarantees every raw character is rendered EXACTLY ONCE with zero letter repetitions or broken words.
+ * Renders DH ranges (Rashi / Tosafot) over clean text interval [rStart, rEnd],
+ * nesting Entity ranges (Sages & Concepts) cleanly inside DH spans and gaps.
+ */
+function renderInnerRanges(
+  rStart: number,
+  rEnd: number,
+  rawText: string,
+  cleanToRawStart: number[],
+  innerRanges: HighlightRange[]
+): string {
+  if (rStart >= rEnd) return '';
+
+  const dhRanges = innerRanges
+    .filter((r) => r.layer === 'dh' && Math.max(r.start, rStart) < Math.min(r.end, rEnd))
+    .sort((a, b) => a.start - b.start);
+
+  const entityRanges = innerRanges.filter((r) => r.layer === 'sage' || r.layer === 'concept');
+
+  if (dhRanges.length === 0) {
+    return renderEntityRanges(rStart, rEnd, rawText, cleanToRawStart, entityRanges);
+  }
+
+  let htmlResult = '';
+  let currClean = rStart;
+
+  for (const dh of dhRanges) {
+    const dhStart = Math.max(currClean, dh.start);
+    const dhEnd = Math.min(rEnd, dh.end);
+
+    if (dhStart > currClean) {
+      htmlResult += renderEntityRanges(currClean, dhStart, rawText, cleanToRawStart, entityRanges);
+    }
+
+    if (dhStart < dhEnd) {
+      const innerContent = renderEntityRanges(dhStart, dhEnd, rawText, cleanToRawStart, entityRanges);
+      const mergedClasses = (dh.classes || []).join(' ');
+      const attrStrings = Object.entries(dh.attributes || {}).map(
+        ([k, v]) => `${k}="${escapeAttr(v)}"`
+      );
+      const attrPart = attrStrings.length > 0 ? ' ' + attrStrings.join(' ') : '';
+
+      htmlResult += `<span class="${mergedClasses}"${attrPart}>${innerContent}</span>`;
+      currClean = dhEnd;
+    }
+  }
+
+  if (currClean < rEnd) {
+    htmlResult += renderEntityRanges(currClean, rEnd, rawText, cleanToRawStart, entityRanges);
+  }
+
+  return htmlResult;
+}
+
+/**
+ * Hierarchical HTML Highlight Composer:
+ * 1. Sugya phrases form continuous unbroken outer <span> containers.
+ * 2. DH (Rashi/Tosafot) spans form middle <span> containers.
+ * 3. Entity (Sages & Concepts) spans form inner <span> children inside DH and gaps.
+ * 4. Guarantees every raw character is rendered EXACTLY ONCE with full visual fidelity.
  */
 export function compositeTextWithHighlights(rawText: string, ranges: HighlightRange[]): string {
   if (!rawText) return '';
@@ -160,13 +211,11 @@ export function compositeTextWithHighlights(rawText: string, ranges: HighlightRa
 
   const innerRanges = validRanges.filter((r) => r.layer !== 'sugya');
 
-  // Partition cleanText into Sugya spans and gaps between Sugya spans
   let htmlResult = '';
   let currClean = 0;
 
   for (const sugya of sugyaRanges) {
     if (sugya.start > currClean) {
-      // Gap before this Sugya span
       htmlResult += renderInnerRanges(currClean, sugya.start, rawText, cleanToRawStart, innerRanges);
     }
 

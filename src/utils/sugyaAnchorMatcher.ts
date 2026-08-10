@@ -91,7 +91,7 @@ export function getSugyaRanges(
     const startClean = (k === 0 && curr.startCleanIdx <= 5) ? 0 : curr.startCleanIdx;
     const endClean = Math.max(startClean + 1, nextStartClean);
 
-    if (startClean < endClean) {
+    if (endClean - startClean >= 3 || (k === nodeMatches.length - 1 && endClean > startClean)) {
       const node = curr.node;
       const levelClass = node.level === 2 ? 'level-2' : 'level-1';
       const typeClass = `type-${node.type || 'Statement'}`;
