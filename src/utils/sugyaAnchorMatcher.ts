@@ -2,9 +2,6 @@ import { isRefOverlap } from './refUtils';
 import { buildCleanToRawMap, compositeTextWithHighlights, HighlightRange } from '../components/study/TraditionalTalmudDaf/utils/highlightComposer';
 import { stripPunctuation } from './hebrewUtils';
 
-let activeHighlightedNodeId: string | null = null;
-let activeHighlightedNodeType: string | null = null;
-
 export function stripHebrewVowels(text: string): string {
   if (!text) return '';
   return text
@@ -100,15 +97,12 @@ export function getSugyaRanges(
       const typeClass = `type-${node.type || 'Statement'}`;
       const oddEvenClass = (node.sub_index || 0) % 2 === 0 ? 'sub-even' : 'sub-odd';
       const tooltipText = `${node.speaker ? `[${node.speaker}] ` : ''}${node.title || node.title_ru || ''}`;
-      
-      const isNodeActive = String(node.id || '') === activeHighlightedNodeId;
-      const activeClass = isNodeActive ? 'sugya-node-hover-active' : '';
 
       sugyaRanges.push({
         start: startClean,
         end: endClean,
         layer: 'sugya',
-        classes: ['sugya-span-text', levelClass, typeClass, oddEvenClass, activeClass, 'cursor-pointer', 'transition-all', 'hover:brightness-125'].filter(Boolean),
+        classes: ['sugya-span-text', levelClass, typeClass, oddEvenClass, 'cursor-pointer', 'transition-all', 'hover:brightness-125'],
         attributes: {
           'data-node-id': String(node.id || ''),
           'data-node-type': String(node.type || 'Statement'),
@@ -140,64 +134,21 @@ export function scrollToAnchor(ref?: string, _startAnchor?: string, _endAnchor?:
   targetElements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-export function setSelectedSugyaNode(nodeId?: string, nodeType?: string) {
-  highlightNodeHover(nodeId, nodeType, true);
-}
-
-export function clearSugyaHoverState() {
-  if (activeHighlightedNodeId) {
-    const prevId = activeHighlightedNodeId;
-    const prevType = activeHighlightedNodeType;
-    document.querySelectorAll('.sugya-span-text').forEach((el) => {
-      if (el.getAttribute('data-node-id') === prevId) {
-        el.classList.remove('sugya-node-hover-active', `type-${prevType || 'Statement'}`);
-      }
-    });
-    activeHighlightedNodeId = null;
-    activeHighlightedNodeType = null;
-  }
-
-  const treeRoot = document.querySelector('[data-sugya-tree-root]');
-  if (treeRoot) {
-    treeRoot.classList.remove('sugya-tree-has-hover');
-    treeRoot.querySelectorAll('.sugya-tree-node-hover-active').forEach((el) => {
-      el.classList.remove('sugya-tree-node-hover-active');
-    });
-  }
-}
-
-export function highlightNodeHover(nodeId?: string, nodeType?: string, isHovered: boolean = true) {
-  if (!nodeId) return;
-
-  if (isHovered) {
-    if (activeHighlightedNodeId === nodeId) return;
-
-    if (activeHighlightedNodeId) {
-      const prevId = activeHighlightedNodeId;
-      const prevType = activeHighlightedNodeType;
-      document.querySelectorAll('.sugya-span-text').forEach((el) => {
-        if (el.getAttribute('data-node-id') === prevId) {
-          el.classList.remove('sugya-node-hover-active', `type-${prevType || 'Statement'}`);
-        }
-      });
-    }
-
-    activeHighlightedNodeId = nodeId;
-    activeHighlightedNodeType = nodeType || 'Statement';
-
-    const typeCls = `type-${activeHighlightedNodeType}`;
-    document.querySelectorAll('.sugya-span-text').forEach((el) => {
-      if (el.getAttribute('data-node-id') === nodeId) {
-        el.classList.add('sugya-node-hover-active', typeCls);
-      }
-    });
-  }
+export function highlightNodeHover(_nodeId?: string, _nodeType?: string, _isHovered: boolean = true) {
+  // Bottom-to-top hover disabled per user directive.
 }
 
 export function highlightMindMapNodeOnHover(nodeId?: string, nodeType?: string, isHovered: boolean = true) {
   if (!nodeId) return;
   const treeRoot = document.querySelector('[data-sugya-tree-root]');
   const typeCls = `type-${nodeType || 'Statement'}`;
+
+  const targetCards: Element[] = [];
+  document.querySelectorAll('[data-sugya-node-id]').forEach((el) => {
+    if (el.getAttribute('data-sugya-node-id') === nodeId) {
+      targetCards.push(el);
+    }
+  });
 
   if (isHovered) {
     if (treeRoot) treeRoot.classList.add('sugya-tree-has-hover');
@@ -206,11 +157,19 @@ export function highlightMindMapNodeOnHover(nodeId?: string, nodeType?: string, 
       el.classList.remove('sugya-tree-node-hover-active');
     });
 
-    document.querySelectorAll('[data-sugya-node-id]').forEach((el) => {
-      if (el.getAttribute('data-sugya-node-id') === nodeId) {
-        el.classList.add('sugya-tree-node-hover-active', typeCls);
-      }
+    targetCards.forEach((el) => {
+      el.classList.add('sugya-tree-node-hover-active', typeCls);
     });
+  } else {
+    targetCards.forEach((el) => {
+      el.classList.remove('sugya-tree-node-hover-active', typeCls);
+    });
+    if (treeRoot) {
+      const remainingHover = treeRoot.querySelectorAll('.sugya-tree-node-hover-active');
+      if (remainingHover.length === 0) {
+        treeRoot.classList.remove('sugya-tree-has-hover');
+      }
+    }
   }
 }
 

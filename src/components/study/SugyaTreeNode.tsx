@@ -96,7 +96,6 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
         )}
         onClick={() => onNodeClick(node)}
         onMouseEnter={() => {
-          highlightNodeHover(String(node.id), String(node.type), true);
           highlightMindMapNodeOnHover(String(node.id), String(node.type), true);
         }}
       >

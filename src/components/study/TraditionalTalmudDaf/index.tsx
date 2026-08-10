@@ -1112,11 +1112,19 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                           : "opacity-100 hover:bg-primary/5 rounded-none"
                       )}
                       onClick={(e) => {
+                        handleGemaraClick(e, segment.ref);
+                      }}
+                      onMouseOver={(e) => {
                         const sugyaSpan = (e.target as HTMLElement).closest('.sugya-span-text') as HTMLElement | null;
                         if (sugyaSpan?.dataset.nodeId) {
-                          setSelectedSugyaNode(sugyaSpan.dataset.nodeId, sugyaSpan.dataset.nodeType);
+                          highlightMindMapNodeOnHover(sugyaSpan.dataset.nodeId, sugyaSpan.dataset.nodeType, true);
                         }
-                        handleGemaraClick(e, segment.ref);
+                      }}
+                      onMouseOut={(e) => {
+                        const sugyaSpan = (e.target as HTMLElement).closest('.sugya-span-text') as HTMLElement | null;
+                        if (sugyaSpan?.dataset.nodeId) {
+                          highlightMindMapNodeOnHover(sugyaSpan.dataset.nodeId, sugyaSpan.dataset.nodeType, false);
+                        }
                       }}
                       onDoubleClick={() => {
                         const word = window.getSelection()?.toString() || '';
