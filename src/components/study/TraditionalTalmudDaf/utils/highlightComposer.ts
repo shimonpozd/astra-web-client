@@ -18,12 +18,13 @@ export interface ASTNode {
 }
 
 /**
- * Builds a map from clean text index (letters/digits only, skipping nikud, taamim, HTML tags)
- * to raw text index range.
+ * Builds cleanText (letters/digits/spaces, skipping nikud, taamim, HTML tags)
+ * and cleanToRawStart array of size cleanText.length + 1.
+ * cleanToRawStart[c] is the raw text index where clean character c starts.
+ * cleanToRawStart[cleanText.length] is rawText.length.
  */
-export function buildCleanToRawMap(rawText: string): { cleanText: string; cleanToRawStart: number[]; cleanToRawEnd: number[] } {
+export function buildCleanToRawMap(rawText: string): { cleanText: string; cleanToRawStart: number[] } {
   const cleanToRawStart: number[] = [];
-  const cleanToRawEnd: number[] = [];
   let cleanText = '';
 
   let inTag = false;
@@ -43,22 +44,13 @@ export function buildCleanToRawMap(rawText: string): { cleanText: string; cleanT
     if (!isNikudOrTaam) {
       cleanToRawStart.push(i);
       cleanText += ch;
-
-      let endIdx = i + 1;
-      while (endIdx < rawText.length) {
-        const nextCh = rawText[endIdx];
-        if (nextCh === '<') break;
-        if (/[\u0591-\u05C7\u200E\u200F]/.test(nextCh)) {
-          endIdx++;
-        } else {
-          break;
-        }
-      }
-      cleanToRawEnd.push(endIdx);
     }
   }
 
-  return { cleanText, cleanToRawStart, cleanToRawEnd };
+  // Sentinel value for the end of text
+  cleanToRawStart.push(rawText.length);
+
+  return { cleanText, cleanToRawStart };
 }
 
 /**
@@ -83,11 +75,39 @@ function insertRangeIntoAST(parent: ASTNode, range: HighlightRange) {
     return;
   }
 
-  const sortedChildren = [...parent.children].sort((a, b) => a.start - b.start);
+  const overlappingChildren = parent.children.filter(
+    (child) => Math.max(child.start, rStart) < Math.min(child.end, rEnd)
+  );
+
+  if (overlappingChildren.length === 0) {
+    parent.children.push({
+      start: rStart,
+      end: rEnd,
+      layer: range.layer,
+      classes: range.classes,
+      attributes: range.attributes,
+      children: [],
+    });
+    parent.children.sort((a, b) => a.start - b.start);
+    return;
+  }
+
+  for (const child of overlappingChildren) {
+    const oStart = Math.max(child.start, rStart);
+    const oEnd = Math.min(child.end, rEnd);
+    if (oStart < oEnd) {
+      insertRangeIntoAST(child, {
+        ...range,
+        start: oStart,
+        end: oEnd,
+      });
+    }
+  }
+
   let curr = rStart;
+  const sortedChildren = [...parent.children].sort((a, b) => a.start - b.start);
 
   for (const child of sortedChildren) {
-    // Check gap before this child
     if (child.start > curr && rEnd > curr) {
       const gapEnd = Math.min(child.start, rEnd);
       if (curr < gapEnd) {
@@ -101,23 +121,9 @@ function insertRangeIntoAST(parent: ASTNode, range: HighlightRange) {
         });
       }
     }
-
-    // Check overlap with this child
-    const overlapStart = Math.max(child.start, curr);
-    const overlapEnd = Math.min(child.end, rEnd);
-
-    if (overlapStart < overlapEnd) {
-      insertRangeIntoAST(child, {
-        ...range,
-        start: overlapStart,
-        end: overlapEnd,
-      });
-    }
-
     curr = Math.max(curr, child.end);
   }
 
-  // Check remaining gap after last child
   if (curr < rEnd) {
     parent.children.push({
       start: curr,
@@ -129,8 +135,7 @@ function insertRangeIntoAST(parent: ASTNode, range: HighlightRange) {
     });
   }
 
-  // Deduplicate identical children and sort by start
-  parent.children.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+  parent.children.sort((a, b) => a.start - b.start);
 }
 
 /**
@@ -188,11 +193,8 @@ export function buildHighlightTree(
 function renderASTNode(
   node: ASTNode,
   rawText: string,
-  cleanToRawStart: number[],
-  cleanToRawEnd: number[]
+  cleanToRawStart: number[]
 ): string {
-  const cleanLength = cleanToRawStart.length;
-
   let contentHtml = '';
   let currClean = node.start;
 
@@ -201,21 +203,17 @@ function renderASTNode(
   for (const child of sortedChildren) {
     if (child.start > currClean) {
       const rStart = cleanToRawStart[currClean] ?? 0;
-      const rEnd = child.start >= cleanLength
-        ? rawText.length
-        : (cleanToRawStart[child.start] ?? rStart);
+      const rEnd = cleanToRawStart[child.start] ?? rStart;
       contentHtml += rawText.slice(rStart, rEnd);
     }
 
-    contentHtml += renderASTNode(child, rawText, cleanToRawStart, cleanToRawEnd);
+    contentHtml += renderASTNode(child, rawText, cleanToRawStart);
     currClean = Math.max(currClean, child.end);
   }
 
   if (currClean < node.end) {
     const rStart = cleanToRawStart[currClean] ?? 0;
-    const rEnd = node.end >= cleanLength
-      ? rawText.length
-      : (cleanToRawEnd[node.end - 1] ?? rStart);
+    const rEnd = cleanToRawStart[node.end] ?? rStart;
     contentHtml += rawText.slice(rStart, rEnd);
   }
 
@@ -241,7 +239,7 @@ export function compositeTextWithHighlights(rawText: string, ranges: HighlightRa
   if (!rawText) return '';
   if (!ranges || ranges.length === 0) return rawText;
 
-  const { cleanText, cleanToRawStart, cleanToRawEnd } = buildCleanToRawMap(rawText);
+  const { cleanText, cleanToRawStart } = buildCleanToRawMap(rawText);
   if (cleanText.length === 0 || cleanToRawStart.length === 0) return rawText;
 
   const validRanges = ranges
@@ -255,5 +253,5 @@ export function compositeTextWithHighlights(rawText: string, ranges: HighlightRa
   if (validRanges.length === 0) return rawText;
 
   const astRoot = buildHighlightTree(cleanText.length, validRanges);
-  return renderASTNode(astRoot, rawText, cleanToRawStart, cleanToRawEnd);
+  return renderASTNode(astRoot, rawText, cleanToRawStart);
 }

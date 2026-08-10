@@ -1,5 +1,6 @@
 import { isRefOverlap } from './refUtils';
 import { buildCleanToRawMap, compositeTextWithHighlights, HighlightRange } from '../components/study/TraditionalTalmudDaf/utils/highlightComposer';
+import { stripPunctuation } from './hebrewUtils';
 
 export function stripHebrewVowels(text: string): string {
   if (!text) return '';
@@ -30,8 +31,6 @@ export function getDOMTargetElementsForRef(ref?: string): Element[] {
   return matched;
 }
 
-
-
 export function getSugyaRanges(
   rawText: string,
   ref: string,
@@ -45,66 +44,52 @@ export function getSugyaRanges(
   const { cleanText } = buildCleanToRawMap(rawText);
   if (!cleanText) return [];
 
-  const lettersOnlyToCleanMap: number[] = [];
-  let cleanLettersText = '';
-
-  for (let i = 0; i < cleanText.length; i++) {
-    const ch = cleanText[i];
-    if (/[\u05D0-\u05EA0-9]/.test(ch)) {
-      lettersOnlyToCleanMap.push(i);
-      cleanLettersText += ch;
-    }
-  }
-
-  if (cleanLettersText.length === 0) return [];
-
-  const nodeMatches: Array<{ startLetterIdx: number; node: any }> = [];
+  const nodeMatches: Array<{ startCleanIdx: number; node: any }> = [];
 
   for (const node of segNodes) {
     const startQuote = node.start_anchor || node.start_quote;
     if (!startQuote) continue;
 
-    const cleanStart = stripHebrewVowels(startQuote).replace(/[^\u05D0-\u05EA0-9]/g, '');
+    const cleanStart = stripHebrewVowels(startQuote).trim();
     if (cleanStart.length < 2) continue;
 
-    let startLetterIdx = cleanLettersText.indexOf(cleanStart);
-    if (startLetterIdx === -1) {
-      const words = cleanStart.split(/\s+/).filter(Boolean);
+    let startCleanIdx = cleanText.indexOf(cleanStart);
+    if (startCleanIdx === -1) {
+      const noPunctStart = stripPunctuation(cleanStart).trim();
+      if (noPunctStart.length >= 2) {
+        startCleanIdx = cleanText.indexOf(noPunctStart);
+      }
+    }
+    if (startCleanIdx === -1) {
+      const words = cleanStart.split(/\s+/).filter((w) => w.length >= 2);
       for (const w of words) {
-        if (w.length >= 3) {
-          const idx = cleanLettersText.indexOf(w);
-          if (idx !== -1) {
-            startLetterIdx = idx;
-            break;
-          }
+        const idx = cleanText.indexOf(w);
+        if (idx !== -1) {
+          startCleanIdx = idx;
+          break;
         }
       }
     }
 
-    if (startLetterIdx !== -1) {
-      nodeMatches.push({ startLetterIdx, node });
+    if (startCleanIdx !== -1) {
+      nodeMatches.push({ startCleanIdx, node });
     }
   }
 
   if (nodeMatches.length === 0) return [];
 
-  nodeMatches.sort((a, b) => a.startLetterIdx - b.startLetterIdx);
+  nodeMatches.sort((a, b) => a.startCleanIdx - b.startCleanIdx);
 
   const sugyaRanges: HighlightRange[] = [];
 
   for (let k = 0; k < nodeMatches.length; k++) {
     const curr = nodeMatches[k];
-    const nextStartLetter = k + 1 < nodeMatches.length
-      ? nodeMatches[k + 1].startLetterIdx
-      : cleanLettersText.length;
+    const nextStartClean = k + 1 < nodeMatches.length
+      ? nodeMatches[k + 1].startCleanIdx
+      : cleanText.length;
 
-    const startLetter = (k === 0 && curr.startLetterIdx <= 5) ? 0 : curr.startLetterIdx;
-    const endLetter = Math.max(startLetter + 1, nextStartLetter);
-
-    const startClean = lettersOnlyToCleanMap[startLetter] ?? 0;
-    const endClean = endLetter >= cleanLettersText.length
-      ? cleanText.length
-      : (lettersOnlyToCleanMap[endLetter] ?? cleanText.length);
+    const startClean = (k === 0 && curr.startCleanIdx <= 5) ? 0 : curr.startCleanIdx;
+    const endClean = Math.max(startClean + 1, nextStartClean);
 
     if (startClean < endClean) {
       const node = curr.node;
