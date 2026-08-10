@@ -25,7 +25,7 @@ import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
 import ProfileInspectorModal from '../ProfileInspectorModal';
 import { parseRefSmart } from '../../../utils/refUtils';
-import { scrollToAnchor, highlightMindMapNodeOnHover, applyWholeSugyaHighlight, applySugyaSpansToSegmentHtml, getActiveSugyaNodes } from '../../../utils/sugyaAnchorMatcher';
+import { scrollToAnchor, highlightMindMapNodeOnHover, applyWholeSugyaHighlight, applySugyaSpansToSegmentHtml, getActiveSugyaNodes, getSugyaRanges } from '../../../utils/sugyaAnchorMatcher';
 
 import {
   TraditionalComment,
@@ -40,7 +40,10 @@ import {
   buildHebrewFuzzyRegex,
   highlightDhInGemara,
   renderHighlightedText,
+  getDhRanges,
+  getEntityRanges,
 } from './utils/highlightMatching';
+import { compositeTextWithHighlights } from './utils/highlightComposer';
 import { copyToClipboard } from './utils/clipboard';
 
 import { useCommentaryOverrides } from './hooks/useCommentaryOverrides';
@@ -538,10 +541,15 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
       const activeComments = segmentComments.filter(
         c => matchCommentator(c, leftTitle) || matchCommentator(c, rightTitle)
       );
-      const withDh = activeComments.length > 0 ? highlightDhInGemara(processed, activeComments) : processed;
-      const highlighted = hasHighlights ? renderHighlightedText(withDh, compiledSageHighlights, compiledConceptHighlights) : withDh;
-      const withSugyaSpans = sugyaNodes && sugyaNodes.length > 0 ? applySugyaSpansToSegmentHtml(highlighted, segment.ref, sugyaNodes) : highlighted;
-      return `${withSugyaSpans}${idx < displaySegments.length - 1 ? ' ' : ''}`;
+
+      const dhRanges = activeComments.length > 0 ? getDhRanges(processed, activeComments) : [];
+      const entityRanges = hasHighlights ? getEntityRanges(processed, compiledSageHighlights, compiledConceptHighlights) : [];
+      const sugyaRanges = sugyaNodes && sugyaNodes.length > 0 ? getSugyaRanges(processed, segment.ref, sugyaNodes) : [];
+
+      const allRanges = [...dhRanges, ...entityRanges, ...sugyaRanges];
+      const withHighlights = compositeTextWithHighlights(processed, allRanges);
+
+      return `${withHighlights}${idx < displaySegments.length - 1 ? ' ' : ''}`;
     });
   }, [displaySegments, commentsByAnchor, processText, compiledSageHighlights, compiledConceptHighlights, leftTitle, rightTitle, matchCommentator, sugyaNodes]);
 

@@ -16,6 +16,8 @@ export interface TextToken {
   clean: string;
   startHtml: number;
   endHtml: number;
+  startClean?: number;
+  endClean?: number;
 }
 
 export interface TraditionalTalmudDafProps {

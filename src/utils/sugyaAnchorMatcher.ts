@@ -1,4 +1,5 @@
 import { isRefOverlap } from './refUtils';
+import { buildCleanToRawMap, compositeTextWithHighlights, HighlightRange } from '../components/study/TraditionalTalmudDaf/utils/highlightComposer';
 
 export function stripHebrewVowels(text: string): string {
   if (!text) return '';
@@ -29,62 +30,34 @@ export function getDOMTargetElementsForRef(ref?: string): Element[] {
   return matched;
 }
 
-const TAXONOMY_ICONS: Record<string, string> = {
-  Statement: '📌',
-  Question: '❓',
-  Attack: '⚔️',
-  Defense: '🛡️',
-  Proof: '🧾',
-  Answer: '💡',
-};
 
-function adjustIdxOutsideTag(htmlText: string, idx: number): number {
-  if (idx <= 0 || idx >= htmlText.length) return idx;
-  const lastOpen = htmlText.lastIndexOf('<', idx);
-  const lastClose = htmlText.lastIndexOf('>', idx);
 
-  if (lastOpen > lastClose) {
-    const closeIdx = htmlText.indexOf('>', idx);
-    if (closeIdx !== -1) {
-      return closeIdx + 1;
-    }
-  }
-  return idx;
-}
-
-/**
- * Оборачивает фазы текста Гмары в Bidi-safe скобки ❪ ❫, микро-иконки и цветные подчёркивания.
- */
-export function applySugyaSpansToSegmentHtml(
-  htmlText: string,
+export function getSugyaRanges(
+  rawText: string,
   ref: string,
   nodes?: Array<any>
-): string {
-  if (!htmlText || !nodes || nodes.length === 0 || !ref) return htmlText;
+): HighlightRange[] {
+  if (!rawText || !nodes || nodes.length === 0 || !ref) return [];
 
-  const segNodes = nodes.filter((n) => n.ref && isRefOverlap(n.ref, ref));
-  if (segNodes.length === 0) return htmlText;
+  const segNodes = nodes.filter((n) => n && n.ref && isRefOverlap(n.ref, ref));
+  if (segNodes.length === 0) return [];
 
-  // 1. Построение карты буква -> индекс в сыром HTML (пропуская HTML-теги и никуд)
-  const letterToRawMap: number[] = [];
-  let lettersOnlyText = '';
+  const { cleanText } = buildCleanToRawMap(rawText);
+  if (!cleanText) return [];
 
-  let inTag = false;
-  for (let i = 0; i < htmlText.length; i++) {
-    const ch = htmlText[i];
-    if (ch === '<') { inTag = true; continue; }
-    if (ch === '>') { inTag = false; continue; }
-    if (inTag) continue;
+  const lettersOnlyToCleanMap: number[] = [];
+  let cleanLettersText = '';
 
+  for (let i = 0; i < cleanText.length; i++) {
+    const ch = cleanText[i];
     if (/[\u05D0-\u05EA0-9]/.test(ch)) {
-      letterToRawMap.push(i);
-      lettersOnlyText += ch;
+      lettersOnlyToCleanMap.push(i);
+      cleanLettersText += ch;
     }
   }
 
-  if (lettersOnlyText.length === 0) return htmlText;
+  if (cleanLettersText.length === 0) return [];
 
-  // 2. Find start letter index for each node
   const nodeMatches: Array<{ startLetterIdx: number; node: any }> = [];
 
   for (const node of segNodes) {
@@ -94,12 +67,12 @@ export function applySugyaSpansToSegmentHtml(
     const cleanStart = stripHebrewVowels(startQuote).replace(/[^\u05D0-\u05EA0-9]/g, '');
     if (cleanStart.length < 2) continue;
 
-    let startLetterIdx = lettersOnlyText.indexOf(cleanStart);
+    let startLetterIdx = cleanLettersText.indexOf(cleanStart);
     if (startLetterIdx === -1) {
       const words = cleanStart.split(/\s+/).filter(Boolean);
       for (const w of words) {
         if (w.length >= 3) {
-          const idx = lettersOnlyText.indexOf(w);
+          const idx = cleanLettersText.indexOf(w);
           if (idx !== -1) {
             startLetterIdx = idx;
             break;
@@ -113,52 +86,61 @@ export function applySugyaSpansToSegmentHtml(
     }
   }
 
-  if (nodeMatches.length === 0) return htmlText;
+  if (nodeMatches.length === 0) return [];
 
-  // 3. Sort by start letter index ascending & construct contiguous Start-to-Start phrase boundaries
   nodeMatches.sort((a, b) => a.startLetterIdx - b.startLetterIdx);
 
-  const matches: Array<{ startRawIdx: number; endRawIdx: number; node: any }> = [];
+  const sugyaRanges: HighlightRange[] = [];
 
   for (let k = 0; k < nodeMatches.length; k++) {
     const curr = nodeMatches[k];
-    const nextStartLetter = k + 1 < nodeMatches.length ? nodeMatches[k + 1].startLetterIdx : lettersOnlyText.length;
+    const nextStartLetter = k + 1 < nodeMatches.length
+      ? nodeMatches[k + 1].startLetterIdx
+      : cleanLettersText.length;
 
-    const startLetter = k === 0 ? 0 : curr.startLetterIdx;
+    const startLetter = (k === 0 && curr.startLetterIdx <= 5) ? 0 : curr.startLetterIdx;
     const endLetter = Math.max(startLetter + 1, nextStartLetter);
 
-    let startRawIdx = adjustIdxOutsideTag(htmlText, letterToRawMap[startLetter]);
-    let endRawIdx = k === nodeMatches.length - 1
-      ? htmlText.length
-      : adjustIdxOutsideTag(htmlText, letterToRawMap[Math.min(endLetter, letterToRawMap.length - 1)] || htmlText.length);
+    const startClean = lettersOnlyToCleanMap[startLetter] ?? 0;
+    const endClean = endLetter >= cleanLettersText.length
+      ? cleanText.length
+      : (lettersOnlyToCleanMap[endLetter] ?? cleanText.length);
 
-    if (startRawIdx !== undefined && endRawIdx !== undefined && startRawIdx < endRawIdx) {
-      matches.push({ startRawIdx, endRawIdx, node: curr.node });
+    if (startClean < endClean) {
+      const node = curr.node;
+      const levelClass = node.level === 2 ? 'level-2' : 'level-1';
+      const typeClass = `type-${node.type || 'Statement'}`;
+      const oddEvenClass = (node.sub_index || 0) % 2 === 0 ? 'sub-even' : 'sub-odd';
+      const tooltipText = `${node.speaker ? `[${node.speaker}] ` : ''}${node.title || node.title_ru || ''}`;
+
+      sugyaRanges.push({
+        start: startClean,
+        end: endClean,
+        layer: 'sugya',
+        classes: ['sugya-span-text', levelClass, typeClass, oddEvenClass, 'cursor-pointer', 'transition-all', 'hover:brightness-125'],
+        attributes: {
+          'data-node-id': String(node.id || ''),
+          'title': tooltipText,
+        },
+      });
     }
   }
 
-  if (matches.length === 0) return htmlText;
+  return sugyaRanges;
+}
 
-  // 4. Sort in REVERSE order for safe HTML tag insertion from end of string to start
-  matches.sort((a, b) => b.startRawIdx - a.startRawIdx);
-
-  let result = htmlText;
-
-  for (const m of matches) {
-    const { startRawIdx, endRawIdx, node } = m;
-    const phrase = result.slice(startRawIdx, endRawIdx);
-
-    const icon = (node.type && TAXONOMY_ICONS[node.type]) || '📌';
-    const levelClass = node.level === 2 ? 'level-2' : 'level-1';
-    const typeClass = `type-${node.type || 'Statement'}`;
-    const tooltipText = `${node.speaker ? `[${node.speaker}] ` : ''}${node.title || ''}`;
-    const oddEvenClass = (node.sub_index || 0) % 2 === 0 ? 'sub-even' : 'sub-odd';
-    const wrapped = `<span class="sugya-span-text ${levelClass} ${typeClass} ${oddEvenClass} cursor-pointer transition-all hover:brightness-125" data-node-id="${node.id || ''}" title="${tooltipText.replace(/"/g, '&quot;')}">${phrase}</span>`;
-
-    result = result.slice(0, startRawIdx) + wrapped + result.slice(endRawIdx);
-  }
-
-  return result;
+/**
+ * Оборачивает фазы текста Гмары в Bidi-safe скобки ❪ ❫, микро-иконки и цветные подчёркивания.
+ */
+export function applySugyaSpansToSegmentHtml(
+  htmlText: string,
+  ref: string,
+  nodes?: Array<any>
+): string {
+  if (!htmlText || !nodes || nodes.length === 0 || !ref) return htmlText;
+  const sugyaRanges = getSugyaRanges(htmlText, ref, nodes);
+  if (sugyaRanges.length === 0) return htmlText;
+  return compositeTextWithHighlights(htmlText, sugyaRanges);
 }
 
 export function scrollToAnchor(ref?: string, _startAnchor?: string, _endAnchor?: string, _nodeType?: string) {

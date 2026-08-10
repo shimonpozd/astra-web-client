@@ -1,6 +1,7 @@
 import { stripHebrewVowels, stripPunctuation } from '../../../../utils/hebrewUtils';
 import { CompiledSageHighlight, CompiledConceptHighlight, TraditionalComment, TextToken } from '../types';
 import { parseCommentDh } from './commentParsing';
+import { buildCleanToRawMap, compositeTextWithHighlights, HighlightRange } from './highlightComposer';
 
 export const escapeAttr = (value: string) => (value || '').replace(/"/g, '&quot;');
 
@@ -82,31 +83,75 @@ export const replaceOutsideTags = (html: string, regex: RegExp, replacer: (match
   return parts.join('');
 };
 
+export function getEntityRanges(
+  text: string,
+  sages: CompiledSageHighlight[] = [],
+  concepts: CompiledConceptHighlight[] = []
+): HighlightRange[] {
+  if (!text) return [];
+  const { cleanText } = buildCleanToRawMap(text);
+  if (!cleanText) return [];
+
+  const entityRanges: HighlightRange[] = [];
+
+  for (const sage of sages) {
+    if (!sage?.regex || !sage?.slug) continue;
+    const periodRaw = (sage.period || 'sage').toLowerCase();
+    const periodBase = periodRaw.split('_')[0] || 'sage';
+    const colorClass = `highlight-sage-${periodBase}`;
+
+    sage.regex.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = sage.regex.exec(cleanText)) !== null) {
+      if (match[0].length === 0) break;
+      entityRanges.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        layer: 'sage',
+        classes: ['highlight-sage', colorClass, 'hover-target'],
+        attributes: {
+          'data-entity-type': 'sage',
+          'data-slug': sage.slug,
+        },
+      });
+      if (!sage.regex.global) break;
+    }
+  }
+
+  for (const concept of concepts) {
+    if (!concept?.slug || !concept?.regexes) continue;
+    for (const rx of concept.regexes) {
+      if (!rx) continue;
+      rx.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = rx.exec(cleanText)) !== null) {
+        if (match[0].length === 0) break;
+        entityRanges.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          layer: 'concept',
+          classes: ['highlight-concept', 'hover-target'],
+          attributes: {
+            'data-entity-type': 'concept',
+            'data-slug': concept.slug,
+          },
+        });
+        if (!rx.global) break;
+      }
+    }
+  }
+
+  return entityRanges;
+}
+
 export const renderHighlightedText = (
   text: string,
   sages: CompiledSageHighlight[] = [],
   concepts: CompiledConceptHighlight[] = [],
 ) => {
-  let html = text || '';
-
-  for (const sage of sages) {
-    const periodRaw = (sage.period || 'sage').toLowerCase();
-    const periodBase = periodRaw.split('_')[0] || 'sage';
-    const colorClass = `highlight-sage-${periodBase}`;
-    html = replaceOutsideTags(html, sage.regex, (match) => {
-      return `<span class="highlight-sage ${colorClass} hover-target" data-entity-type="sage" data-slug="${escapeAttr(sage.slug)}">${match}</span>`;
-    });
-  }
-
-  for (const concept of concepts) {
-    for (const rx of concept.regexes || []) {
-      html = replaceOutsideTags(html, rx, (match) => {
-        return `<span class="highlight-concept hover-target" data-entity-type="concept" data-slug="${escapeAttr(concept.slug)}">${match}</span>`;
-      });
-    }
-  }
-
-  return html;
+  const entityRanges = getEntityRanges(text, sages, concepts);
+  if (entityRanges.length === 0) return text;
+  return compositeTextWithHighlights(text, entityRanges);
 };
 
 const wildPlaceholder = '(?:[\\u05D0-\\u05EA\\u05B0-\\u05C7\\s"\'\u200E\u200F]{1,25})';
@@ -248,16 +293,30 @@ export function matchWordsEqual(w1: string, w2: string): boolean {
   return false;
 }
 
-export const highlightDhInGemara = (
+export function getDhRanges(
   text: string,
-  commentsForSegment: TraditionalComment[],
-  _activeRef: string | null = null,
-  _hoveredRef: string | null = null
-) => {
-  if (!text || !commentsForSegment || commentsForSegment.length === 0) return text;
+  commentsForSegment: TraditionalComment[]
+): HighlightRange[] {
+  if (!text || !commentsForSegment || commentsForSegment.length === 0) return [];
+
+  const { cleanText } = buildCleanToRawMap(text);
+  if (!cleanText) return [];
 
   const tokens = extractGemaraWordTokens(text);
-  if (tokens.length === 0) return text;
+  if (tokens.length === 0) return [];
+
+  let searchIdx = 0;
+  for (const token of tokens) {
+    const idx = cleanText.indexOf(token.clean, searchIdx);
+    if (idx !== -1) {
+      token.startClean = idx;
+      token.endClean = idx + token.clean.length;
+      searchIdx = idx + token.clean.length;
+    } else {
+      token.startClean = searchIdx;
+      token.endClean = searchIdx + token.clean.length;
+    }
+  }
 
   const tokenMatchData = tokens.map(() => ({
     commentRefs: new Set<string>(),
@@ -299,10 +358,7 @@ export const highlightDhInGemara = (
       while (
         tIdx + count < tokens.length &&
         count < dhWords.length &&
-        matchWordsEqual(
-          tokens[tIdx + count].clean,
-          dhWords[count]
-        )
+        matchWordsEqual(tokens[tIdx + count].clean, dhWords[count])
       ) {
         count++;
       }
@@ -327,14 +383,7 @@ export const highlightDhInGemara = (
     }
   }
 
-  const rangesToWrap: {
-    startHtml: number;
-    endHtml: number;
-    commentRefs: string[];
-    isRashi: boolean;
-    isTosafot: boolean;
-  }[] = [];
-
+  const dhRanges: HighlightRange[] = [];
   let currentRange: {
     startTokenIdx: number;
     endTokenIdx: number;
@@ -348,12 +397,19 @@ export const highlightDhInGemara = (
     const data = tokenMatchData[i];
     if (data.commentRefs.size === 0) {
       if (currentRange) {
-        rangesToWrap.push({
-          startHtml: tokens[currentRange.startTokenIdx].startHtml,
-          endHtml: tokens[currentRange.endTokenIdx].endHtml,
-          commentRefs: currentRange.commentRefs,
-          isRashi: currentRange.isRashi,
-          isTosafot: currentRange.isTosafot,
+        const sToken = tokens[currentRange.startTokenIdx];
+        const eToken = tokens[currentRange.endTokenIdx];
+        const classes = ['highlight-dh'];
+        if (currentRange.isRashi) classes.push('dh-rashi');
+        if (currentRange.isTosafot) classes.push('dh-tosafot');
+        dhRanges.push({
+          start: sToken.startClean ?? 0,
+          end: eToken.endClean ?? 0,
+          layer: 'dh',
+          classes,
+          attributes: {
+            'data-comment-ref': currentRange.commentRefs.join('|'),
+          },
         });
         currentRange = null;
       }
@@ -375,12 +431,19 @@ export const highlightDhInGemara = (
     } else if (currentRange.refsKey === refsKey) {
       currentRange.endTokenIdx = i;
     } else {
-      rangesToWrap.push({
-        startHtml: tokens[currentRange.startTokenIdx].startHtml,
-        endHtml: tokens[currentRange.endTokenIdx].endHtml,
-        commentRefs: currentRange.commentRefs,
-        isRashi: currentRange.isRashi,
-        isTosafot: currentRange.isTosafot,
+      const sToken = tokens[currentRange.startTokenIdx];
+      const eToken = tokens[currentRange.endTokenIdx];
+      const classes = ['highlight-dh'];
+      if (currentRange.isRashi) classes.push('dh-rashi');
+      if (currentRange.isTosafot) classes.push('dh-tosafot');
+      dhRanges.push({
+        start: sToken.startClean ?? 0,
+        end: eToken.endClean ?? 0,
+        layer: 'dh',
+        classes,
+        attributes: {
+          'data-comment-ref': currentRange.commentRefs.join('|'),
+        },
       });
       currentRange = {
         startTokenIdx: i,
@@ -394,29 +457,32 @@ export const highlightDhInGemara = (
   }
 
   if (currentRange) {
-    rangesToWrap.push({
-      startHtml: tokens[currentRange.startTokenIdx].startHtml,
-      endHtml: tokens[currentRange.endTokenIdx].endHtml,
-      commentRefs: currentRange.commentRefs,
-      isRashi: currentRange.isRashi,
-      isTosafot: currentRange.isTosafot,
+    const sToken = tokens[currentRange.startTokenIdx];
+    const eToken = tokens[currentRange.endTokenIdx];
+    const classes = ['highlight-dh'];
+    if (currentRange.isRashi) classes.push('dh-rashi');
+    if (currentRange.isTosafot) classes.push('dh-tosafot');
+    dhRanges.push({
+      start: sToken.startClean ?? 0,
+      end: eToken.endClean ?? 0,
+      layer: 'dh',
+      classes,
+      attributes: {
+        'data-comment-ref': currentRange.commentRefs.join('|'),
+      },
     });
   }
 
-  if (rangesToWrap.length === 0) return text;
+  return dhRanges;
+}
 
-  rangesToWrap.sort((a, b) => b.startHtml - a.startHtml);
-
-  let result = text;
-  for (const m of rangesToWrap) {
-    const chunk = result.substring(m.startHtml, m.endHtml);
-    const classes = ['highlight-dh'];
-    if (m.isRashi) classes.push('dh-rashi');
-    if (m.isTosafot) classes.push('dh-tosafot');
-    const refsAttr = escapeAttr(m.commentRefs.join('|'));
-    const wrapped = `<span class="${classes.join(' ')}" data-comment-ref="${refsAttr}">${chunk}</span>`;
-    result = result.substring(0, m.startHtml) + wrapped + result.substring(m.endHtml);
-  }
-
-  return result;
+export const highlightDhInGemara = (
+  text: string,
+  commentsForSegment: TraditionalComment[],
+  _activeRef: string | null = null,
+  _hoveredRef: string | null = null
+) => {
+  const dhRanges = getDhRanges(text, commentsForSegment);
+  if (dhRanges.length === 0) return text;
+  return compositeTextWithHighlights(text, dhRanges);
 };
