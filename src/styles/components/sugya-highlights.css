@@ -305,6 +305,7 @@
   margin: 0 1px;
   transition: all 0.2s ease;
   opacity: 1 !important;
+  color: inherit !important;
 }
 
 /* Subtle vertical separator line between adjacent spans */

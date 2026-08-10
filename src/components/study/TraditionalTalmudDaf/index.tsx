@@ -1118,26 +1118,6 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                         }
                         handleGemaraClick(e, segment.ref);
                       }}
-                      onMouseOver={(e) => {
-                        const sugyaSpan = (e.target as HTMLElement).closest('.sugya-span-text') as HTMLElement | null;
-                        if (sugyaSpan) {
-                          const nodeId = sugyaSpan.dataset.nodeId;
-                          const nodeType = sugyaSpan.dataset.nodeType;
-                          if (nodeId) {
-                            highlightMindMapNodeOnHover(nodeId, nodeType, true);
-                          }
-                        }
-                      }}
-                      onMouseOut={(e) => {
-                        const sugyaSpan = (e.target as HTMLElement).closest('.sugya-span-text') as HTMLElement | null;
-                        if (sugyaSpan) {
-                          const nodeId = sugyaSpan.dataset.nodeId;
-                          const nodeType = sugyaSpan.dataset.nodeType;
-                          if (nodeId) {
-                            highlightMindMapNodeOnHover(nodeId, nodeType, false);
-                          }
-                        }
-                      }}
                       onDoubleClick={() => {
                         const word = window.getSelection()?.toString() || '';
                         const hebrewText = segment.he_text || segment.heText || '';
