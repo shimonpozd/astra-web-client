@@ -68,7 +68,7 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
   const hasChildren = node.children && node.children.length > 0;
 
   const config = TAXONOMY_CONFIG[node.type] || TAXONOMY_CONFIG.Statement;
-  const isRefMatched = currentRef && node.ref && isRefOverlap(currentRef, node.ref);
+  const isRefMatched = Boolean(currentRef && node.ref && isRefOverlap(currentRef, node.ref));
 
   return (
     <div className="flex flex-col space-y-1 my-1">
@@ -76,6 +76,7 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
         data-sugya-node-id={node.id}
         data-node-type={node.type}
         data-sugya-node-ref={node.ref}
+        data-is-active-ref={isRefMatched ? "true" : "false"}
         id={`sugya-tree-node-${node.id}`}
         className={cn(
           "group flex items-start gap-2 p-2 rounded-lg border border-border/40 transition-all cursor-pointer select-none",
@@ -83,7 +84,7 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
           "border-l-4",
           currentRef
             ? (isRefMatched
-                ? "bg-card shadow-sm opacity-100 ring-1 ring-amber-500/30 font-semibold"
+                ? "bg-card shadow-md opacity-100 ring-2 ring-amber-500/40 font-semibold"
                 : "bg-card/30 opacity-45 grayscale-[15%] hover:opacity-90 hover:grayscale-0")
             : "bg-card/60 hover:bg-accent/40"
         )}

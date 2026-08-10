@@ -322,11 +322,17 @@
 .sugya-span-text.type-Proof     { background-color: rgba(14, 165, 233, 0.18) !important; }
 .sugya-span-text.type-Answer    { background-color: rgba(245, 158, 11, 0.18) !important; }
 
-/* Container dimming rule when hovering over a node in the Sugya MindMap */
-[data-sugya-tree-root].sugya-tree-has-hover [data-sugya-node-id] {
-  opacity: 0.40 !important;
+/* Container dimming rule when hovering: ONLY non-active ref nodes dim */
+[data-sugya-tree-root].sugya-tree-has-hover [data-sugya-node-id]:not([data-is-active-ref="true"]) {
+  opacity: 0.35 !important;
   filter: grayscale(20%) !important;
   transition: opacity 0.2s ease, filter 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Active Ref Nodes ALWAYS stay 100% bright and lit */
+[data-sugya-node-id][data-is-active-ref="true"] {
+  opacity: 1 !important;
+  filter: none !important;
 }
 
 [data-sugya-tree-root].sugya-tree-has-hover [data-sugya-node-id].sugya-tree-node-hover-active {
