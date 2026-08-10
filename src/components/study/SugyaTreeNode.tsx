@@ -18,43 +18,49 @@ interface SugyaTreeNodeProps {
 
 const TAXONOMY_CONFIG: Record<
   SugyaNodeType | string, 
-  { label: string; icon: string; badgeClass: string; borderClass: string }
+  { label: string; icon: string; badgeClass: string; borderClass: string; bgCardClass: string }
 > = {
   Statement: {
     label: 'Statement',
     icon: '📌',
-    badgeClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
+    badgeClass: 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/40',
     borderClass: 'border-l-blue-500',
+    bgCardClass: 'bg-blue-500/10 border-blue-500/30 dark:bg-blue-950/25',
   },
   Question: {
     label: 'Question',
     icon: '❓',
-    badgeClass: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30',
+    badgeClass: 'bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/40',
     borderClass: 'border-l-purple-500',
+    bgCardClass: 'bg-purple-500/10 border-purple-500/30 dark:bg-purple-950/25',
   },
   Attack: {
     label: 'Attack',
     icon: '⚔️',
-    badgeClass: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30',
+    badgeClass: 'bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/40',
     borderClass: 'border-l-red-500',
+    bgCardClass: 'bg-red-500/10 border-red-500/30 dark:bg-red-950/25',
   },
   Defense: {
     label: 'Defense',
     icon: '🛡️',
-    badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
+    badgeClass: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40',
     borderClass: 'border-l-emerald-500',
+    bgCardClass: 'bg-emerald-500/10 border-emerald-500/30 dark:bg-emerald-950/25',
   },
   Proof: {
     label: 'Proof',
     icon: '🧾',
-    badgeClass: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
+    badgeClass: 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-500/40',
     borderClass: 'border-l-sky-500',
+    bgCardClass: 'bg-sky-500/10 border-sky-500/30 dark:bg-sky-950/25',
   },
   Answer: {
     label: 'Answer',
     icon: '💡',
-    badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
+    badgeClass: 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40',
     borderClass: 'border-l-amber-500',
+    bgCardClass: 'bg-amber-500/10 border-amber-500/30 dark:bg-amber-950/25',
   },
 };
 
@@ -79,14 +85,14 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
         data-is-active-ref={isRefMatched ? "true" : "false"}
         id={`sugya-tree-node-${node.id}`}
         className={cn(
-          "group flex items-start gap-2 p-2 rounded-lg border border-border/40 transition-all cursor-pointer select-none",
+          "group flex items-start gap-2 p-2 rounded-lg border transition-all cursor-pointer select-none border-l-4",
           config.borderClass,
-          "border-l-4",
+          config.bgCardClass,
           currentRef
             ? (isRefMatched
-                ? "bg-card shadow-md opacity-100 ring-2 ring-amber-500/40 font-semibold"
-                : "bg-card/30 opacity-45 grayscale-[15%] hover:opacity-90 hover:grayscale-0")
-            : "bg-card/60 hover:bg-accent/40"
+                ? "opacity-100 shadow-md font-semibold ring-1 ring-amber-500/40"
+                : "opacity-45 grayscale-[15%] hover:opacity-90 hover:grayscale-0")
+            : "opacity-100 hover:bg-accent/40"
         )}
         onClick={() => onNodeClick(node)}
         onMouseEnter={() => {
