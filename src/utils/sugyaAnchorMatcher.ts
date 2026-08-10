@@ -100,12 +100,15 @@ export function getSugyaRanges(
       const typeClass = `type-${node.type || 'Statement'}`;
       const oddEvenClass = (node.sub_index || 0) % 2 === 0 ? 'sub-even' : 'sub-odd';
       const tooltipText = `${node.speaker ? `[${node.speaker}] ` : ''}${node.title || node.title_ru || ''}`;
+      
+      const isNodeActive = String(node.id || '') === activeHighlightedNodeId;
+      const activeClass = isNodeActive ? 'sugya-node-hover-active' : '';
 
       sugyaRanges.push({
         start: startClean,
         end: endClean,
         layer: 'sugya',
-        classes: ['sugya-span-text', levelClass, typeClass, oddEvenClass, 'cursor-pointer', 'transition-all', 'hover:brightness-125'],
+        classes: ['sugya-span-text', levelClass, typeClass, oddEvenClass, activeClass, 'cursor-pointer', 'transition-all', 'hover:brightness-125'].filter(Boolean),
         attributes: {
           'data-node-id': String(node.id || ''),
           'data-node-type': String(node.type || 'Statement'),
