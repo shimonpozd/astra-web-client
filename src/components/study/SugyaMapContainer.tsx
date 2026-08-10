@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Zap, RefreshCw, AlertCircle, Map as MapIcon, Layers, RotateCcw, Palette, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import { calculateSugyaMap, SugyaMapData, SugyaNode } from '../../services/sugyaApi';
 import { SugyaTreeNodeItem, TreeHierarchyNode } from './SugyaTreeNode';
-import { scrollToAnchor, applyWholeSugyaHighlight } from '../../utils/sugyaAnchorMatcher';
+import { scrollToAnchor, applyWholeSugyaHighlight, setSelectedSugyaNode } from '../../utils/sugyaAnchorMatcher';
 import { isRefOverlap } from '../../utils/refUtils';
 import { Button } from '../ui/button';
 import { TextSegment } from '../../types/text';
@@ -225,6 +225,7 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
 
   const handleNodeClick = useCallback((node: SugyaNode) => {
     const targetRef = node.ref || currentRef;
+    setSelectedSugyaNode(String(node.id), String(node.type));
     scrollToAnchor(
       targetRef,
       node.start_anchor,

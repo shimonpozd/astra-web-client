@@ -2,6 +2,9 @@ import { isRefOverlap } from './refUtils';
 import { buildCleanToRawMap, compositeTextWithHighlights, HighlightRange } from '../components/study/TraditionalTalmudDaf/utils/highlightComposer';
 import { stripPunctuation } from './hebrewUtils';
 
+let selectedNodeId: string | null = null;
+let selectedNodeType: string | null = null;
+
 export function stripHebrewVowels(text: string): string {
   if (!text) return '';
   return text
@@ -115,9 +118,6 @@ export function getSugyaRanges(
   return sugyaRanges;
 }
 
-/**
- * Оборачивает фазы текста Гмары в Bidi-safe скобки ❪ ❫, микро-иконки и цветные подчёркивания.
- */
 export function applySugyaSpansToSegmentHtml(
   htmlText: string,
   ref: string,
@@ -137,6 +137,27 @@ export function scrollToAnchor(ref?: string, _startAnchor?: string, _endAnchor?:
   targetElements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+export function setSelectedSugyaNode(nodeId?: string, nodeType?: string) {
+  if (selectedNodeId) {
+    const prevSpans = document.querySelectorAll(`.sugya-span-text[data-node-id="${CSS.escape(selectedNodeId)}"]`);
+    const prevCards = document.querySelectorAll(`[data-sugya-node-id="${CSS.escape(selectedNodeId)}"]`);
+    const typeCls = `type-${selectedNodeType || 'Statement'}`;
+    prevSpans.forEach(el => el.classList.remove('sugya-node-hover-active', typeCls));
+    prevCards.forEach(el => el.classList.remove('sugya-tree-node-selected-active', typeCls));
+  }
+
+  selectedNodeId = nodeId || null;
+  selectedNodeType = nodeType || null;
+
+  if (selectedNodeId) {
+    const nextSpans = document.querySelectorAll(`.sugya-span-text[data-node-id="${CSS.escape(selectedNodeId)}"]`);
+    const nextCards = document.querySelectorAll(`[data-sugya-node-id="${CSS.escape(selectedNodeId)}"]`);
+    const typeCls = `type-${selectedNodeType || 'Statement'}`;
+    nextSpans.forEach(el => el.classList.add('sugya-node-hover-active', typeCls));
+    nextCards.forEach(el => el.classList.add('sugya-tree-node-selected-active', typeCls));
+  }
+}
+
 export function highlightNodeHover(nodeId?: string, nodeType?: string, isHovered: boolean = true) {
   if (!nodeId) return;
   const spans = document.querySelectorAll(`.sugya-span-text[data-node-id="${CSS.escape(nodeId)}"]`);
@@ -146,7 +167,9 @@ export function highlightNodeHover(nodeId?: string, nodeType?: string, isHovered
     if (isHovered) {
       el.classList.add('sugya-node-hover-active', typeCls);
     } else {
-      el.classList.remove('sugya-node-hover-active', typeCls);
+      if (selectedNodeId !== nodeId) {
+        el.classList.remove('sugya-node-hover-active', typeCls);
+      }
     }
   });
 }
@@ -164,7 +187,9 @@ export function highlightMindMapNodeOnHover(nodeId?: string, nodeType?: string, 
     });
   } else {
     targetCards.forEach((el) => {
-      el.classList.remove('sugya-tree-node-hover-active', typeCls);
+      if (selectedNodeId !== nodeId) {
+        el.classList.remove('sugya-tree-node-hover-active', typeCls);
+      }
     });
     if (treeRoot) {
       const remainingHover = treeRoot.querySelectorAll('.sugya-tree-node-hover-active');

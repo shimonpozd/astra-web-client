@@ -25,7 +25,7 @@ import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
 import ProfileInspectorModal from '../ProfileInspectorModal';
 import { parseRefSmart } from '../../../utils/refUtils';
-import { scrollToAnchor, highlightMindMapNodeOnHover, applyWholeSugyaHighlight, applySugyaSpansToSegmentHtml, getActiveSugyaNodes, getSugyaRanges } from '../../../utils/sugyaAnchorMatcher';
+import { scrollToAnchor, highlightMindMapNodeOnHover, applyWholeSugyaHighlight, applySugyaSpansToSegmentHtml, getActiveSugyaNodes, getSugyaRanges, setSelectedSugyaNode } from '../../../utils/sugyaAnchorMatcher';
 
 import {
   TraditionalComment,
@@ -1111,7 +1111,13 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                               : "text-stone-400 dark:text-stone-500 opacity-60 hover:opacity-90")
                           : "opacity-100 hover:bg-primary/5 rounded-none"
                       )}
-                      onClick={(e) => handleGemaraClick(e, segment.ref)}
+                      onClick={(e) => {
+                        const sugyaSpan = (e.target as HTMLElement).closest('.sugya-span-text') as HTMLElement | null;
+                        if (sugyaSpan?.dataset.nodeId) {
+                          setSelectedSugyaNode(sugyaSpan.dataset.nodeId, sugyaSpan.dataset.nodeType);
+                        }
+                        handleGemaraClick(e, segment.ref);
+                      }}
                       onMouseOver={(e) => {
                         const sugyaSpan = (e.target as HTMLElement).closest('.sugya-span-text') as HTMLElement | null;
                         if (sugyaSpan) {
