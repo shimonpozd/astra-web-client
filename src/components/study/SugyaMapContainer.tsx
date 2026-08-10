@@ -396,7 +396,7 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
             </div>
 
             {/* Tree Nodes Hierarchy */}
-            <div className="space-y-1">
+            <div className="space-y-1" data-sugya-tree-root="true">
               {hierarchyTree.map((node) => (
                 <SugyaTreeNodeItem
                   key={node.id}

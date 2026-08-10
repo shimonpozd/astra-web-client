@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, Bookmark, User, CornerDownRight } from 'lucide-react';
 import { SugyaNode, SugyaNodeType } from '../../services/sugyaApi';
-import { highlightNodeHover, scrollToAnchor } from '../../utils/sugyaAnchorMatcher';
+import { highlightNodeHover, highlightMindMapNodeOnHover } from '../../utils/sugyaAnchorMatcher';
 import { cn } from '../../lib/utils';
 
 export interface TreeHierarchyNode extends SugyaNode {
@@ -69,6 +69,8 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
   return (
     <div className="flex flex-col space-y-1 my-1">
       <div
+        data-sugya-node-id={node.id}
+        data-node-type={node.type}
         data-sugya-node-ref={node.ref}
         id={`sugya-tree-node-${node.id}`}
         className={cn(
@@ -77,8 +79,14 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
           "border-l-4"
         )}
         onClick={() => onNodeClick(node)}
-        onMouseEnter={() => highlightNodeHover(node.ref, node.type, true, node.start_anchor, node.end_anchor, node.sub_index, undefined, node.start_word_idx, node.end_word_idx)}
-        onMouseLeave={() => highlightNodeHover(node.ref, node.type, false, node.start_anchor, node.end_anchor, node.sub_index, undefined, node.start_word_idx, node.end_word_idx)}
+        onMouseEnter={() => {
+          highlightNodeHover(String(node.id), String(node.type), true);
+          highlightMindMapNodeOnHover(String(node.id), String(node.type), true);
+        }}
+        onMouseLeave={() => {
+          highlightNodeHover(String(node.id), String(node.type), false);
+          highlightMindMapNodeOnHover(String(node.id), String(node.type), false);
+        }}
       >
         {/* Expand / Collapse toggle */}
         {hasChildren ? (
@@ -150,15 +158,14 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
         </div>
       </div>
 
-      {/* Nested Children Tree */}
+      {/* Nested Children Nodes */}
       {hasChildren && isExpanded && (
-        <div className="pl-4 border-l-2 border-border/30 ml-2 space-y-1">
+        <div className="pl-4 sm:pl-5 border-l border-border/30 ml-2 space-y-1">
           {node.children.map((childNode) => (
             <SugyaTreeNodeItem
               key={childNode.id}
               node={childNode}
               onNodeClick={onNodeClick}
-              defaultExpanded={defaultExpanded}
             />
           ))}
         </div>

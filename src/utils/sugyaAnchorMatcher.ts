@@ -105,6 +105,7 @@ export function getSugyaRanges(
         classes: ['sugya-span-text', levelClass, typeClass, oddEvenClass, 'cursor-pointer', 'transition-all', 'hover:brightness-125'],
         attributes: {
           'data-node-id': String(node.id || ''),
+          'data-node-type': String(node.type || 'Statement'),
           'title': tooltipText,
         },
       });
@@ -136,24 +137,42 @@ export function scrollToAnchor(ref?: string, _startAnchor?: string, _endAnchor?:
   targetElements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-export function highlightNodeHover(ref?: string, _nodeType?: string, isHovered: boolean = true) {
-  if (!ref) return;
-  const targetElements = getDOMTargetElementsForRef(ref);
-  targetElements.forEach((el) => {
-    if (isHovered) el.classList.add('sugya-node-hover-active');
-    else el.classList.remove('sugya-node-hover-active');
+export function highlightNodeHover(nodeId?: string, nodeType?: string, isHovered: boolean = true) {
+  if (!nodeId) return;
+  const spans = document.querySelectorAll(`.sugya-span-text[data-node-id="${CSS.escape(nodeId)}"]`);
+  const typeCls = `type-${nodeType || 'Statement'}`;
+
+  spans.forEach((el) => {
+    if (isHovered) {
+      el.classList.add('sugya-node-hover-active', typeCls);
+    } else {
+      el.classList.remove('sugya-node-hover-active', typeCls);
+    }
   });
 }
 
-export function highlightMindMapNodeOnHover(ref?: string, isHovered: boolean = true) {
-  if (!ref) return;
-  document.querySelectorAll('[data-sugya-node-ref]').forEach((el) => {
-    const nodeRef = el.getAttribute('data-sugya-node-ref');
-    if (nodeRef && isRefOverlap(ref, nodeRef)) {
-      if (isHovered) el.classList.add('sugya-tree-node-hover-active');
-      else el.classList.remove('sugya-tree-node-hover-active');
+export function highlightMindMapNodeOnHover(nodeId?: string, nodeType?: string, isHovered: boolean = true) {
+  if (!nodeId) return;
+  const treeRoot = document.querySelector('[data-sugya-tree-root]');
+  const targetCards = document.querySelectorAll(`[data-sugya-node-id="${CSS.escape(nodeId)}"], #sugya-tree-node-${CSS.escape(nodeId)}`);
+  const typeCls = `type-${nodeType || 'Statement'}`;
+
+  if (isHovered) {
+    if (treeRoot) treeRoot.classList.add('sugya-tree-has-hover');
+    targetCards.forEach((el) => {
+      el.classList.add('sugya-tree-node-hover-active', typeCls);
+    });
+  } else {
+    targetCards.forEach((el) => {
+      el.classList.remove('sugya-tree-node-hover-active', typeCls);
+    });
+    if (treeRoot) {
+      const remainingHover = treeRoot.querySelectorAll('.sugya-tree-node-hover-active');
+      if (remainingHover.length === 0) {
+        treeRoot.classList.remove('sugya-tree-has-hover');
+      }
     }
-  });
+  }
 }
 
 export function applyWholeSugyaHighlight(nodes?: any[], isVisible: boolean = true) {
