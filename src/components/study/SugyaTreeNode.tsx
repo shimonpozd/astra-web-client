@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, Bookmark, User, CornerDownRight } from 'lucide-react';
 import { SugyaNode, SugyaNodeType } from '../../services/sugyaApi';
-import { highlightNodeHover, highlightMindMapNodeOnHover } from '../../utils/sugyaAnchorMatcher';
+import { highlightMindMapNodeOnHover } from '../../utils/sugyaAnchorMatcher';
 import { isRefOverlap } from '../../utils/refUtils';
 import { cn } from '../../lib/utils';
 
@@ -96,7 +96,6 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
         )}
         onClick={() => onNodeClick(node)}
         onMouseEnter={() => {
-          highlightNodeHover(String(node.id), String(node.type), true);
           highlightMindMapNodeOnHover(String(node.id), String(node.type), true);
         }}
       >
