@@ -99,10 +99,6 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
           highlightNodeHover(String(node.id), String(node.type), true);
           highlightMindMapNodeOnHover(String(node.id), String(node.type), true);
         }}
-        onMouseLeave={() => {
-          highlightNodeHover(String(node.id), String(node.type), false);
-          highlightMindMapNodeOnHover(String(node.id), String(node.type), false);
-        }}
       >
         {/* Expand / Collapse toggle */}
         {hasChildren ? (

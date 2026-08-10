@@ -141,16 +141,40 @@ export function setSelectedSugyaNode(nodeId?: string, nodeType?: string) {
   highlightNodeHover(nodeId, nodeType, true);
 }
 
+export function clearSugyaHoverState() {
+  if (activeHighlightedNodeId) {
+    const prevId = activeHighlightedNodeId;
+    const prevType = activeHighlightedNodeType;
+    document.querySelectorAll('.sugya-span-text').forEach((el) => {
+      if (el.getAttribute('data-node-id') === prevId) {
+        el.classList.remove('sugya-node-hover-active', `type-${prevType || 'Statement'}`);
+      }
+    });
+    activeHighlightedNodeId = null;
+    activeHighlightedNodeType = null;
+  }
+
+  const treeRoot = document.querySelector('[data-sugya-tree-root]');
+  if (treeRoot) {
+    treeRoot.classList.remove('sugya-tree-has-hover');
+    treeRoot.querySelectorAll('.sugya-tree-node-hover-active').forEach((el) => {
+      el.classList.remove('sugya-tree-node-hover-active');
+    });
+  }
+}
+
 export function highlightNodeHover(nodeId?: string, nodeType?: string, isHovered: boolean = true) {
   if (!nodeId) return;
 
   if (isHovered) {
-    // Clear previous highlighted spans in top text
-    if (activeHighlightedNodeId && activeHighlightedNodeId !== nodeId) {
+    if (activeHighlightedNodeId === nodeId) return;
+
+    if (activeHighlightedNodeId) {
+      const prevId = activeHighlightedNodeId;
+      const prevType = activeHighlightedNodeType;
       document.querySelectorAll('.sugya-span-text').forEach((el) => {
-        if (el.getAttribute('data-node-id') === activeHighlightedNodeId) {
-          const typeCls = `type-${activeHighlightedNodeType || 'Statement'}`;
-          el.classList.remove('sugya-node-hover-active', typeCls);
+        if (el.getAttribute('data-node-id') === prevId) {
+          el.classList.remove('sugya-node-hover-active', `type-${prevType || 'Statement'}`);
         }
       });
     }
@@ -158,7 +182,6 @@ export function highlightNodeHover(nodeId?: string, nodeType?: string, isHovered
     activeHighlightedNodeId = nodeId;
     activeHighlightedNodeType = nodeType || 'Statement';
 
-    // Highlight new spans in top text
     const typeCls = `type-${activeHighlightedNodeType}`;
     document.querySelectorAll('.sugya-span-text').forEach((el) => {
       if (el.getAttribute('data-node-id') === nodeId) {
@@ -166,8 +189,6 @@ export function highlightNodeHover(nodeId?: string, nodeType?: string, isHovered
       }
     });
   }
-  // Note: On mouse leave (isHovered = false), we deliberately KEEP activeHighlightedNodeId
-  // highlighted in the top text so the user can read the text without losing their position!
 }
 
 export function highlightMindMapNodeOnHover(nodeId?: string, nodeType?: string, isHovered: boolean = true) {
@@ -178,7 +199,6 @@ export function highlightMindMapNodeOnHover(nodeId?: string, nodeType?: string, 
   if (isHovered) {
     if (treeRoot) treeRoot.classList.add('sugya-tree-has-hover');
 
-    // Remove hover active from all other mindmap cards
     document.querySelectorAll('.sugya-tree-node-hover-active').forEach((el) => {
       el.classList.remove('sugya-tree-node-hover-active');
     });
@@ -188,15 +208,6 @@ export function highlightMindMapNodeOnHover(nodeId?: string, nodeType?: string, 
         el.classList.add('sugya-tree-node-hover-active', typeCls);
       }
     });
-  } else {
-    // Keep highlighted mindmap card if it matches the active highlighted node
-    if (activeHighlightedNodeId !== nodeId) {
-      document.querySelectorAll('[data-sugya-node-id]').forEach((el) => {
-        if (el.getAttribute('data-sugya-node-id') === nodeId) {
-          el.classList.remove('sugya-tree-node-hover-active', typeCls);
-        }
-      });
-    }
   }
 }
 
