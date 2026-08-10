@@ -401,6 +401,7 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
                 <SugyaTreeNodeItem
                   key={node.id}
                   node={node}
+                  currentRef={currentRef}
                   onNodeClick={handleNodeClick}
                 />
               ))}

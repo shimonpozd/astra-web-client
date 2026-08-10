@@ -315,17 +315,17 @@
 .sugya-span-text.sub-even { filter: contrast(1.0); }
 .sugya-span-text.sub-odd  { filter: brightness(0.90) contrast(1.18); }
 
-.sugya-span-text.type-Statement { background-color: rgba(59, 130, 246, 0.18); }
-.sugya-span-text.type-Question  { background-color: rgba(168, 85, 247, 0.18); }
-.sugya-span-text.type-Attack    { background-color: rgba(239, 68, 68, 0.18); }
-.sugya-span-text.type-Defense   { background-color: rgba(34, 197, 94, 0.18); }
-.sugya-span-text.type-Proof     { background-color: rgba(14, 165, 233, 0.18); }
-.sugya-span-text.type-Answer    { background-color: rgba(245, 158, 11, 0.18); }
+.sugya-span-text.type-Statement { background-color: rgba(59, 130, 246, 0.18) !important; }
+.sugya-span-text.type-Question  { background-color: rgba(168, 85, 247, 0.18) !important; }
+.sugya-span-text.type-Attack    { background-color: rgba(239, 68, 68, 0.18) !important; }
+.sugya-span-text.type-Defense   { background-color: rgba(34, 197, 94, 0.18) !important; }
+.sugya-span-text.type-Proof     { background-color: rgba(14, 165, 233, 0.18) !important; }
+.sugya-span-text.type-Answer    { background-color: rgba(245, 158, 11, 0.18) !important; }
 
 /* Container dimming rule when hovering over a node in the Sugya MindMap */
 [data-sugya-tree-root].sugya-tree-has-hover [data-sugya-node-id] {
-  opacity: 0.45;
-  filter: grayscale(15%);
+  opacity: 0.40 !important;
+  filter: grayscale(20%) !important;
   transition: opacity 0.2s ease, filter 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -338,42 +338,49 @@
 .sugya-node-hover-active {
   z-index: 10;
   transition: all 0.2s ease;
+  filter: brightness(1.15) !important;
 }
 
 .sugya-node-hover-active.type-Statement {
-  box-shadow: 0 0 16px 3px rgba(59, 130, 246, 0.65) !important;
+  box-shadow: 0 0 14px 2px rgba(59, 130, 246, 0.55) !important;
   outline: 2px solid #3b82f6 !important;
   outline-offset: 1px;
+  background-color: rgba(59, 130, 246, 0.28) !important;
 }
 
 .sugya-node-hover-active.type-Question {
-  box-shadow: 0 0 16px 3px rgba(168, 85, 247, 0.65) !important;
+  box-shadow: 0 0 14px 2px rgba(168, 85, 247, 0.55) !important;
   outline: 2px solid #a855f7 !important;
   outline-offset: 1px;
+  background-color: rgba(168, 85, 247, 0.28) !important;
 }
 
 .sugya-node-hover-active.type-Attack {
-  box-shadow: 0 0 16px 3px rgba(239, 68, 68, 0.65) !important;
+  box-shadow: 0 0 14px 2px rgba(239, 68, 68, 0.55) !important;
   outline: 2px solid #ef4444 !important;
   outline-offset: 1px;
+  background-color: rgba(239, 68, 68, 0.28) !important;
 }
 
 .sugya-node-hover-active.type-Defense {
-  box-shadow: 0 0 16px 3px rgba(34, 197, 94, 0.65) !important;
+  box-shadow: 0 0 14px 2px rgba(34, 197, 94, 0.55) !important;
   outline: 2px solid #22c55e !important;
   outline-offset: 1px;
+  background-color: rgba(34, 197, 94, 0.28) !important;
 }
 
 .sugya-node-hover-active.type-Proof {
-  box-shadow: 0 0 16px 3px rgba(14, 165, 233, 0.65) !important;
+  box-shadow: 0 0 14px 2px rgba(14, 165, 233, 0.55) !important;
   outline: 2px solid #0ea5e9 !important;
   outline-offset: 1px;
+  background-color: rgba(14, 165, 233, 0.28) !important;
 }
 
 .sugya-node-hover-active.type-Answer {
-  box-shadow: 0 0 16px 3px rgba(245, 158, 11, 0.65) !important;
+  box-shadow: 0 0 14px 2px rgba(245, 158, 11, 0.55) !important;
   outline: 2px solid #f59e0b !important;
   outline-offset: 1px;
+  background-color: rgba(245, 158, 11, 0.28) !important;
 }
 
 /* Sugya Mind Map Tree Node Hover Glow (Semantic Taxonomy Colors) */

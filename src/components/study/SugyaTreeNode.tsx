@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, Bookmark, User, CornerDownRight } from 'lucide-react';
 import { SugyaNode, SugyaNodeType } from '../../services/sugyaApi';
 import { highlightNodeHover, highlightMindMapNodeOnHover } from '../../utils/sugyaAnchorMatcher';
+import { isRefOverlap } from '../../utils/refUtils';
 import { cn } from '../../lib/utils';
 
 export interface TreeHierarchyNode extends SugyaNode {
@@ -12,6 +13,7 @@ interface SugyaTreeNodeProps {
   node: TreeHierarchyNode;
   onNodeClick: (node: SugyaNode) => void;
   defaultExpanded?: boolean;
+  currentRef?: string;
 }
 
 const TAXONOMY_CONFIG: Record<
@@ -60,11 +62,13 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
   node,
   onNodeClick,
   defaultExpanded = true,
+  currentRef,
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const hasChildren = node.children && node.children.length > 0;
 
   const config = TAXONOMY_CONFIG[node.type] || TAXONOMY_CONFIG.Statement;
+  const isRefMatched = currentRef && node.ref && isRefOverlap(currentRef, node.ref);
 
   return (
     <div className="flex flex-col space-y-1 my-1">
@@ -74,9 +78,14 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
         data-sugya-node-ref={node.ref}
         id={`sugya-tree-node-${node.id}`}
         className={cn(
-          "group flex items-start gap-2 p-2 rounded-lg border border-border/40 bg-card/60 hover:bg-accent/40 transition-all cursor-pointer select-none",
+          "group flex items-start gap-2 p-2 rounded-lg border border-border/40 transition-all cursor-pointer select-none",
           config.borderClass,
-          "border-l-4"
+          "border-l-4",
+          currentRef
+            ? (isRefMatched
+                ? "bg-card shadow-sm opacity-100 ring-1 ring-amber-500/30 font-semibold"
+                : "bg-card/30 opacity-45 grayscale-[15%] hover:opacity-90 hover:grayscale-0")
+            : "bg-card/60 hover:bg-accent/40"
         )}
         onClick={() => onNodeClick(node)}
         onMouseEnter={() => {
@@ -165,6 +174,7 @@ export const SugyaTreeNodeItem: React.FC<SugyaTreeNodeProps> = ({
             <SugyaTreeNodeItem
               key={childNode.id}
               node={childNode}
+              currentRef={currentRef}
               onNodeClick={onNodeClick}
             />
           ))}
