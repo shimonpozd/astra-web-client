@@ -342,53 +342,53 @@
   filter: none !important;
 }
 
-/* Sugya Hover Glow in Talmud Text */
+/* High-Contrast Vibrant Sugya Hover Glow in Talmud Text */
 .sugya-node-hover-active {
-  z-index: 10;
-  transition: all 0.2s ease;
-  filter: brightness(1.15) !important;
+  z-index: 50 !important;
+  transition: all 0.15s ease-in-out;
+  filter: brightness(1.25) contrast(1.1) !important;
 }
 
 .sugya-node-hover-active.type-Statement {
-  box-shadow: 0 0 14px 2px rgba(59, 130, 246, 0.55) !important;
-  outline: 2px solid #3b82f6 !important;
+  box-shadow: 0 0 18px 4px rgba(59, 130, 246, 0.75), inset 0 0 8px rgba(59, 130, 246, 0.3) !important;
+  outline: 2.5px solid #2563eb !important;
   outline-offset: 1px;
-  background-color: rgba(59, 130, 246, 0.28) !important;
+  background-color: rgba(59, 130, 246, 0.40) !important;
 }
 
 .sugya-node-hover-active.type-Question {
-  box-shadow: 0 0 14px 2px rgba(168, 85, 247, 0.55) !important;
-  outline: 2px solid #a855f7 !important;
+  box-shadow: 0 0 18px 4px rgba(168, 85, 247, 0.75), inset 0 0 8px rgba(168, 85, 247, 0.3) !important;
+  outline: 2.5px solid #9333ea !important;
   outline-offset: 1px;
-  background-color: rgba(168, 85, 247, 0.28) !important;
+  background-color: rgba(168, 85, 247, 0.40) !important;
 }
 
 .sugya-node-hover-active.type-Attack {
-  box-shadow: 0 0 14px 2px rgba(239, 68, 68, 0.55) !important;
-  outline: 2px solid #ef4444 !important;
+  box-shadow: 0 0 18px 4px rgba(239, 68, 68, 0.75), inset 0 0 8px rgba(239, 68, 68, 0.3) !important;
+  outline: 2.5px solid #dc2626 !important;
   outline-offset: 1px;
-  background-color: rgba(239, 68, 68, 0.28) !important;
+  background-color: rgba(239, 68, 68, 0.40) !important;
 }
 
 .sugya-node-hover-active.type-Defense {
-  box-shadow: 0 0 14px 2px rgba(34, 197, 94, 0.55) !important;
-  outline: 2px solid #22c55e !important;
+  box-shadow: 0 0 18px 4px rgba(34, 197, 94, 0.75), inset 0 0 8px rgba(34, 197, 94, 0.3) !important;
+  outline: 2.5px solid #16a34a !important;
   outline-offset: 1px;
-  background-color: rgba(34, 197, 94, 0.28) !important;
+  background-color: rgba(34, 197, 94, 0.40) !important;
 }
 
 .sugya-node-hover-active.type-Proof {
-  box-shadow: 0 0 14px 2px rgba(14, 165, 233, 0.55) !important;
-  outline: 2px solid #0ea5e9 !important;
+  box-shadow: 0 0 18px 4px rgba(14, 165, 233, 0.75), inset 0 0 8px rgba(14, 165, 233, 0.3) !important;
+  outline: 2.5px solid #0284c7 !important;
   outline-offset: 1px;
-  background-color: rgba(14, 165, 233, 0.28) !important;
+  background-color: rgba(14, 165, 233, 0.40) !important;
 }
 
 .sugya-node-hover-active.type-Answer {
-  box-shadow: 0 0 14px 2px rgba(245, 158, 11, 0.55) !important;
-  outline: 2px solid #f59e0b !important;
+  box-shadow: 0 0 18px 4px rgba(245, 158, 11, 0.75), inset 0 0 8px rgba(245, 158, 11, 0.3) !important;
+  outline: 2.5px solid #d97706 !important;
   outline-offset: 1px;
-  background-color: rgba(245, 158, 11, 0.28) !important;
+  background-color: rgba(245, 158, 11, 0.40) !important;
 }
 
 /* Sugya Mind Map Tree Node Hover Glow (Semantic Taxonomy Colors) */
