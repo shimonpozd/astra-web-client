@@ -2,8 +2,8 @@ import { isRefOverlap } from './refUtils';
 import { buildCleanToRawMap, compositeTextWithHighlights, HighlightRange } from '../components/study/TraditionalTalmudDaf/utils/highlightComposer';
 import { stripPunctuation } from './hebrewUtils';
 
-let selectedNodeId: string | null = null;
-let selectedNodeType: string | null = null;
+let activeHighlightedNodeId: string | null = null;
+let activeHighlightedNodeType: string | null = null;
 
 export function stripHebrewVowels(text: string): string {
   if (!text) return '';
@@ -138,64 +138,64 @@ export function scrollToAnchor(ref?: string, _startAnchor?: string, _endAnchor?:
 }
 
 export function setSelectedSugyaNode(nodeId?: string, nodeType?: string) {
-  if (selectedNodeId) {
-    const prevSpans = document.querySelectorAll(`.sugya-span-text[data-node-id="${CSS.escape(selectedNodeId)}"]`);
-    const prevCards = document.querySelectorAll(`[data-sugya-node-id="${CSS.escape(selectedNodeId)}"]`);
-    const typeCls = `type-${selectedNodeType || 'Statement'}`;
-    prevSpans.forEach(el => el.classList.remove('sugya-node-hover-active', typeCls));
-    prevCards.forEach(el => el.classList.remove('sugya-tree-node-selected-active', typeCls));
-  }
-
-  selectedNodeId = nodeId || null;
-  selectedNodeType = nodeType || null;
-
-  if (selectedNodeId) {
-    const nextSpans = document.querySelectorAll(`.sugya-span-text[data-node-id="${CSS.escape(selectedNodeId)}"]`);
-    const nextCards = document.querySelectorAll(`[data-sugya-node-id="${CSS.escape(selectedNodeId)}"]`);
-    const typeCls = `type-${selectedNodeType || 'Statement'}`;
-    nextSpans.forEach(el => el.classList.add('sugya-node-hover-active', typeCls));
-    nextCards.forEach(el => el.classList.add('sugya-tree-node-selected-active', typeCls));
-  }
+  highlightNodeHover(nodeId, nodeType, true);
 }
 
 export function highlightNodeHover(nodeId?: string, nodeType?: string, isHovered: boolean = true) {
   if (!nodeId) return;
-  const spans = document.querySelectorAll(`.sugya-span-text[data-node-id="${CSS.escape(nodeId)}"]`);
-  const typeCls = `type-${nodeType || 'Statement'}`;
 
-  spans.forEach((el) => {
-    if (isHovered) {
-      el.classList.add('sugya-node-hover-active', typeCls);
-    } else {
-      if (selectedNodeId !== nodeId) {
-        el.classList.remove('sugya-node-hover-active', typeCls);
-      }
+  if (isHovered) {
+    // Clear previous highlighted spans in top text
+    if (activeHighlightedNodeId && activeHighlightedNodeId !== nodeId) {
+      document.querySelectorAll('.sugya-span-text').forEach((el) => {
+        if (el.getAttribute('data-node-id') === activeHighlightedNodeId) {
+          const typeCls = `type-${activeHighlightedNodeType || 'Statement'}`;
+          el.classList.remove('sugya-node-hover-active', typeCls);
+        }
+      });
     }
-  });
+
+    activeHighlightedNodeId = nodeId;
+    activeHighlightedNodeType = nodeType || 'Statement';
+
+    // Highlight new spans in top text
+    const typeCls = `type-${activeHighlightedNodeType}`;
+    document.querySelectorAll('.sugya-span-text').forEach((el) => {
+      if (el.getAttribute('data-node-id') === nodeId) {
+        el.classList.add('sugya-node-hover-active', typeCls);
+      }
+    });
+  }
+  // Note: On mouse leave (isHovered = false), we deliberately KEEP activeHighlightedNodeId
+  // highlighted in the top text so the user can read the text without losing their position!
 }
 
 export function highlightMindMapNodeOnHover(nodeId?: string, nodeType?: string, isHovered: boolean = true) {
   if (!nodeId) return;
   const treeRoot = document.querySelector('[data-sugya-tree-root]');
-  const targetCards = document.querySelectorAll(`[data-sugya-node-id="${CSS.escape(nodeId)}"], #sugya-tree-node-${CSS.escape(nodeId)}`);
   const typeCls = `type-${nodeType || 'Statement'}`;
 
   if (isHovered) {
     if (treeRoot) treeRoot.classList.add('sugya-tree-has-hover');
-    targetCards.forEach((el) => {
-      el.classList.add('sugya-tree-node-hover-active', typeCls);
+
+    // Remove hover active from all other mindmap cards
+    document.querySelectorAll('.sugya-tree-node-hover-active').forEach((el) => {
+      el.classList.remove('sugya-tree-node-hover-active');
+    });
+
+    document.querySelectorAll('[data-sugya-node-id]').forEach((el) => {
+      if (el.getAttribute('data-sugya-node-id') === nodeId) {
+        el.classList.add('sugya-tree-node-hover-active', typeCls);
+      }
     });
   } else {
-    targetCards.forEach((el) => {
-      if (selectedNodeId !== nodeId) {
-        el.classList.remove('sugya-tree-node-hover-active', typeCls);
-      }
-    });
-    if (treeRoot) {
-      const remainingHover = treeRoot.querySelectorAll('.sugya-tree-node-hover-active');
-      if (remainingHover.length === 0) {
-        treeRoot.classList.remove('sugya-tree-has-hover');
-      }
+    // Keep highlighted mindmap card if it matches the active highlighted node
+    if (activeHighlightedNodeId !== nodeId) {
+      document.querySelectorAll('[data-sugya-node-id]').forEach((el) => {
+        if (el.getAttribute('data-sugya-node-id') === nodeId) {
+          el.classList.remove('sugya-tree-node-hover-active', typeCls);
+        }
+      });
     }
   }
 }
