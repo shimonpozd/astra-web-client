@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import DOMPurify from 'dompurify';
-import { 
-  BookOpen, 
-  Languages, 
+import {
+  BookOpen,
+  Languages,
   Type,
   Quote,
   Loader2,
@@ -157,12 +157,12 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     if (!initialSageHighlights || initialSageHighlights.length === 0) {
       fetchSageHighlights().then(data => {
         if (data && data.length > 0) setLocalSageHighlights(data);
-      }).catch(() => {});
+      }).catch(() => { });
     }
     if (!initialConceptHighlights || initialConceptHighlights.length === 0) {
       fetchConceptHighlights().then(data => {
         if (data && data.length > 0) setLocalConceptHighlights(data);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [initialSageHighlights, initialConceptHighlights, setLocalSageHighlights, setLocalConceptHighlights]);
 
@@ -296,7 +296,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     const controller = new AbortController();
     const fallbackRef = currentDafRef || dafRef;
     const rawRef = currentDafRef || dafRef || '';
-    
+
     let targetRef = rawRef;
     let sefariaRef = '';
 
@@ -492,7 +492,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     const cleanRefName = refName.replace(/[^a-z0-9]/gi, '');
 
     return (cleanCName.length > 0 && (cleanCName.includes(cleanTarget) || cleanTarget.includes(cleanCName))) ||
-           (cleanRefName.length > 0 && cleanRefName.includes(cleanTarget));
+      (cleanRefName.length > 0 && cleanRefName.includes(cleanTarget));
   }, []);
 
   const commentsByAnchor = useMemo(() => {
@@ -704,7 +704,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
       setCopyGemaraError("Нет выделенного фрагмента");
       return;
     }
-    
+
     try {
       const stripHtml = (html: string) => {
         if (!html) return "";
@@ -719,9 +719,9 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
       const hebrew = stripHtml(activeHebrewText || activeSegmentData.he_text || activeSegmentData.heText || '');
       const translationHtml = translationLang === 'EN' ? activeEnglishText : translatedText;
       const translation = stripHtml(translationHtml || '');
-      
+
       const textToCopy = `Оригинал (${activeSegmentRef}):\n${hebrew}\n\nПеревод (${translationLang}):\n${translation || 'Недоступен'}`;
-      
+
       const success = await copyToClipboard(textToCopy);
       if (success) {
         setCopiedGemara(true);
@@ -765,7 +765,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
         const heText = comment.he || "";
         const { dh, restHtml } = parseCommentDh(heText);
         const hebrewText = dh ? `${dh} ${stripHtml(restHtml)}` : stripHtml(heText);
-        
+
         let entry = `${index + 1}. ${hebrewText}`;
         if (typeof comment.en === 'string' && comment.en.trim() && comment.en !== heText) {
           entry += `\n   Translation: ${stripHtml(comment.en)}`;
@@ -800,10 +800,10 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     return (
       <div className="flex flex-col h-full bg-muted/10 p-4 font-sans" dir="ltr">
         <div className="flex items-center justify-between mb-4 border-b border-border/50 pb-2">
-           <span className="text-xs font-bold text-primary uppercase tracking-widest">{activeSegmentRef}</span>
+          <span className="text-xs font-bold text-primary uppercase tracking-widest">{activeSegmentRef}</span>
         </div>
-        
-        <div 
+
+        <div
           className="text-foreground text-base md:text-lg leading-relaxed selection:bg-primary/30"
           onDoubleClick={() => {
             const word = window.getSelection()?.toString() || '';
@@ -811,15 +811,15 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
             onLexiconDoubleClick?.(word, context);
           }}
         >
-          {translationLang === 'EN' 
-            ? (activeEnglishText ? <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(activeEnglishText) }} /> : 
-                <span className="opacity-50 italic">English translation is currently unavailable.</span>) 
-            : (isTranslating ? 
-                <div className="flex flex-col items-center gap-4 py-6 opacity-60 italic">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                  <span className="text-sm">Переводим...</span>
-                </div> 
-                : (translatedText ? <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(translatedText) }} /> : <span className="opacity-50 italic">Russian translation not available.</span>))
+          {translationLang === 'EN'
+            ? (activeEnglishText ? <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(activeEnglishText) }} /> :
+              <span className="opacity-50 italic">English translation is currently unavailable.</span>)
+            : (isTranslating ?
+              <div className="flex flex-col items-center gap-4 py-6 opacity-60 italic">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <span className="text-sm">Переводим...</span>
+              </div>
+              : (translatedText ? <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(translatedText) }} /> : <span className="opacity-50 italic">Russian translation not available.</span>))
           }
         </div>
       </div>
@@ -871,7 +871,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   };
 
   return (
-    <div 
+    <div
       className="flex flex-col h-full bg-background text-foreground overflow-hidden relative"
       onClickCapture={handleHighlightClick}
       onTouchStart={handleTouchStart}
@@ -903,7 +903,7 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {isAdmin && (
             <Button
@@ -922,19 +922,19 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
           )}
 
           <div className="flex items-center bg-muted/60 dark:bg-muted/40 border border-border/40 rounded-lg p-0.5 gap-0.5">
-            <Button 
-              variant="ghost" size="sm" 
-              className={cn("h-7 px-2 text-xs transition-colors", !showVowels ? "bg-primary/20 text-primary font-semibold" : "text-muted-foreground hover:text-foreground")} 
+            <Button
+              variant="ghost" size="sm"
+              className={cn("h-7 px-2 text-xs transition-colors", !showVowels ? "bg-primary/20 text-primary font-semibold" : "text-muted-foreground hover:text-foreground")}
               onClick={() => setShowVowels(!showVowels)}
               aria-label="Огласовки"
               title="Vowels (Огласовки)"
             >
               <Type className={cn("w-3.5 h-3.5", showVowels ? "opacity-50" : "text-primary")} />
             </Button>
-            
-            <Button 
-              variant="ghost" size="sm" 
-              className={cn("h-7 px-2 text-xs transition-colors", !showPunctuation ? "bg-primary/20 text-primary font-semibold" : "text-muted-foreground hover:text-foreground")} 
+
+            <Button
+              variant="ghost" size="sm"
+              className={cn("h-7 px-2 text-xs transition-colors", !showPunctuation ? "bg-primary/20 text-primary font-semibold" : "text-muted-foreground hover:text-foreground")}
               onClick={() => setShowPunctuation(!showPunctuation)}
               aria-label="Пунктуация"
               title="Punctuation (Пунктуация)"
@@ -944,9 +944,9 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
           </div>
 
           <div className="flex items-center bg-muted/60 dark:bg-muted/40 border border-border/40 rounded-lg p-0.5 gap-0.5" title="Размер шрифта комментариев">
-            <Button 
-              variant="ghost" size="sm" 
-              className="h-7 w-7 px-0 text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-30" 
+            <Button
+              variant="ghost" size="sm"
+              className="h-7 w-7 px-0 text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-30"
               disabled={commentFontSize === 'sm'}
               onClick={handleDecreaseCommentFontSize}
               aria-label="Уменьшить шрифт"
@@ -957,9 +957,9 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
             <span className="text-[10px] uppercase font-bold px-1 text-muted-foreground/70 select-none">
               {commentFontSize}
             </span>
-            <Button 
-              variant="ghost" size="sm" 
-              className="h-7 w-7 px-0 text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-30" 
+            <Button
+              variant="ghost" size="sm"
+              className="h-7 w-7 px-0 text-xs font-bold text-muted-foreground hover:text-foreground disabled:opacity-30"
               disabled={commentFontSize === 'xl'}
               onClick={handleIncreaseCommentFontSize}
               aria-label="Увеличить шрифт"
@@ -970,21 +970,21 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
           </div>
 
           <div className="flex items-center bg-muted/60 dark:bg-muted/40 border border-border/40 rounded-lg p-0.5 gap-0.5">
-             <button 
-                className={cn("h-7 px-2.5 text-xs rounded-md font-bold transition-all", 
-                  translationLang === 'EN' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                onClick={() => setTranslationLang('EN')}
-              >EN</button>
-               <button 
-                className={cn("h-7 px-2.5 text-xs rounded-md font-bold transition-all", 
-                  translationLang === 'RU' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                onClick={() => setTranslationLang('RU')}
-              >RU</button>
+            <button
+              className={cn("h-7 px-2.5 text-xs rounded-md font-bold transition-all",
+                translationLang === 'EN' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+              onClick={() => setTranslationLang('EN')}
+            >EN</button>
+            <button
+              className={cn("h-7 px-2.5 text-xs rounded-md font-bold transition-all",
+                translationLang === 'RU' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+              onClick={() => setTranslationLang('RU')}
+            >RU</button>
           </div>
 
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground transition-all"
             onClick={onToggleFullscreen}
             aria-label="Полноэкранный режим"
@@ -1002,21 +1002,21 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
       {/* Mobile Navigation Tabs (< 768px) */}
       <div className="md:hidden flex border-b border-border/40 bg-muted/20 text-xs flex-shrink-0">
         <button
-          className={cn("flex-1 py-2 font-bold text-center transition-colors border-b-2", 
+          className={cn("flex-1 py-2 font-bold text-center transition-colors border-b-2",
             mobileTab === 'left' ? "border-primary text-primary bg-primary/5" : "border-transparent text-muted-foreground")}
           onClick={() => setMobileTab('left')}
         >
           {leftTitle}
         </button>
         <button
-          className={cn("flex-1 py-2 font-bold text-center transition-colors border-b-2", 
+          className={cn("flex-1 py-2 font-bold text-center transition-colors border-b-2",
             mobileTab === 'center' ? "border-primary text-primary bg-primary/5" : "border-transparent text-muted-foreground")}
           onClick={() => setMobileTab('center')}
         >
           Текст
         </button>
         <button
-          className={cn("flex-1 py-2 font-bold text-center transition-colors border-b-2", 
+          className={cn("flex-1 py-2 font-bold text-center transition-colors border-b-2",
             mobileTab === 'right' ? "border-primary text-primary bg-primary/5" : "border-transparent text-muted-foreground")}
           onClick={() => setMobileTab('right')}
         >
@@ -1025,9 +1025,9 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden p-0 gap-0 flex-col md:flex-row">
-        {/* Left Column */}
-        <div className={cn("w-full md:w-[28%] lg:w-[320px] xl:w-[350px] flex-shrink-0 flex flex-col h-full min-w-0", mobileTab !== 'left' && "hidden md:flex")}>
+      <div className="flex flex-1 justify-center overflow-hidden p-0 gap-0 flex-col md:flex-row max-w-[1500px] mx-auto w-full">
+        {/* Left Column (Rashi) */}
+        <div className={cn("w-full md:w-[300px] lg:w-[330px] xl:w-[360px] flex-shrink-0 flex flex-col h-full min-w-0 border-r border-border/20", mobileTab !== 'left' && "hidden md:flex")}>
           <CommentaryColumn
             side="left"
             title={leftTitle}
@@ -1058,10 +1058,10 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
           />
         </div>
 
-        {/* Center Column */}
-        <div 
+        {/* Center Column (Gemara) */}
+        <div
           ref={gemaraContainerRef}
-          className={cn("w-full md:flex-1 flex flex-col bg-card/20 overflow-hidden relative h-full", mobileTab !== 'center' && "hidden md:flex")}
+          className={cn("w-full md:flex-1 max-w-[560px] flex flex-col bg-card/20 overflow-hidden relative h-full border-r border-border/20", mobileTab !== 'center' && "hidden md:flex")}
           onMouseOver={handleHighlightMouseOver}
           onMouseOut={handleHighlightMouseOut}
           onMouseUp={handleGemaraMouseUp}
@@ -1093,22 +1093,22 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
           </div>
           <div className="flex-1 px-4 py-6 overflow-y-auto hide-scrollbar">
             {isTalmud ? (
-              <div className="w-full max-w-[32ch] mx-auto text-right font-vilna text-2xl md:text-3xl leading-[2.2] md:leading-[1.6] lg:leading-[1.6] text-justify tracking-wide" style={{ textAlignLast: 'right' }} dir="rtl">
+              <div className="w-full max-w-[44ch] mx-auto text-right font-vilna text-2xl md:text-3xl leading-[2.2] md:leading-[1.6] lg:leading-[1.6] text-justify tracking-wide px-3" style={{ textAlignLast: 'right' }} dir="rtl">
                 {displaySegments.map((segment, idx) => {
                   const isActive = isSameRef(activeSegmentRef || '', segment.ref);
                   const htmlToRender = renderedSegmentHtmls[idx] || '';
 
                   return (
-                    <span 
+                    <span
                       key={segment.ref}
                       data-ref={segment.ref}
                       ref={el => gemaraRefs.current[segment.ref] = el}
                       className={cn(
                         "cursor-pointer transition-all duration-200 select-text inline",
-                        activeSegmentRef 
-                          ? (isActive 
-                              ? "daf-segment-active" 
-                              : "text-stone-400 dark:text-stone-500 opacity-60 hover:opacity-90")
+                        activeSegmentRef
+                          ? (isActive
+                            ? "daf-segment-active"
+                            : "text-stone-400 dark:text-stone-500 opacity-60 hover:opacity-90")
                           : "opacity-100 hover:bg-primary/5 rounded-none"
                       )}
                       onClick={(e) => {
@@ -1172,8 +1172,8 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
                         <span className="text-xs text-muted-foreground font-medium">{segment.ref}</span>
                       </div>
 
-                      <p 
-                        dir="rtl" 
+                      <p
+                        dir="rtl"
                         className="text-right font-serif text-xl sm:text-2xl leading-relaxed text-foreground select-text tracking-normal text-justify"
                         style={{ textAlignLast: 'right' }}
                         dangerouslySetInnerHTML={{ __html: renderedSegmentHtmls[idx] || hebrewText }}
@@ -1226,8 +1226,8 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
           )}
         </div>
 
-        {/* Right Column */}
-        <div className={cn("w-full md:w-[28%] lg:w-[320px] xl:w-[350px] flex-shrink-0 flex flex-col h-full min-w-0", mobileTab !== 'right' && "hidden md:flex")}>
+        {/* Right Column (Tosafot) */}
+        <div className={cn("w-full md:w-[300px] lg:w-[330px] xl:w-[360px] flex-shrink-0 flex flex-col h-full min-w-0", mobileTab !== 'right' && "hidden md:flex")}>
           <CommentaryColumn
             side="right"
             title={rightTitle}

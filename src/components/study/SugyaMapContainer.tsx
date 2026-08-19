@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Zap, RefreshCw, AlertCircle, Map as MapIcon, Layers, RotateCcw, Palette, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import { calculateSugyaMap, SugyaMapData, SugyaNode } from '../../services/sugyaApi';
 import { SugyaTreeNodeItem, TreeHierarchyNode } from './SugyaTreeNode';
@@ -111,6 +111,7 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showLegend, setShowLegend] = useState<boolean>(false);
+  const fetchingRef = useRef<string | null>(null);
 
   // Helper to store mapData into V4 cache
   const cacheMapForTopic = useCallback((data: SugyaMapData, primaryRef?: string) => {
@@ -135,15 +136,13 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
   useEffect(() => {
     if (!currentRef) return;
 
-    setMapData(null);
-    setError(null);
-
     const normalizedRef = currentRef.replace(/[: ]/g, '.');
     const existing =
       GLOBAL_SUGYA_MAP_V4_CACHE[currentRef] ||
       GLOBAL_SUGYA_MAP_V4_CACHE[normalizedRef];
 
     if (existing) {
+      setError(null);
       setMapData(existing);
       return;
     }
@@ -156,6 +155,7 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
       if (stored) {
         const parsed: SugyaMapData = JSON.parse(stored);
         cacheMapForTopic(parsed, currentRef);
+        setError(null);
         setMapData(parsed);
         return;
       }
@@ -163,6 +163,12 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
       // ignore
     }
 
+    // Deduplication guard: don't issue duplicate parallel network requests for the exact same ref
+    if (fetchingRef.current === currentRef) {
+      return;
+    }
+
+    fetchingRef.current = currentRef;
     let isMounted = true;
     calculateSugyaMap(currentRef, segments, undefined, false)
       .then((data) => {
@@ -173,12 +179,17 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
       })
       .catch(() => {
         // Silently ignore if no map exists in DB yet
+      })
+      .finally(() => {
+        if (fetchingRef.current === currentRef) {
+          fetchingRef.current = null;
+        }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [currentRef, segments, cacheMapForTopic]);
+  }, [currentRef, cacheMapForTopic]);
 
   // Apply sugya text highlights and notify reader components whenever mapData or currentRef updates
   useEffect(() => {

@@ -23,6 +23,8 @@ import { SugyaMapContainer } from './SugyaMapContainer';
 import { cn } from '../../lib/utils';
 import type { PanelActions, Persona } from '../../types/chat';
 
+import { ChevronRight, MessageSquare, Network } from 'lucide-react';
+
 interface StudyChatPanelProps {
   className?: string;
   studySessionId: string | null;
@@ -43,6 +45,9 @@ interface StudyChatPanelProps {
   currentRef?: string;
   segments?: TextSegment[];
   snapshot?: StudySnapshot | null;
+  panelMode?: 'chat' | 'map';
+  setPanelMode?: (mode: 'chat' | 'map') => void;
+  onClose?: () => void;
 }
 
 export function StudyChatPanel({
@@ -65,8 +70,13 @@ export function StudyChatPanel({
   currentRef,
   segments,
   snapshot,
+  panelMode: propPanelMode,
+  setPanelMode: propSetPanelMode,
+  onClose,
 }: StudyChatPanelProps) {
-  const [panelMode, setPanelMode] = useState<'chat' | 'map'>('chat');
+  const [localPanelMode, setLocalPanelMode] = useState<'chat' | 'map'>('chat');
+  const panelMode = propPanelMode !== undefined ? propPanelMode : localPanelMode;
+  const setPanelMode = propSetPanelMode || setLocalPanelMode;
   const containerClass = `flex flex-col min-h-0 ${className || ''}`;
 
   const activeRef = currentRef || snapshot?.ref;
@@ -74,34 +84,32 @@ export function StudyChatPanel({
 
   return (
     <div className={containerClass}>
-      {/* Mode Switcher Header */}
-      <div className="flex items-center justify-between border-b border-border/20 px-3 py-1.5 bg-muted/20 flex-shrink-0">
-        <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg">
-          <button
-            type="button"
-            onClick={() => setPanelMode('chat')}
-            className={cn(
-              "px-3 py-1 text-xs rounded-md font-medium transition-all flex items-center gap-1.5",
-              panelMode === 'chat'
-                ? "bg-background text-foreground shadow-sm font-semibold"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            💬 Чат
-          </button>
-          <button
-            type="button"
-            onClick={() => setPanelMode('map')}
-            className={cn(
-              "px-3 py-1 text-xs rounded-md font-medium transition-all flex items-center gap-1.5",
-              panelMode === 'map'
-                ? "bg-background text-foreground shadow-sm font-semibold"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            🗺️ Карта Сугии
-          </button>
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-border/20 px-3 py-2 bg-muted/20 flex-shrink-0">
+        <div className="flex items-center gap-2 font-semibold text-xs text-foreground/80 select-none">
+          {panelMode === 'chat' ? (
+            <>
+              <MessageSquare className="w-4 h-4 text-amber-500" />
+              <span>ИИ-Хаврута</span>
+            </>
+          ) : (
+            <>
+              <Network className="w-4 h-4 text-blue-500" />
+              <span>Карта Сугии</span>
+            </>
+          )}
         </div>
+
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+            title="Свернуть панель чата"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {panelMode === 'map' ? (
@@ -332,6 +340,20 @@ export default function StudyMode({
 
   const [sageHighlights, setSageHighlights] = useState<SageHighlight[]>([]);
   const [conceptHighlights, setConceptHighlights] = useState<ConceptHighlight[]>([]);
+
+  const [activeRightTool, setActiveRightTool] = useState<'chat' | 'map' | null>(
+    showChatPanel ? 'chat' : null
+  );
+
+  useEffect(() => {
+    if (showChatPanel && activeRightTool === null) {
+      setActiveRightTool('chat');
+    }
+  }, [showChatPanel]);
+
+  const handleToolClick = useCallback((tool: 'chat' | 'map') => {
+    setActiveRightTool((prev) => (prev === tool ? null : tool));
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -589,19 +611,45 @@ export default function StudyMode({
   });
 
   return (
-    <div className="flex flex-col h-full panel-inner">
-      <div className="flex flex-1 min-h-0 flex-col">
-        <div className="flex flex-1 min-h-0 flex-col">
-          <div
-            className={
-              showChatPanel
-                ? 'min-h-0 flex-[1_1_50%] basis-1/2 panel-padding'
-                : 'min-h-0 flex-1 panel-padding'
-            }
-          >
-            {layoutVariant === 'traditional' ? (
-              <div className="h-full w-full min-h-0 bg-card/60 rounded-lg overflow-hidden border border-border/60 shadow-sm">
-                <Suspense fallback={null}>
+    <div className="flex flex-row h-full panel-inner min-h-0 overflow-hidden relative">
+      {/* Main Reading & Workbenches Container */}
+      <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden panel-padding">
+        {layoutVariant === 'traditional' ? (
+          <div className="h-full w-full min-h-0 bg-card/60 rounded-lg overflow-hidden border border-border/60 shadow-sm">
+            <Suspense fallback={null}>
+              <TraditionalTalmudDaf
+                dafRef={snapshot?.ref || ''}
+                segments={snapshot?.segments || []}
+                onSegmentClick={(ref) => onNavigateToRef?.(ref)}
+                onDafChange={(nextRef) => onNavigateToRef?.(nextRef)}
+                onLexiconDoubleClick={handleLexiconDoubleClick as any}
+                sageHighlights={sageHighlights}
+                conceptHighlights={conceptHighlights}
+                isFullscreen={isTraditionalFullscreen}
+                onToggleFullscreen={onToggleTraditionalFullscreen}
+                isAdmin={true}
+              />
+            </Suspense>
+          </div>
+        ) : isStackedLayout ? (
+          <div className="h-full flex flex-col gap-spacious min-h-0">
+            <div
+              className={`flex-1 min-h-0 bg-card/60 rounded-lg overflow-hidden transition-all ${
+                selectedPanelId === 'focus'
+                  ? 'focus-reader-selected'
+                  : snapshot?.discussion_focus_ref === snapshot?.ref
+                  ? 'focus-reader-active'
+                  : 'border border-border/60'
+              }`}
+              onClick={(e) => {
+                handlePanelClick('focus');
+                if (e.target === e.currentTarget) {
+                  onFocusClick && onFocusClick();
+                }
+              }}
+            >
+              <Suspense fallback={null}>
+                {layoutVariant === 'traditional' ? (
                   <TraditionalTalmudDaf
                     dafRef={snapshot?.ref || ''}
                     segments={snapshot?.segments || []}
@@ -614,250 +662,258 @@ export default function StudyMode({
                     onToggleFullscreen={onToggleTraditionalFullscreen}
                     isAdmin={true}
                   />
-                </Suspense>
-              </div>
-            ) : isStackedLayout ? (
-              <div className="h-full flex flex-col gap-spacious min-h-0">
-                <div
-                  className={`flex-1 min-h-0 bg-card/60 rounded-lg overflow-hidden transition-all ${
-                    selectedPanelId === 'focus'
-                      ? 'focus-reader-selected'
-                      : snapshot?.discussion_focus_ref === snapshot?.ref
-                      ? 'focus-reader-active'
-                      : 'border border-border/60'
-                  }`}
-                  onClick={(e) => {
-                    handlePanelClick('focus');
-                    if (e.target === e.currentTarget) {
-                      onFocusClick && onFocusClick();
+                ) : (
+                  <FocusReader
+                    continuousText={continuousText}
+                    isLoading={isLoading}
+                    onNavigateToRef={onNavigateToRef}
+                    onLexiconDoubleClick={handleLexiconDoubleClick}
+                    isDailyMode={studySessionId?.startsWith('daily-') || false}
+                    isBackgroundLoading={isBackgroundLoading}
+                    onBack={onNavigateBack}
+                    onForward={onNavigateForward}
+                    onExit={onExit}
+                    currentRef={snapshot?.ref}
+                    canBack={canNavigateBack}
+                    canForward={canNavigateForward}
+                    onToggleLeftPanel={handleToggleLeftPanel}
+                    onToggleRightPanel={handleToggleRightPanel}
+                    showLeftPanel={leftPanelIsVisible}
+                    showRightPanel={rightPanelIsVisible}
+                    sessionId={studySessionId}
+                  />
+                )}
+              </Suspense>
+            </div>
+
+            {leftPanelIsVisible && (
+              <div className="flex-none min-h-[240px] max-h-[60%] overflow-hidden bg-card/60 rounded-lg border border-border/60 transition-all">
+                <WorkbenchPanelInline
+                  title="Левая панель"
+                  item={snapshot?.workbench?.left || null}
+                  active={snapshot?.discussion_focus_ref === snapshot?.workbench?.left?.ref}
+                  selected={selectedPanelId === 'left_workbench'}
+                  sessionId={studySessionId}
+                  onDropRef={(ref: string, dragData) => {
+                    debugLog('StudyMode: Dropped on left workbench:', ref, dragData);
+                    if (dragData?.type === 'group') {
+                      debugLog('Group data:', dragData.data);
                     }
+                    onWorkbenchDrop ? onWorkbenchDrop('left', ref, dragData) : onWorkbenchSet('left', ref, dragData);
                   }}
-                >
-                  <Suspense fallback={null}>
-                    {layoutVariant === 'traditional' ? (
-                      <TraditionalTalmudDaf
-                        dafRef={snapshot?.ref || ''}
-                        segments={snapshot?.segments || []}
-                        onSegmentClick={(ref) => onNavigateToRef?.(ref)}
-                        onDafChange={(nextRef) => onNavigateToRef?.(nextRef)}
-                        onLexiconDoubleClick={handleLexiconDoubleClick as any}
-                        sageHighlights={sageHighlights}
-                        conceptHighlights={conceptHighlights}
-                        isFullscreen={isTraditionalFullscreen}
-                        onToggleFullscreen={onToggleTraditionalFullscreen}
-                        isAdmin={true}
-                      />
-                    ) : (
-                      <FocusReader
-                        continuousText={continuousText}
-                        isLoading={isLoading}
-                        onNavigateToRef={onNavigateToRef}
-                        onLexiconDoubleClick={handleLexiconDoubleClick}
-                        isDailyMode={studySessionId?.startsWith('daily-') || false}
-                        isBackgroundLoading={isBackgroundLoading}
-                        onBack={onNavigateBack}
-                        onForward={onNavigateForward}
-                        onExit={onExit}
-                        currentRef={snapshot?.ref}
-                        canBack={canNavigateBack}
-                        canForward={canNavigateForward}
-                        onToggleLeftPanel={handleToggleLeftPanel}
-                        onToggleRightPanel={handleToggleRightPanel}
-                        showLeftPanel={leftPanelIsVisible}
-                        showRightPanel={rightPanelIsVisible}
-                        sessionId={studySessionId}
-                      />
-                    )}
-                  </Suspense>
-                </div>
-
-                {leftPanelIsVisible && (
-                  <div className="flex-none min-h-[240px] max-h-[60%] overflow-hidden bg-card/60 rounded-lg border border-border/60 transition-all">
-                    <WorkbenchPanelInline
-                      title="Левая панель"
-                      item={snapshot?.workbench?.left || null}
-                      active={snapshot?.discussion_focus_ref === snapshot?.workbench?.left?.ref}
-                      selected={selectedPanelId === 'left_workbench'}
-                      sessionId={studySessionId}
-                      onDropRef={(ref: string, dragData) => {
-                        debugLog('StudyMode: Dropped on left workbench:', ref, dragData);
-                        if (dragData?.type === 'group') {
-                          debugLog('Group data:', dragData.data);
-                        }
-                        onWorkbenchDrop ? onWorkbenchDrop('left', ref, dragData) : onWorkbenchSet('left', ref, dragData);
-                      }}
-                      onPanelClick={() => {
-                        handlePanelClick('left_workbench');
-                      }}
-                      onBorderClick={() => {
-                        onWorkbenchFocus('left');
-                      }}
-                      onClear={snapshot?.workbench?.left ? () => onWorkbenchClear?.('left') : undefined}
-                    />
-                  </div>
-                )}
-
-                {rightPanelIsVisible && (
-                  <div className="flex-none min-h-[240px] max-h-[60%] overflow-hidden bg-card/60 rounded-lg border border-border/60 transition-all">
-                    <WorkbenchPanelInline
-                      title="Правая панель"
-                      item={snapshot?.workbench?.right || null}
-                      active={snapshot?.discussion_focus_ref === snapshot?.workbench?.right?.ref}
-                      selected={selectedPanelId === 'right_workbench'}
-                      sessionId={studySessionId}
-                      onDropRef={(ref: string, dragData) => {
-                        debugLog('StudyMode: Dropped on right workbench:', ref, dragData);
-                        if (dragData?.type === 'group') {
-                          debugLog('Group data:', dragData.data);
-                        }
-                        onWorkbenchDrop ? onWorkbenchDrop('right', ref, dragData) : onWorkbenchSet('right', ref, dragData);
-                      }}
-                      onPanelClick={() => {
-                        handlePanelClick('right_workbench');
-                      }}
-                      onBorderClick={() => {
-                        onWorkbenchFocus('right');
-                      }}
-                      onClear={snapshot?.workbench?.right ? () => onWorkbenchClear?.('right') : undefined}
-                    />
-                  </div>
-                )}
+                  onPanelClick={() => {
+                    handlePanelClick('left_workbench');
+                  }}
+                  onBorderClick={() => {
+                    onWorkbenchFocus('left');
+                  }}
+                  onClear={snapshot?.workbench?.left ? () => onWorkbenchClear?.('left') : undefined}
+                />
               </div>
-            ) : (
-              <div className={`h-full ${gridTemplate} gap-spacious min-h-0`}>
-                {leftPanelIsVisible && (
-                  <div className="min-h-0 max-h-full overflow-hidden">
-                    <WorkbenchPanelInline
-                      title="Левая панель"
-                      item={snapshot?.workbench?.left || null}
-                      active={snapshot?.discussion_focus_ref === snapshot?.workbench?.left?.ref}
-                      selected={selectedPanelId === 'left_workbench'}
-                      sessionId={studySessionId}
-                      onDropRef={(ref: string, dragData) => {
-                        debugLog('StudyMode: Dropped on left workbench:', ref, dragData);
-                        if (dragData?.type === 'group') {
-                          debugLog('Group data:', dragData.data);
-                        }
-                        onWorkbenchDrop ? onWorkbenchDrop('left', ref, dragData) : onWorkbenchSet('left', ref, dragData);
-                      }}
-                      onPanelClick={() => {
-                        handlePanelClick('left_workbench');
-                      }}
-                      onBorderClick={() => {
-                        onWorkbenchFocus('left');
-                      }}
-                      onClear={snapshot?.workbench?.left ? () => onWorkbenchClear?.('left') : undefined}
-                    />
-                  </div>
-                )}
+            )}
 
-                <div
-                  className={`bg-card/60 rounded-lg overflow-hidden transition-all min-h-0 ${
-                    selectedPanelId === 'focus'
-                      ? 'focus-reader-selected'
-                      : snapshot?.discussion_focus_ref === snapshot?.ref
-                      ? 'focus-reader-active'
-                      : 'border border-border/60'
-                  }`}
-                  onClick={(e) => {
-                    handlePanelClick('focus');
-                    if (e.target === e.currentTarget) {
-                      onFocusClick && onFocusClick();
+            {rightPanelIsVisible && (
+              <div className="flex-none min-h-[240px] max-h-[60%] overflow-hidden bg-card/60 rounded-lg border border-border/60 transition-all">
+                <WorkbenchPanelInline
+                  title="Правая панель"
+                  item={snapshot?.workbench?.right || null}
+                  active={snapshot?.discussion_focus_ref === snapshot?.workbench?.right?.ref}
+                  selected={selectedPanelId === 'right_workbench'}
+                  sessionId={studySessionId}
+                  onDropRef={(ref: string, dragData) => {
+                    debugLog('StudyMode: Dropped on right workbench:', ref, dragData);
+                    if (dragData?.type === 'group') {
+                      debugLog('Group data:', dragData.data);
                     }
+                    onWorkbenchDrop ? onWorkbenchDrop('right', ref, dragData) : onWorkbenchSet('right', ref, dragData);
                   }}
-                >
-                  <Suspense fallback={null}>
-                    {layoutVariant === 'traditional' ? (
-                      <TraditionalTalmudDaf
-                        dafRef={snapshot?.ref || ''}
-                        segments={snapshot?.segments || []}
-                        onSegmentClick={(ref) => onNavigateToRef?.(ref)}
-                        onDafChange={(nextRef) => onNavigateToRef?.(nextRef)}
-                        onLexiconDoubleClick={handleLexiconDoubleClick as any}
-                        sageHighlights={sageHighlights}
-                        conceptHighlights={conceptHighlights}
-                        isFullscreen={isTraditionalFullscreen}
-                        onToggleFullscreen={onToggleTraditionalFullscreen}
-                        isAdmin={true}
-                      />
-                    ) : (
-                      <FocusReader
-                        continuousText={continuousText}
-                        isLoading={isLoading}
-                        onNavigateToRef={onNavigateToRef}
-                        onLexiconDoubleClick={handleLexiconDoubleClick}
-                        isDailyMode={studySessionId?.startsWith('daily-') || false}
-                        isBackgroundLoading={isBackgroundLoading}
-                        onBack={onNavigateBack}
-                        onForward={onNavigateForward}
-                        onExit={onExit}
-                        currentRef={snapshot?.ref}
-                        canBack={canNavigateBack}
-                        canForward={canNavigateForward}
-                        onToggleLeftPanel={handleToggleLeftPanel}
-                        onToggleRightPanel={handleToggleRightPanel}
-                        showLeftPanel={leftPanelIsVisible}
-                        showRightPanel={rightPanelIsVisible}
-                        sessionId={studySessionId}
-                      />
-                    )}
-                  </Suspense>
-                </div>
-
-                {rightPanelIsVisible && (
-                  <div className="min-h-0">
-                    <WorkbenchPanelInline
-                      title="Правая панель"
-                      item={snapshot?.workbench?.right || null}
-                      active={snapshot?.discussion_focus_ref === snapshot?.workbench?.right?.ref}
-                      selected={selectedPanelId === 'right_workbench'}
-                      sessionId={studySessionId}
-                      onDropRef={(ref: string, dragData) => {
-                        debugLog('StudyMode: Dropped on right workbench:', ref, dragData);
-                        if (dragData?.type === 'group') {
-                          debugLog('Group data:', dragData.data);
-                        }
-                        onWorkbenchDrop ? onWorkbenchDrop('right', ref, dragData) : onWorkbenchSet('right', ref, dragData);
-                      }}
-                      onPanelClick={() => {
-                        handlePanelClick('right_workbench');
-                      }}
-                      onBorderClick={() => {
-                        onWorkbenchFocus('right');
-                      }}
-                      onClear={snapshot?.workbench?.right ? () => onWorkbenchClear?.('right') : undefined}
-                    />
-                  </div>
-                )}
+                  onPanelClick={() => {
+                    handlePanelClick('right_workbench');
+                  }}
+                  onBorderClick={() => {
+                    onWorkbenchFocus('right');
+                  }}
+                  onClear={snapshot?.workbench?.right ? () => onWorkbenchClear?.('right') : undefined}
+                />
               </div>
             )}
           </div>
+        ) : (
+          <div className={`h-full ${gridTemplate} gap-spacious min-h-0`}>
+            {leftPanelIsVisible && (
+              <div className="min-h-0 max-h-full overflow-hidden">
+                <WorkbenchPanelInline
+                  title="Левая панель"
+                  item={snapshot?.workbench?.left || null}
+                  active={snapshot?.discussion_focus_ref === snapshot?.workbench?.left?.ref}
+                  selected={selectedPanelId === 'left_workbench'}
+                  sessionId={studySessionId}
+                  onDropRef={(ref: string, dragData) => {
+                    debugLog('StudyMode: Dropped on left workbench:', ref, dragData);
+                    if (dragData?.type === 'group') {
+                      debugLog('Group data:', dragData.data);
+                    }
+                    onWorkbenchDrop ? onWorkbenchDrop('left', ref, dragData) : onWorkbenchSet('left', ref, dragData);
+                  }}
+                  onPanelClick={() => {
+                    handlePanelClick('left_workbench');
+                  }}
+                  onBorderClick={() => {
+                    onWorkbenchFocus('left');
+                  }}
+                  onClear={snapshot?.workbench?.left ? () => onWorkbenchClear?.('left') : undefined}
+                />
+              </div>
+            )}
 
-          {showChatPanel && (
-            <StudyChatPanel
-              className="min-h-0 flex-[1_1_50%] basis-1/2 border-t border-border/20"
-              studySessionId={studySessionId}
-              messages={messages}
-              isLoadingMessages={isLoadingMessages}
-              isSending={isSending}
-              setIsSending={setIsSending}
-              setMessages={setMessages}
-              refreshStudySnapshot={refreshStudySnapshot}
-              agentId={agentId}
-              selectedPanelId={selectedPanelId}
-              discussionFocusRef={snapshot?.discussion_focus_ref}
-              snapshot={snapshot}
-              panelActions={composerPanelActions}
-              currentPersona={currentPersona}
-              availablePersonas={availablePersonas}
-              onPersonaChange={onPersonaChange}
-              layoutMode={composerLayoutMode}
-            />
-          )}
-        </div>
+            <div
+              className={`bg-card/60 rounded-lg overflow-hidden transition-all min-h-0 ${
+                selectedPanelId === 'focus'
+                  ? 'focus-reader-selected'
+                  : snapshot?.discussion_focus_ref === snapshot?.ref
+                  ? 'focus-reader-active'
+                  : 'border border-border/60'
+              }`}
+              onClick={(e) => {
+                handlePanelClick('focus');
+                if (e.target === e.currentTarget) {
+                  onFocusClick && onFocusClick();
+                }
+              }}
+            >
+              <Suspense fallback={null}>
+                {layoutVariant === 'traditional' ? (
+                  <TraditionalTalmudDaf
+                    dafRef={snapshot?.ref || ''}
+                    segments={snapshot?.segments || []}
+                    onSegmentClick={(ref) => onNavigateToRef?.(ref)}
+                    onDafChange={(nextRef) => onNavigateToRef?.(nextRef)}
+                    onLexiconDoubleClick={handleLexiconDoubleClick as any}
+                    sageHighlights={sageHighlights}
+                    conceptHighlights={conceptHighlights}
+                    isFullscreen={isTraditionalFullscreen}
+                    onToggleFullscreen={onToggleTraditionalFullscreen}
+                    isAdmin={true}
+                  />
+                ) : (
+                  <FocusReader
+                    continuousText={continuousText}
+                    isLoading={isLoading}
+                    onNavigateToRef={onNavigateToRef}
+                    onLexiconDoubleClick={handleLexiconDoubleClick}
+                    isDailyMode={studySessionId?.startsWith('daily-') || false}
+                    isBackgroundLoading={isBackgroundLoading}
+                    onBack={onNavigateBack}
+                    onForward={onNavigateForward}
+                    onExit={onExit}
+                    currentRef={snapshot?.ref}
+                    canBack={canNavigateBack}
+                    canForward={canNavigateForward}
+                    onToggleLeftPanel={handleToggleLeftPanel}
+                    onToggleRightPanel={handleToggleRightPanel}
+                    showLeftPanel={leftPanelIsVisible}
+                    showRightPanel={rightPanelIsVisible}
+                    sessionId={studySessionId}
+                  />
+                )}
+              </Suspense>
+            </div>
+
+            {rightPanelIsVisible && (
+              <div className="min-h-0">
+                <WorkbenchPanelInline
+                  title="Правая панель"
+                  item={snapshot?.workbench?.right || null}
+                  active={snapshot?.discussion_focus_ref === snapshot?.workbench?.right?.ref}
+                  selected={selectedPanelId === 'right_workbench'}
+                  sessionId={studySessionId}
+                  onDropRef={(ref: string, dragData) => {
+                    debugLog('StudyMode: Dropped on right workbench:', ref, dragData);
+                    if (dragData?.type === 'group') {
+                      debugLog('Group data:', dragData.data);
+                    }
+                    onWorkbenchDrop ? onWorkbenchDrop('right', ref, dragData) : onWorkbenchSet('right', ref, dragData);
+                  }}
+                  onPanelClick={() => {
+                    handlePanelClick('right_workbench');
+                  }}
+                  onBorderClick={() => {
+                    onWorkbenchFocus('right');
+                  }}
+                  onClear={snapshot?.workbench?.right ? () => onWorkbenchClear?.('right') : undefined}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Lexicon Modal removed - now using global LexiconPanel */}
+      {/* Right Side Expanded Tool Panel */}
+      {activeRightTool !== null && (
+        <div className="w-[380px] sm:w-[480px] lg:w-[560px] xl:w-[640px] max-w-[48vw] flex-shrink-0 h-full border-l border-border/20 bg-background/95 backdrop-blur flex flex-col shadow-sm transition-all duration-300">
+          <StudyChatPanel
+            className="h-full min-h-0"
+            studySessionId={studySessionId}
+            messages={messages}
+            isLoadingMessages={isLoadingMessages}
+            isSending={isSending}
+            setIsSending={setIsSending}
+            setMessages={setMessages}
+            refreshStudySnapshot={refreshStudySnapshot}
+            agentId={agentId}
+            selectedPanelId={selectedPanelId}
+            discussionFocusRef={snapshot?.discussion_focus_ref}
+            snapshot={snapshot}
+            panelActions={composerPanelActions}
+            currentPersona={currentPersona}
+            availablePersonas={availablePersonas}
+            onPersonaChange={onPersonaChange}
+            layoutMode={composerLayoutMode}
+            panelMode={activeRightTool}
+            setPanelMode={(mode) => setActiveRightTool(mode)}
+            onClose={() => setActiveRightTool(null)}
+          />
+        </div>
+      )}
+
+      {/* Right Vertical Tool Dock / Rail */}
+      <div className="w-12 flex-shrink-0 h-full border-l border-border/20 bg-muted/20 dark:bg-muted/10 flex flex-col items-center py-3 gap-2.5 z-20 select-none">
+        {/* Tool 1: AI Chat */}
+        <button
+          type="button"
+          onClick={() => handleToolClick('chat')}
+          className={cn(
+            "w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer relative group",
+            activeRightTool === 'chat'
+              ? "bg-amber-500 text-white shadow-md shadow-amber-500/25 font-bold"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/80"
+          )}
+          title="Чат ИИ-Хаврута"
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span className="absolute right-12 px-2.5 py-1 bg-popover text-popover-foreground text-xs font-semibold rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 border border-border/40">
+            Чат ИИ
+          </span>
+        </button>
+
+        {/* Tool 2: Sugya Map */}
+        <button
+          type="button"
+          onClick={() => handleToolClick('map')}
+          className={cn(
+            "w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer relative group",
+            activeRightTool === 'map'
+              ? "bg-blue-500 text-white shadow-md shadow-blue-500/25 font-bold"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/80"
+          )}
+          title="Карта Сугии"
+        >
+          <Network className="w-4 h-4" />
+          <span className="absolute right-12 px-2.5 py-1 bg-popover text-popover-foreground text-xs font-semibold rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 border border-border/40">
+            Карта Сугии
+          </span>
+        </button>
+      </div>
     </div>
   );
 }
