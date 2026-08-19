@@ -158,7 +158,100 @@ function renderMdLite(text: string): React.ReactNode[] {
     }
   }
 
-  return nodes;
+  return processXmlInNodes(nodes, 'xml');
+}
+
+/** 3.5) Парсинг кастомных XML-тегов: <ref tref="...">, <persn>, <person>, <concept>, <term> */
+function applyCustomXmlTags(child: React.ReactNode, keyPrefix: string): React.ReactNode {
+  if (typeof child !== "string") return child;
+  if (!child || !child.includes("<")) return child;
+
+  const tagRegex = /<(ref|persn|person|concept|term)(?:\s+tref=["']([^"']+)["'])?(?:\s*\/>|>([\s\S]*?)<\/\1>)/gi;
+
+  const result: React.ReactNode[] = [];
+  let lastIdx = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tagRegex.exec(child)) !== null) {
+    const before = child.slice(lastIdx, match.index);
+    if (before) result.push(before);
+
+    const tagType = match[1].toLowerCase();
+    const trefAttr = match[2];
+    const innerContent = match[3] ?? trefAttr ?? '';
+
+    if (tagType === 'ref') {
+      const targetRef = trefAttr || innerContent;
+      result.push(
+        <span
+          key={`${keyPrefix}-ref-${match.index}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (targetRef) {
+              window.dispatchEvent(new CustomEvent('study-navigate-ref', { detail: targetRef }));
+            }
+          }}
+          className="inline-flex items-center gap-1 px-2 py-0.5 my-0.5 mx-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-mono font-semibold cursor-pointer hover:bg-amber-500/20 transition-all select-none"
+          title={`Перейти к: ${targetRef}`}
+        >
+          📖 {innerContent}
+        </span>
+      );
+    } else if (tagType === 'persn' || tagType === 'person') {
+      result.push(
+        <span
+          key={`${keyPrefix}-persn-${match.index}`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 my-0.5 mx-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/30 text-xs font-semibold select-none"
+        >
+          👤 {innerContent}
+        </span>
+      );
+    } else if (tagType === 'concept') {
+      result.push(
+        <span
+          key={`${keyPrefix}-concept-${match.index}`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 my-0.5 mx-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-300 border border-blue-500/30 text-xs font-semibold select-none"
+        >
+          💡 {innerContent}
+        </span>
+      );
+    } else if (tagType === 'term') {
+      result.push(
+        <span
+          key={`${keyPrefix}-term-${match.index}`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 my-0.5 mx-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 text-xs font-semibold select-none"
+        >
+          🏷️ {innerContent}
+        </span>
+      );
+    }
+
+    lastIdx = match.index + match[0].length;
+  }
+
+  if (lastIdx < child.length) {
+    result.push(child.slice(lastIdx));
+  }
+
+  return result.length > 0 ? (result.length === 1 ? result[0] : result) : child;
+}
+
+function processXmlInNodes(nodes: React.ReactNode[], keyPrefix: string): React.ReactNode[] {
+  const result: React.ReactNode[] = [];
+  nodes.forEach((n, i) => {
+    if (typeof n === "string") {
+      const res = applyCustomXmlTags(n, `${keyPrefix}-${i}`);
+      if (Array.isArray(res)) result.push(...res);
+      else result.push(res);
+    } else if (React.isValidElement(n)) {
+      const children = React.Children.toArray((n.props as any).children);
+      const newChildren = processXmlInNodes(children, `${keyPrefix}-${i}`);
+      result.push(React.cloneElement(n, { key: n.key || `${keyPrefix}-${i}` }, newChildren));
+    } else {
+      result.push(n);
+    }
+  });
+  return result;
 }
 
 /** 4) Вспомогательные классы для callout в тёмной теме */
@@ -258,7 +351,7 @@ function NewFormatStudyChatRenderer({ content }: {
       <div className="space-y-4">
         {paragraphs.map((paragraph, index) => (
           <p key={index} className="leading-relaxed text-sm text-foreground" dir={getTextDirection(paragraph)}>
-            {paragraph}
+            {renderMdLite(paragraph)}
           </p>
         ))}
       </div>
@@ -280,7 +373,7 @@ function NewFormatStudyChatRenderer({ content }: {
                     <span className="text-xs font-bold text-white">"</span>
                   </div>
                   <blockquote className="text-sm italic text-gray-700 dark:text-gray-300 leading-relaxed flex-1" dir={getTextDirection(quote.text)}>
-                    {quote.text}
+                    {renderMdLite(quote.text)}
                   </blockquote>
                 </div>
               </div>
@@ -302,10 +395,10 @@ function NewFormatStudyChatRenderer({ content }: {
             {terms.map((term, index) => (
               <div key={index} className="term">
                 <div className="term-title" dir={getTextDirection(term.term)}>
-                  {term.term}
+                  {renderMdLite(term.term)}
                 </div>
                 <div className="term-definition" dir={getTextDirection(term.definition)}>
-                  {term.definition}
+                  {renderMdLite(term.definition)}
                 </div>
               </div>
             ))}
@@ -351,7 +444,7 @@ function RawFormatStudyChatRenderer({ doc }: { doc: StudyChatDoc }) {
       <div className="space-y-4">
         {paragraphs.map((paragraph, index) => (
           <p key={index} className="leading-relaxed text-sm text-foreground" dir={getTextDirection(paragraph)}>
-            {paragraph}
+            {renderMdLite(paragraph)}
           </p>
         ))}
       </div>

@@ -505,6 +505,20 @@ export default function StudyMode({
       window.removeEventListener('lexicon-lookup', handleLexiconLookup as EventListener);
     };
   }, [setSelection, fetchExplanation]);
+
+  useEffect(() => {
+    const handleRefNavigate = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      const refTarget = customEvent.detail;
+      if (refTarget && onWorkbenchSet) {
+        onWorkbenchSet('left', refTarget);
+      }
+    };
+    window.addEventListener('study-navigate-ref', handleRefNavigate);
+    return () => {
+      window.removeEventListener('study-navigate-ref', handleRefNavigate);
+    };
+  }, [onWorkbenchSet]);
   // Конвертация snapshot в continuousText для нового FocusReader
   const [chapterNavigation, setChapterNavigation] = useState<ChapterNavigation | null>(null);
 
