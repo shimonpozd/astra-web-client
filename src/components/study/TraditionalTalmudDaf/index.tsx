@@ -90,6 +90,7 @@ interface TextSegment {
 export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
   dafRef,
   segments,
+  discussionFocusRef,
   onSegmentClick,
   onDafChange,
   onLexiconDoubleClick,
@@ -257,16 +258,25 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
     return unique;
   }, [segments, localSegments, isHebrewText]);
 
-  // Auto-select segment matching currentDafRef on load if no valid activeSegmentRef
+  // Auto-select segment matching discussionFocusRef or currentDafRef on load if no valid activeSegmentRef
   useEffect(() => {
     if (displaySegments && displaySegments.length > 0) {
+      const preferredRef = discussionFocusRef || currentDafRef;
+      if (preferredRef) {
+        const matchingRef = displaySegments.find(s => s.ref && isSameRef(s.ref, preferredRef));
+        if (matchingRef) {
+          if (activeSegmentRef !== matchingRef.ref) {
+            setActiveSegmentRef(matchingRef.ref);
+          }
+          return;
+        }
+      }
       const isCurrentValid = activeSegmentRef && displaySegments.some(s => s.ref && isSameRef(s.ref, activeSegmentRef));
       if (!isCurrentValid) {
-        const matchingRef = displaySegments.find(s => s.ref && isSameRef(s.ref, currentDafRef));
-        setActiveSegmentRef(matchingRef ? matchingRef.ref : displaySegments[0].ref);
+        setActiveSegmentRef(displaySegments[0].ref);
       }
     }
-  }, [displaySegments, activeSegmentRef, currentDafRef]);
+  }, [displaySegments, currentDafRef, discussionFocusRef]);
 
   const handleDafChange = useCallback((nextRef: string) => {
     if (!nextRef || nextRef === currentDafRef) return;

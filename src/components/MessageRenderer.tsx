@@ -2,6 +2,7 @@ import React from "react";
 import { Doc, DocV1 } from "../types/text";
 import { getTextDirection } from '../utils/hebrewUtils';
 import { debugLog } from '../utils/debugLogger';
+import { cn } from '../lib/utils';
 
 /** 1) Декодирование HTML entities */
 function decodeHtml(input: string): string {
@@ -236,13 +237,55 @@ function applyCustomXmlTags(child: React.ReactNode, keyPrefix: string): React.Re
   return result.length > 0 ? (result.length === 1 ? result[0] : result) : child;
 }
 
+/** 3.6) BiDi изоляция для вставок на иврите внутри русскоязычного текста */
+function applyHebrewBdi(child: React.ReactNode, keyPrefix: string): React.ReactNode {
+  if (typeof child !== "string") return child;
+  if (!child || !/[\u0590-\u05FF]/.test(child)) return child;
+
+  const hebrewRunRegex = /([\u0590-\u05FF\uFB1D-\uFB4F]+(?:[\s\u05BE]+[\u0590-\u05FF\uFB1D-\uFB4F]+)*)/g;
+  const result: React.ReactNode[] = [];
+  let lastIdx = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = hebrewRunRegex.exec(child)) !== null) {
+    const before = child.slice(lastIdx, match.index);
+    if (before) result.push(before);
+
+    result.push(
+      <bdi
+        key={`${keyPrefix}-heb-${match.index}`}
+        dir="rtl"
+        className="font-hebrew text-[1.05em] font-semibold text-foreground tracking-wide"
+      >
+        {match[1]}
+      </bdi>
+    );
+
+    lastIdx = match.index + match[0].length;
+  }
+
+  if (lastIdx < child.length) {
+    result.push(child.slice(lastIdx));
+  }
+
+  return result.length > 0 ? (result.length === 1 ? result[0] : result) : child;
+}
+
 function processXmlInNodes(nodes: React.ReactNode[], keyPrefix: string): React.ReactNode[] {
   const result: React.ReactNode[] = [];
   nodes.forEach((n, i) => {
     if (typeof n === "string") {
       const res = applyCustomXmlTags(n, `${keyPrefix}-${i}`);
-      if (Array.isArray(res)) result.push(...res);
-      else result.push(res);
+      const resArray = Array.isArray(res) ? res : [res];
+      resArray.forEach((part, partIdx) => {
+        if (typeof part === "string") {
+          const bdiRes = applyHebrewBdi(part, `${keyPrefix}-${i}-${partIdx}`);
+          if (Array.isArray(bdiRes)) result.push(...bdiRes);
+          else result.push(bdiRes);
+        } else {
+          result.push(part);
+        }
+      });
     } else if (React.isValidElement(n)) {
       const children = React.Children.toArray((n.props as any).children);
       const newChildren = processXmlInNodes(children, `${keyPrefix}-${i}`);
@@ -626,11 +669,17 @@ export function MessageRenderer({ doc }: MessageRendererProps) {
             return (
               <HeadingTag
                 key={index}
-                className="mt-6 mb-2 font-semibold tracking-tight"
+                className={cn(
+                  "font-bold tracking-tight text-foreground",
+                  lvl === 1 && "text-lg md:text-xl mt-6 mb-3 border-b border-border/40 pb-2 text-primary font-serif",
+                  lvl === 2 && "text-base md:text-lg mt-5 mb-2.5 font-semibold text-foreground/90",
+                  lvl === 3 && "text-sm md:text-base mt-4 mb-2 font-semibold text-amber-600 dark:text-amber-400",
+                  lvl >= 4 && "text-sm mt-3 mb-1.5 font-medium text-muted-foreground"
+                )}
                 lang={block.lang}
-                dir={block.dir || "auto"}
+                dir={getTextDirection(block.text)}
               >
-                {block.text}
+                {renderMdLite(block.text)}
               </HeadingTag>
             );
           }
@@ -640,7 +689,7 @@ export function MessageRenderer({ doc }: MessageRendererProps) {
             const paragraphs = t.split(/\n\n+/).filter(Boolean);
             if (paragraphs.length <= 1) {
               return (
-                <p key={index} lang={block.lang} dir={block.dir || "auto"}>
+                <p key={index} lang={block.lang} dir={getTextDirection(t)} className="my-2.5 text-sm leading-relaxed text-foreground">
                   {renderMdLite(t)}
                 </p>
               );
@@ -648,7 +697,7 @@ export function MessageRenderer({ doc }: MessageRendererProps) {
             return (
               <React.Fragment key={index}>
                 {paragraphs.map((pText, pIdx) => (
-                  <p key={`${index}-${pIdx}`} lang={block.lang} dir={block.dir || "auto"}>
+                  <p key={`${index}-${pIdx}`} lang={block.lang} dir={getTextDirection(pText)} className="my-2.5 text-sm leading-relaxed text-foreground">
                     {renderMdLite(pText)}
                   </p>
                 ))}
@@ -659,10 +708,10 @@ export function MessageRenderer({ doc }: MessageRendererProps) {
           case "quote": {
             const t = typeof block.text === "string" ? block.text : String(block.text ?? "");
             return (
-              <blockquote key={index} lang={block.lang} dir={block.dir || "auto"}>
+              <blockquote key={index} lang={block.lang} dir={getTextDirection(t)} className="my-3 pl-4 border-l-4 border-primary/40 bg-muted/20 py-2 pr-3 rounded-r-md text-sm italic text-foreground">
                 {renderMdLite(t)}
                 {block.source && (
-                  <cite className="block mt-2 text-sm text-neutral-400 not-italic">— {block.source}</cite>
+                  <cite className="block mt-2 text-xs text-neutral-400 not-italic">— {block.source}</cite>
                 )}
               </blockquote>
             );
@@ -670,22 +719,22 @@ export function MessageRenderer({ doc }: MessageRendererProps) {
 
           case "list":
             return block.ordered ? (
-              <ol key={index}>
+              <ol key={index} className="my-3 space-y-2 list-decimal list-inside text-sm leading-relaxed">
                 {block.items?.map((item: string, itemIndex: number) => {
                   const itemText = typeof item === "string" ? item : String(item ?? "");
                   return (
-                    <li key={itemIndex} dir={getTextDirection(itemText)}>
+                    <li key={itemIndex} dir={getTextDirection(itemText)} className="pl-1 text-foreground/90">
                       {renderMdLite(itemText)}
                     </li>
                   );
                 })}
               </ol>
             ) : (
-              <ul key={index}>
+              <ul key={index} className="my-3 space-y-2 list-disc list-inside text-sm leading-relaxed">
                 {block.items?.map((item: string, itemIndex: number) => {
                   const itemText = typeof item === "string" ? item : String(item ?? "");
                   return (
-                    <li key={itemIndex} dir={getTextDirection(itemText)}>
+                    <li key={itemIndex} dir={getTextDirection(itemText)} className="pl-1 text-foreground/90">
                       {renderMdLite(itemText)}
                     </li>
                   );
@@ -721,12 +770,12 @@ export function MessageRenderer({ doc }: MessageRendererProps) {
             const definitionText = block.ru || block.definition || block.en || 'Определение не найдено';
             
             return (
-              <div key={index} className="term">
+              <div key={index} className="term my-3">
                 <div className="term-title" dir={getTextDirection(termText)}>
-                  {termText}
+                  {renderMdLite(termText)}
                 </div>
                 <div className="term-definition" dir={getTextDirection(definitionText)}>
-                  {definitionText}
+                  {renderMdLite(definitionText)}
                 </div>
               </div>
             );
@@ -758,7 +807,7 @@ export function MessageRenderer({ doc }: MessageRendererProps) {
             );
 
           case "hr":
-            return <hr key={index} />;
+            return <hr key={index} className="my-5 border-t border-border/40" />;
 
           case "image":
             return (

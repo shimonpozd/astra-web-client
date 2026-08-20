@@ -278,18 +278,100 @@ export function coerceDoc(payload: unknown): DocV1 | null {
       }
     }
 
-    // Если не удалось распарсить как JSON, но это обычный текст - создаем doc с разделением по абзацам
+    // Если не удалось распарсить как JSON, но это обычный текст - создаем doc со структурой Markdown
     if (s.length > 0 && !s.startsWith('[') && !s.startsWith('{')) {
-      const paragraphs = s.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
-      const blocks = paragraphs.length > 0
-        ? paragraphs.map(p => ({ type: 'paragraph', text: p }))
-        : [{ type: 'paragraph', text: s }];
+      const blocks = parseMarkdownToBlocks(s);
       return {
         version: '1.0',
-        blocks
+        blocks: blocks.length > 0 ? blocks : [{ type: 'paragraph', text: s }]
       };
     }
   }
 
   return null;
+}
+
+/**
+ * Парсинг Markdown строки в структурированные блоки (heading, hr, list, quote, paragraph)
+ */
+export function parseMarkdownToBlocks(markdown: string): any[] {
+  if (!markdown || !markdown.trim()) return [];
+
+  const rawBlocks = markdown.split(/\n\s*\n+/);
+  const blocks: any[] = [];
+
+  for (const raw of rawBlocks) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+
+    // 1. Horizontal Rule: ---, ***, ___
+    if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push({ type: 'hr' });
+      continue;
+    }
+
+    // 2. Heading: #, ##, ###, ####, #####, ######
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      blocks.push({
+        type: 'heading',
+        level,
+        text: headingMatch[2].trim(),
+      });
+      continue;
+    }
+
+    // 3. Blockquote: > text
+    if (trimmed.startsWith('>')) {
+      const quoteLines = trimmed.split('\n').map(l => l.replace(/^>\s?/, '').trim()).filter(Boolean);
+      blocks.push({
+        type: 'quote',
+        text: quoteLines.join('\n'),
+      });
+      continue;
+    }
+
+    // 4. Bullet or Numbered List
+    const lines = trimmed.split('\n');
+    const nonEmpties = lines.filter(l => l.trim().length > 0);
+    const allBullets = nonEmpties.length > 0 && nonEmpties.every(l => /^\s*(?:[\*\-\+]|\d+\.)\s+/.test(l));
+
+    if (allBullets) {
+      const isNum = /^\s*\d+\.\s+/.test(nonEmpties[0]);
+      blocks.push({
+        type: 'list',
+        ordered: isNum,
+        items: nonEmpties.map(l => l.replace(/^\s*(?:[\*\-\+]|\d+\.)\s+/, '').trim()),
+      });
+      continue;
+    }
+
+    // Single line bullet
+    if (/^\s*[\*\-\+]\s+/.test(trimmed)) {
+      blocks.push({
+        type: 'list',
+        ordered: false,
+        items: [trimmed.replace(/^\s*[\*\-\+]\s+/, '').trim()],
+      });
+      continue;
+    }
+
+    if (/^\s*\d+\.\s+/.test(trimmed)) {
+      blocks.push({
+        type: 'list',
+        ordered: true,
+        items: [trimmed.replace(/^\s*\d+\.\s+/, '').trim()],
+      });
+      continue;
+    }
+
+    // Default: paragraph
+    blocks.push({
+      type: 'paragraph',
+      text: trimmed,
+    });
+  }
+
+  return blocks;
 }

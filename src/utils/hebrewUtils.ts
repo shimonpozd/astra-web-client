@@ -8,7 +8,24 @@ export function containsHebrew(text?: string): boolean {
 
 export function getTextDirection(text?: string): 'ltr' | 'rtl' {
   if (!text) return 'ltr';
-  return containsHebrew(text) ? 'rtl' : 'ltr';
+  const clean = text.replace(/<[^>]+>/g, '').trim();
+  if (!clean) return 'ltr';
+
+  // Count Hebrew characters
+  const hebrewMatches = clean.match(/[\u0590-\u05FF]/g);
+  const hebrewCount = hebrewMatches ? hebrewMatches.length : 0;
+
+  // Count Latin and Cyrillic characters
+  const latinCyrillicMatches = clean.match(/[a-zA-Z\u0400-\u04FF]/g);
+  const latinCyrillicCount = latinCyrillicMatches ? latinCyrillicMatches.length : 0;
+
+  // If there is significant Cyrillic or Latin text, the outer flow must be LTR
+  if (latinCyrillicCount > 3 || latinCyrillicCount >= hebrewCount) {
+    return 'ltr';
+  }
+
+  // Only pure/predominantly Hebrew texts are RTL
+  return hebrewCount > 0 ? 'rtl' : 'ltr';
 }
 
 export function formatHebrewText(text: string): string {

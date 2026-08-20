@@ -23,6 +23,7 @@ export interface TextToken {
 export interface TraditionalTalmudDafProps {
   dafRef: string;
   segments: any[];
+  discussionFocusRef?: string | null;
   onSegmentClick?: (ref: string) => void;
   onLexiconDoubleClick?: (word: string, context?: string) => void;
   sageHighlights?: SageHighlight[];

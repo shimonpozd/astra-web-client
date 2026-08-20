@@ -166,6 +166,16 @@ export function StudyChatPanel({
                     },
                   });
                 }
+                if (discussionFocusRef && studySessionId) {
+                  authorizedFetch('/api/study/chat/set_focus', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      session_id: studySessionId,
+                      ref: discussionFocusRef,
+                    }),
+                  }).catch(() => {});
+                }
                 try {
                   await api.sendStudyMessage(
                     studySessionId,
@@ -633,6 +643,7 @@ export default function StudyMode({
             <Suspense fallback={null}>
               <TraditionalTalmudDaf
                 dafRef={snapshot?.ref || ''}
+                discussionFocusRef={snapshot?.discussion_focus_ref}
                 segments={snapshot?.segments || []}
                 onSegmentClick={(ref) => onNavigateToRef?.(ref)}
                 onDafChange={(nextRef) => onNavigateToRef?.(nextRef)}
@@ -666,6 +677,7 @@ export default function StudyMode({
                 {layoutVariant === 'traditional' ? (
                   <TraditionalTalmudDaf
                     dafRef={snapshot?.ref || ''}
+                    discussionFocusRef={snapshot?.discussion_focus_ref}
                     segments={snapshot?.segments || []}
                     onSegmentClick={(ref) => onNavigateToRef?.(ref)}
                     onDafChange={(nextRef) => onNavigateToRef?.(nextRef)}
@@ -799,6 +811,7 @@ export default function StudyMode({
                 {layoutVariant === 'traditional' ? (
                   <TraditionalTalmudDaf
                     dafRef={snapshot?.ref || ''}
+                    discussionFocusRef={snapshot?.discussion_focus_ref}
                     segments={snapshot?.segments || []}
                     onSegmentClick={(ref) => onNavigateToRef?.(ref)}
                     onDafChange={(nextRef) => onNavigateToRef?.(nextRef)}

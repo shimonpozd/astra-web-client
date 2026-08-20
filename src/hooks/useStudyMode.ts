@@ -364,11 +364,18 @@ export function useStudyMode() {
       setLocalFocus(pendingRef, fallbackSegment);
     }
 
-    const nearWindowEdge =
-      isLocalNavigation &&
-      (existingIndex <= 1 || existingIndex >= Math.max(segments.length - 2, 0));
-    // Если нужный отрывок уже есть в текущем окне и мы не на краю окна — не дергаем бэк
+    // Если нужный отрывок уже есть в текущем окне и мы не на краю окна — синхронизируем фокус чата на бэке и не перезагружаем всё окно
     if (isLocalNavigation && !nearWindowEdge) {
+      authorizedFetch('/api/study/chat/set_focus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: studySessionId,
+          ref: pendingRef,
+        }),
+      }).catch((err) => {
+        debugLog('Failed to sync chat focus to backend:', err);
+      });
       return;
     }
 
