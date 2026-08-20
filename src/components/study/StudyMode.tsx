@@ -8,6 +8,7 @@ import ChatViewport from '../chat/ChatViewport';
 import MessageComposer from '../chat/MessageComposer';
 import WorkbenchPanelInline from './WorkbenchPanelInline';
 import { api } from '../../services/api';
+import { authorizedFetch } from '../../lib/authorizedFetch';
 import { fetchConceptHighlights, fetchSageHighlights } from '../../services/highlight';
 import { ConceptHighlight, SageHighlight } from '../../types/highlight';
 import { useLexiconStore } from '../../store/lexiconStore';
