@@ -1,4 +1,5 @@
 // DEPRECATED: Legacy HTML timeline. Use TimelineCanvas exclusively.
+// PersonCard has been moved to PersonCard.tsx and modernized.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Period, TimelinePerson } from '@/types/timeline';

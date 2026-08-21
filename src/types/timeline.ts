@@ -66,6 +66,7 @@ export interface TimelinePerson {
   displayOrder?: number;
   color?: string;
   is_verified?: boolean;
+  is_star?: boolean;
 }
 
 export type TimelineViewMode = 'horizontal' | 'vertical' | 'spiral';

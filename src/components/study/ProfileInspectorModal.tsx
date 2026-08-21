@@ -4,6 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { api, ProfileResponse } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { Region } from '@/types/timeline';
+import { SealSvg } from '@/utils/sealGenerator';
+import { getPersonSealColor, getPersonHook } from '@/utils/personVisuals';
 
 interface ProfileInspectorModalProps {
   slug: string | null;
@@ -370,29 +372,63 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
     (Array.isArray(factsWork?.categories) ? factsWork.categories.join(', ') : undefined);
   const images = Array.isArray(factsWork?.images) ? factsWork.images : [];
   const heroImage = images[0];
-  const secondaryImages = images.slice(1, 4);
+  const authorFactsObj = (facts as any)?.author || {};
+  const sealColor = getPersonSealColor({
+    slug: slug || '',
+    name_en: data?.title_en || slug || '',
+    name_he: data?.title_he || '',
+    period: authorFactsObj?.period || data?.period || 'achronim',
+    subPeriod: authorFactsObj?.sub_period,
+    region: authorFactsObj?.region,
+  } as any);
+
+  const profileHook = getPersonHook({
+    slug: slug || '',
+    name_en: data?.title_en || slug || '',
+    name_he: data?.title_he || '',
+    period: authorFactsObj?.period || data?.period || 'achronim',
+    summary_html: data?.summary_html || '',
+  } as any, 140);
 
   return (
     <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : null)} className="z-[60]">
       <DialogContent className="max-w-3xl w-full bg-background">
         <DialogHeader className="mb-2">
-          <DialogTitle className="flex flex-wrap items-center gap-2">
-            <span className="text-lg font-semibold leading-tight truncate">
-              {data?.title_en || slug}
-            </span>
-            {data?.title_he && <span className="font-hebrew text-base text-muted-foreground">{data.title_he}</span>}
-            {data?.is_verified && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs border border-emerald-300">
-                ✓ Проверено {data?.verified_by ? `(${data.verified_by})` : ''}
-              </span>
+          <div className="flex items-start gap-3">
+            {slug && (
+              <div className="pt-0.5 flex-shrink-0">
+                <SealSvg slug={slug} color={sealColor} size={50} className="shadow-sm" />
+              </div>
             )}
-            {data && !data.is_verified && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-xs border border-amber-300">
-                Черновик
-              </span>
-            )}
-          </DialogTitle>
-          <div className="flex flex-wrap items-center gap-3 justify-between">
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="flex flex-wrap items-center gap-2">
+                <span className="text-xl font-semibold leading-tight font-serif font-display truncate">
+                  {data?.title_en || slug}
+                </span>
+                {data?.title_he && <span className="font-hebrew text-base text-muted-foreground">{data.title_he}</span>}
+                {data?.is_verified && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs border border-emerald-300">
+                    ✓ Проверено {data?.verified_by ? `(${data.verified_by})` : ''}
+                  </span>
+                )}
+                {data && !data.is_verified && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs border border-amber-300">
+                    Черновик
+                  </span>
+                )}
+              </DialogTitle>
+
+              {profileHook && (
+                <div
+                  className="mt-2 text-xs italic text-muted-foreground border-l-2 pl-2.5 py-0.5 leading-relaxed bg-muted/20 rounded-r"
+                  style={{ borderLeftColor: sealColor }}
+                >
+                  «{profileHook}»
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 justify-between mt-2">
             {slug && <div className="text-xs text-muted-foreground truncate">Slug: {slug}</div>}
             {isAdmin && data && (
               <div className="flex items-center gap-2">

@@ -1,7 +1,13 @@
 /* =============================================================================
    FONTS & TYPOGRAPHY UTILITIES
-   Фонты (Mugrabi, Vilna, Rashi) и вспомогательные классы гарнитур/иврита
+   Фонты (Fraunces, Inter, Mugrabi, Vilna, Rashi) и вспомогательные классы гарнитур/иврита
    ============================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+.font-display {
+  font-family: 'Fraunces', Georgia, serif;
+}
 
 /* Custom Hebrew font - Mugrabi Regular */
 @font-face {

@@ -6,7 +6,9 @@ import { ALL_COLLAPSED, buildTimelineBlocks, PeriodBlock } from '@/utils/layoutE
 import { getPeriodColor, generateColorSystem, getPersonColor } from '@/utils/timelineColors';
 import { useTimelineNavigation } from '@/hooks/useTimelineNavigation';
 import { Minimap } from './Minimap';
-import { PersonCard } from './Timeline';
+import { PersonCard } from './PersonCard';
+import { getSealGeometry } from '@/utils/sealGenerator';
+import { getPersonTier, getPersonHook, getPersonSealColor, getPersonLifespanLabel } from '@/utils/personVisuals';
 
 type LOD = 'low' | 'medium' | 'high';
 
@@ -346,6 +348,16 @@ export function TimelineCanvas({
           height="100%"
           className="absolute top-0 left-0"
         >
+          <defs>
+            <linearGradient id="star-card-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#242A5C" />
+              <stop offset="100%" stopColor="#1E2350" />
+            </linearGradient>
+            <filter id="star-card-glow" x="-15%" y="-15%" width="130%" height="130%">
+              <feDropShadow dx="0" dy="3" stdDeviation="5" floodColor="#C9A94E" floodOpacity="0.28" />
+            </filter>
+          </defs>
+
           <g
             id="timeline-content-group"
             transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}
@@ -357,7 +369,7 @@ export function TimelineCanvas({
                 <g
                   key={n.id}
                   transform={`translate(${n.x}, ${n.y})`}
-                  className="cursor-pointer"
+                  className="cursor-pointer select-none"
                   onClick={() =>
                     setActivePeriodId((prev) => {
                       if (prev === n.period.id) return ALL_COLLAPSED;
@@ -372,15 +384,27 @@ export function TimelineCanvas({
                     width={n.width}
                     height={n.height}
                     rx={10}
-                    fill="hsl(var(--card))"
+                    fill="#14183B"
                     stroke={color}
                     strokeWidth={1.5}
                     opacity={n.collapsed ? 0.85 : 0.95}
                   />
-                  <text x={12} y={16} className="text-sm font-semibold" fill={color}>
+                  <text
+                    x={14}
+                    y={18}
+                    className="font-semibold text-sm select-none"
+                    style={{ fontFamily: "'Fraunces', Georgia, serif" }}
+                    fill="#EDEEF2"
+                  >
                     {n.period.name_ru}
                   </text>
-                  <text x={12} y={30} className="text-[11px] font-medium text-muted-foreground" fill="currentColor">
+                  <text
+                    x={14}
+                    y={32}
+                    className="text-[11px] font-medium select-none"
+                    style={{ fontFamily: "'Inter', sans-serif" }}
+                    fill="#9AA0C4"
+                  >
                     {n.period.startYear} — {n.period.endYear}
                   </text>
                   <rect
@@ -390,15 +414,16 @@ export function TimelineCanvas({
                     height={n.height - 16}
                     rx={8}
                     fill={color}
-                    opacity={0.12}
+                    opacity={0.15}
                     stroke={color}
                     strokeWidth={1}
                   />
                   <text
-                    x={n.width - 50}
+                    x={n.width - 51}
                     y={n.height / 2 + 4}
                     textAnchor="middle"
-                    className="text-[11px] font-semibold"
+                    className="text-[11px] font-semibold select-none"
+                    style={{ fontFamily: "'Inter', sans-serif" }}
                     fill={color}
                   >
                     {n.collapsed ? 'Раскрыть' : 'Свернуть'}
@@ -418,12 +443,22 @@ export function TimelineCanvas({
                     width={n.width}
                     height={n.height}
                     rx={14}
-                    fill={color}
-                    opacity={n.period.id === 'torah' ? 0.12 : 0.08}
-                    stroke={color}
-                    strokeWidth={2}
+                    fill="#14183B"
+                    opacity={0.5}
                     className="pointer-events-none"
-                    style={{ filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.05))' }}
+                  />
+                  <rect
+                    x={0}
+                    y={0}
+                    width={n.width}
+                    height={n.height}
+                    rx={14}
+                    fill={color}
+                    opacity={n.period.id === 'torah' ? 0.08 : 0.04}
+                    stroke={color}
+                    strokeWidth={1.5}
+                    strokeOpacity={0.4}
+                    className="pointer-events-none"
                   />
                 </g>
               );
@@ -437,10 +472,9 @@ export function TimelineCanvas({
                 y1={n.y1}
                 x2={n.x2}
                 y2={n.y2}
-                stroke="hsl(var(--border))"
+                stroke="rgba(255, 255, 255, 0.08)"
                 strokeWidth={1}
                 strokeDasharray="4 4"
-                strokeOpacity={0.7}
               />
             ))}
             
@@ -450,127 +484,206 @@ export function TimelineCanvas({
                 key={n.id}
                 x={n.x}
                 y={n.y}
-                className="text-xs font-semibold text-muted-foreground"
-                fill="currentColor"
-                opacity={n.periodId === 'torah' && n.label.toLowerCase().includes('поколение') ? 0 : 1}
+                className="text-xs font-semibold select-none"
+                style={{ fontFamily: "'Inter', sans-serif" }}
+                fill="#9AA0C4"
+                opacity={n.periodId === 'torah' && n.label.toLowerCase().includes('поколение') ? 0 : 0.9}
               >
                 {n.label}
               </text>
             ))}
 
-            {/* People */}
+            {/* People (SVG Nodes with Generative Seals and 3-Tier Hierarchy) */}
             {personNodes.map((n) => {
-              const colors = generateColorSystem(n.person.period);
-              const barColor = getPersonColor(n.person, n.period);
-              const isSelected = selectedPersonSlug === n.person.slug;
-              const isDimmed = Boolean(hoveredSlug && hoveredSlug !== n.person.slug);
-              const isFuzzy = Boolean(n.isFuzzy || !n.person.deathYear || !n.person.birthYear);
-              const displayName = n.person.name_ru || n.person.name_en || n.person.slug;
-              const lifespan = n.person.lifespan || `${n.person.birthYear ?? ''}–${n.person.deathYear ?? ''}`;
-              const wrapName = (name: string, maxChars: number) => {
-                const words = name.split(' ');
-                const lines: string[] = [];
-                let current = '';
-                words.forEach((w) => {
-                  if ((current + ' ' + w).trim().length <= maxChars) {
-                    current = (current + ' ' + w).trim();
-                  } else {
-                    if (current) lines.push(current);
-                    current = w;
-                  }
-                });
-                if (current) lines.push(current);
-                if (lines.length > 2) {
-                  // ограничиваем двумя строками
-                  const first = lines[0];
-                  const rest = lines.slice(1).join(' ');
-                  const truncated = rest.length > maxChars ? rest.slice(0, maxChars - 1) + '…' : rest;
-                  return [first, truncated];
-                }
-                if (lines.length === 1 && lines[0].length > maxChars) {
-                  // одиночное длинное слово — обрежем с многоточием
-                  return [lines[0].slice(0, maxChars - 1) + '…'];
-                }
-                return lines;
+              const person = n.person;
+              const tier = getPersonTier(person);
+              const sealColor = getPersonSealColor(person, n.period);
+              const geo = getSealGeometry(person.slug);
+              const isSelected = selectedPersonSlug === person.slug;
+              const isHovered = hoveredSlug === person.slug;
+              const isDimmed = Boolean(hoveredSlug && hoveredSlug !== person.slug);
+              
+              const displayName = person.name_ru || person.name_en || person.slug;
+              const lifespanLabel = getPersonLifespanLabel(person);
+              const hook = getPersonHook(person, 75);
+
+              const cardW = n.width;
+              const cardH = n.height - 6;
+
+              // Responsive width thresholds
+              const isUltraNarrow = cardW < 45;
+              const isNarrow = cardW >= 45 && cardW < 100;
+              const isStandard = cardW >= 100;
+
+              // Seal sizing per tier
+              const baseSealSize = isUltraNarrow
+                ? Math.min(22, Math.max(14, cardW - 8))
+                : tier === 'star'
+                ? 34
+                : tier === 'notable'
+                ? 26
+                : 16;
+              const sealSize = Math.min(baseSealSize, cardH - 8);
+              const sealScale = sealSize / 100;
+
+              const sealX = isUltraNarrow ? (cardW - sealSize) / 2 : 8;
+              const sealY = (cardH - sealSize) / 2;
+
+              // Name line formatting
+              const maxChars = isNarrow
+                ? Math.max(6, Math.floor((cardW - sealSize - 16) / 7.5))
+                : Math.max(10, Math.floor((cardW - sealSize - (tier === 'star' ? 32 : 20)) / 7.8));
+
+              const truncateText = (str: string, limit: number) => {
+                if (str.length <= limit) return str;
+                return str.slice(0, Math.max(3, limit - 1)) + '…';
               };
-              const maxChars = Math.max(10, Math.floor(n.width / 7));
-              const nameLines = wrapName(displayName, maxChars);
-              const sub = (n.person.subPeriod || '').toLowerCase();
-              const branchFill =
-                sub.startsWith('preflood_root') ? 'rgba(156, 163, 175, 0.18)' :
-                sub.startsWith('preflood_cain') ? 'rgba(244, 114, 182, 0.18)' :
-                sub.startsWith('preflood_seth') ? 'rgba(52, 211, 153, 0.18)' :
-                sub.startsWith('postflood_root') ? 'rgba(190, 190, 190, 0.18)' :
-                sub.startsWith('postflood_line_shem') || sub.startsWith('flood_line_shem') ? 'rgba(45, 212, 191, 0.15)' :
-                sub.startsWith('postflood_line_ham') || sub.startsWith('flood_line_ham') ? 'rgba(251, 191, 36, 0.15)' :
-                sub.startsWith('postflood_line_japheth') || sub.startsWith('flood_line_japheth') ? 'rgba(96, 165, 250, 0.15)' :
-                undefined;
+
+              const nameText = truncateText(displayName, maxChars);
+
+              // Background styling
+              const bgFill = tier === 'star' ? 'url(#star-card-grad)' : isHovered ? '#242A5C' : '#1E2350';
+              const borderStroke = isSelected
+                ? '#C9A94E'
+                : tier === 'star'
+                ? '#C9A94E'
+                : tier === 'notable'
+                ? isHovered
+                  ? sealColor
+                  : 'rgba(201, 169, 78, 0.3)'
+                : isHovered
+                ? 'rgba(255, 255, 255, 0.2)'
+                : 'rgba(255, 255, 255, 0.06)';
+
+              const strokeWidth = isSelected ? 2.5 : tier === 'star' ? 1.8 : 1;
+
+              // LOD text visibility rules
+              const showText = lod !== 'low' || tier !== 'regular';
+              const showSubtitle = (tier !== 'regular' || isHovered) && isStandard && lifespanLabel && cardH >= 42;
+              const showHook = isHovered && hook && cardW >= 150 && tier !== 'regular';
 
               return (
-                <g 
-                  key={n.id} 
+                <g
+                  key={n.id}
                   transform={`translate(${n.x}, ${n.y})`}
-                  className="cursor-pointer"
-                  onClick={() => onPersonSelect(n.person)}
-                  onMouseEnter={() => setHoveredSlug(n.person.slug)}
+                  className="cursor-pointer select-none"
+                  onClick={() => onPersonSelect(person)}
+                  onMouseEnter={() => setHoveredSlug(person.slug)}
                   onMouseLeave={() => setHoveredSlug(null)}
+                  opacity={isDimmed ? 0.35 : 1}
+                  filter={tier === 'star' && !isDimmed ? 'url(#star-card-glow)' : undefined}
                 >
-                  {branchFill && (
-                    <rect
-                      x={0}
-                      y={0}
-                      width={n.width}
-                      height={n.height - 6}
-                      rx={14}
-                      fill={branchFill}
-                      opacity={isDimmed ? 0.18 : 0.35}
-                    />
-                  )}
+                  {/* Card base background */}
                   <rect
                     x={0}
                     y={0}
-                    width={n.width}
-                    height={n.height - 6}
-                    rx={14}
-                    fill={barColor}
-                    stroke={isSelected ? barColor : 'transparent'}
-                    strokeWidth={isSelected ? 2 : 1.5}
-                    opacity={isDimmed ? 0.35 : 1}
+                    width={cardW}
+                    height={cardH}
+                    rx={10}
+                    fill={bgFill}
+                    stroke={borderStroke}
+                    strokeWidth={strokeWidth}
                   />
-                  {lod !== 'low' && n.width > 30 && (
-                    <>
-                      {nameLines.map((line, idx) => {
-                        const lineY = (n.height - 6) / 2 - ((nameLines.length - 1) * 10) / 2 + idx * 12;
-                        return (
-                          <g key={`${n.id}-line-${idx}`}>
-                            <text
-                              x={n.width / 2}
-                              y={lineY + 1}
-                              textAnchor="middle"
-                              dominantBaseline="middle"
-                              className="text-[11px] font-semibold select-none pointer-events-none"
-                              fill="rgba(0,0,0,0.35)"
-                            >
-                              {line}
-                            </text>
-                            <text
-                              x={n.width / 2}
-                              y={lineY}
-                              textAnchor="middle"
-                              dominantBaseline="middle"
-                              className="text-[11px] font-semibold select-none pointer-events-none"
-                              fill="#ffffff"
-                              stroke="rgba(0,0,0,0.22)"
-                              strokeWidth={0.5}
-                              paintOrder="stroke"
-                              opacity={isDimmed ? 0.6 : 0.98}
-                            >
-                              {line}
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </>
+
+                  {/* Star mark for Star tier */}
+                  {tier === 'star' && cardW >= 60 && (
+                    <text
+                      x={cardW - 12}
+                      y={15}
+                      textAnchor="middle"
+                      fill="#C9A94E"
+                      fontSize={11}
+                      fontWeight="bold"
+                      className="pointer-events-none select-none"
+                    >
+                      ★
+                    </text>
+                  )}
+
+                  {/* Generative Seal SVG rendered natively */}
+                  <g
+                    transform={`translate(${sealX}, ${sealY}) scale(${sealScale})`}
+                    className="pointer-events-none"
+                  >
+                    <path
+                      d={geo.pathD}
+                      fill={`${sealColor}28`}
+                      stroke={sealColor}
+                      strokeWidth={3.5}
+                      strokeLinejoin="round"
+                    />
+                    <circle cx={50} cy={50} r={geo.centerRadius} fill={sealColor} />
+                    {geo.strokes.map((st, i) => (
+                      <line
+                        key={i}
+                        x1={st.x1}
+                        y1={st.y1}
+                        x2={st.x2}
+                        y2={st.y2}
+                        stroke={sealColor}
+                        strokeWidth={3}
+                        strokeLinecap="round"
+                        opacity={0.9}
+                      />
+                    ))}
+                  </g>
+
+                  {/* Card Text & Metadata (when width allows) */}
+                  {!isUltraNarrow && showText && (
+                    <g
+                      transform={`translate(${sealX + sealSize + 8}, 0)`}
+                      className="pointer-events-none"
+                    >
+                      {/* Name */}
+                      <text
+                        x={0}
+                        y={showSubtitle ? 18 : cardH / 2 + 4}
+                        dominantBaseline={showSubtitle ? 'auto' : 'middle'}
+                        style={{
+                          fontFamily:
+                            tier === 'regular'
+                              ? "'Inter', sans-serif"
+                              : "'Fraunces', Georgia, serif",
+                          fontWeight: tier === 'regular' ? 500 : 600,
+                          fontSize: tier === 'star' ? '13px' : tier === 'notable' ? '12px' : '11px',
+                        }}
+                        fill={tier === 'regular' ? '#C7CAE6' : '#EDEEF2'}
+                      >
+                        {nameText}
+                      </text>
+
+                      {/* Lifespan / Generation Subtitle */}
+                      {showSubtitle && (
+                        <text
+                          x={0}
+                          y={34}
+                          style={{
+                            fontFamily: "'Inter', sans-serif",
+                            fontSize: '10px',
+                            fontWeight: tier === 'star' ? 600 : 400,
+                          }}
+                          fill={tier === 'star' ? '#C9A94E' : '#9AA0C4'}
+                        >
+                          {lifespanLabel}
+                        </text>
+                      )}
+
+                      {/* Hook text line on hover */}
+                      {showHook && (
+                        <text
+                          x={0}
+                          y={46}
+                          style={{
+                            fontFamily: "'Inter', sans-serif",
+                            fontSize: '9.5px',
+                            fontStyle: 'italic',
+                          }}
+                          fill="#9AA0C4"
+                        >
+                          {truncateText(hook, Math.floor((cardW - sealSize - 24) / 5.5))}
+                        </text>
+                      )}
+                    </g>
                   )}
                 </g>
               );
