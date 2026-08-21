@@ -162,6 +162,7 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
   const [draftChildren, setDraftChildren] = useState<string>('');
   const [draftParents, setDraftParents] = useState<string>('');
   const [draftColleagues, setDraftColleagues] = useState<string>('');
+  const [draftIsStar, setDraftIsStar] = useState<boolean>(false);
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
@@ -201,6 +202,7 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
         setDraftChildren(Array.isArray(authorFacts.children) ? authorFacts.children.join(', ') : '');
         setDraftParents(Array.isArray(authorFacts.parents) ? authorFacts.parents.join(', ') : '');
         setDraftColleagues(Array.isArray(authorFacts.colleagues) ? authorFacts.colleagues.join(', ') : '');
+        setDraftIsStar(Boolean(authorFacts.is_star || (res as any).is_star));
         // try to set preset
         const match = ERA_OPTIONS.find((o) => {
           const samePeriod = o.period === authorFacts.period;
@@ -249,6 +251,7 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
       mergedFacts.author.children = draftChildren ? splitToList(draftChildren) : mergedFacts.author.children;
       mergedFacts.author.parents = draftParents ? splitToList(draftParents) : mergedFacts.author.parents;
       mergedFacts.author.colleagues = draftColleagues ? splitToList(draftColleagues) : mergedFacts.author.colleagues;
+      mergedFacts.author.is_star = draftIsStar;
       mergedFacts.author.display = mergedFacts.author.display || {};
       if (draftPeriodLabel) mergedFacts.author.display.period_ru = draftPeriodLabel;
       if (draftTitleRu) mergedFacts.author.display.name_ru = draftTitleRu;
@@ -403,10 +406,36 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
             )}
             <div className="flex-1 min-w-0">
               <DialogTitle className="flex flex-wrap items-center gap-2">
-                <span className="text-xl font-semibold leading-tight font-serif font-display truncate">
+                <span className="text-xl font-semibold leading-tight font-sans truncate">
                   {data?.title_en || slug}
                 </span>
                 {data?.title_he && <span className="font-hebrew text-base text-muted-foreground">{data.title_he}</span>}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const nextStar = !draftIsStar;
+                    setDraftIsStar(nextStar);
+                    if (!editMode && slug) {
+                      try {
+                        const currentFacts = data?.facts || {};
+                        const authorFacts = (currentFacts as any)?.author || {};
+                        const merged = { ...currentFacts, author: { ...authorFacts, is_star: nextStar } };
+                        const res = await api.updateProfile({ slug, facts: merged });
+                        setData(res);
+                      } catch (err) {
+                        console.error('Failed to toggle star', err);
+                      }
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                    draftIsStar
+                      ? 'bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-500/70 shadow-sm'
+                      : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted'
+                  }`}
+                  title={draftIsStar ? 'Снять метку звезды (★)' : 'Сделать звёздной фигурой таймлайна (★)'}
+                >
+                  ★ {draftIsStar ? 'Звезда таймлайна' : 'Сделать звездой'}
+                </button>
                 {data?.is_verified && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs border border-emerald-300">
                     ✓ Проверено {data?.verified_by ? `(${data.verified_by})` : ''}

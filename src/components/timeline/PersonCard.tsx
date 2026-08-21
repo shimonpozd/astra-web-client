@@ -73,8 +73,8 @@ export function PersonCard({
         <div className="min-w-0 flex-1">
           <div
             className={cn(
-              'leading-tight text-foreground line-clamp-2',
-              tier === 'regular' ? 'text-xs font-medium' : 'text-sm font-semibold font-serif font-display'
+              'leading-tight text-foreground line-clamp-3 font-sans',
+              tier === 'regular' ? 'text-xs font-medium' : 'text-sm font-semibold'
             )}
           >
             {displayName}

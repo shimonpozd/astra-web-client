@@ -10,10 +10,8 @@ export type PersonTier = 'star' | 'notable' | 'regular';
  * 3. regular: Default for standard timeline entries
  */
 export function getPersonTier(person: TimelinePerson): PersonTier {
-  if (person.is_star === true) return 'star';
-  const len = (person.summary_html || '').trim().length;
-  if (len > 180) return 'star';
-  if (len > 30) return 'notable';
+  if (person.is_star === true || (person as any).isStar === true) return 'star';
+  if (person.is_verified) return 'notable';
   return 'regular';
 }
 

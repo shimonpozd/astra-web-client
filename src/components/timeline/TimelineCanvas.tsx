@@ -393,7 +393,7 @@ export function TimelineCanvas({
                     x={14}
                     y={18}
                     className="font-semibold text-sm select-none"
-                    style={{ fontFamily: "'Fraunces', Georgia, serif" }}
+                    style={{ fontFamily: "'Inter', sans-serif" }}
                     fill="hsl(var(--foreground))"
                   >
                     {n.period.name_ru}
@@ -533,10 +533,16 @@ export function TimelineCanvas({
               // Multi-line name wrapping calculation
               const textLeft = sealX + sealSize + 6;
               const availableTextW = Math.max(20, cardW - textLeft - (tier === 'star' ? 18 : 6));
-              const maxCharsPerLine = Math.max(6, Math.floor(availableTextW / 6.8));
+              
+              // Dynamic font size based on name length
+              const nameLen = displayName.length;
+              const fontSizePx = nameLen > 26 ? 9.5 : nameLen > 16 ? 10.5 : 11.5;
+              const lineStepPx = nameLen > 26 ? 11 : nameLen > 16 ? 12 : 13;
+              const charWidthFactor = fontSizePx <= 9.5 ? 5.6 : fontSizePx <= 10.5 ? 6.2 : 6.8;
+              const maxCharsPerLine = Math.max(6, Math.floor(availableTextW / charWidthFactor));
 
-              // Wrap name into 1 or 2 lines cleanly by words
-              const wrapNameWords = (fullName: string, limitPerLine: number): string[] => {
+              // Wrap name into up to 3 lines cleanly by words
+              const wrapNameWords = (fullName: string, limitPerLine: number, maxLines: number = 3): string[] => {
                 if (!fullName) return [];
                 const words = fullName.trim().split(/\s+/);
                 if (words.length <= 1) {
@@ -549,27 +555,44 @@ export function TimelineCanvas({
                   return [fullName];
                 }
 
-                // Find optimal split point
-                let line1 = words[0];
-                let splitIdx = 1;
-                while (splitIdx < words.length && (line1 + ' ' + words[splitIdx]).length <= limitPerLine) {
-                  line1 += ' ' + words[splitIdx];
-                  splitIdx++;
+                const lines: string[] = [];
+                let curr = '';
+
+                for (let i = 0; i < words.length; i++) {
+                  const w = words[i];
+                  if (!curr) {
+                    curr = w;
+                  } else if ((curr + ' ' + w).length <= limitPerLine) {
+                    curr += ' ' + w;
+                  } else {
+                    lines.push(curr);
+                    curr = w;
+                    if (lines.length === maxLines - 1) {
+                      // Last available line: take remaining words
+                      const rest = words.slice(i).join(' ');
+                      if (rest.length <= limitPerLine) {
+                        lines.push(rest);
+                      } else {
+                        lines.push(rest.slice(0, Math.max(3, limitPerLine - 1)) + '…');
+                      }
+                      curr = '';
+                      break;
+                    }
+                  }
                 }
 
-                if (splitIdx >= words.length) {
-                  return [line1];
+                if (curr && lines.length < maxLines) {
+                  if (curr.length <= limitPerLine) {
+                    lines.push(curr);
+                  } else {
+                    lines.push(curr.slice(0, Math.max(3, limitPerLine - 1)) + '…');
+                  }
                 }
 
-                const line2Raw = words.slice(splitIdx).join(' ');
-                const line2 = line2Raw.length <= limitPerLine
-                  ? line2Raw
-                  : line2Raw.slice(0, Math.max(3, limitPerLine - 1)) + '…';
-
-                return [line1, line2];
+                return lines;
               };
 
-              const nameLines = isUltraNarrow ? [] : wrapNameWords(displayName, maxCharsPerLine);
+              const nameLines = isUltraNarrow ? [] : wrapNameWords(displayName, maxCharsPerLine, 3);
 
               // Background & border styling using theme variables
               const bgFill = tier === 'star'
@@ -601,9 +624,11 @@ export function TimelineCanvas({
               const lineCount = nameLines.length;
               const startNameY = showSubtitle
                 ? 17
+                : lineCount === 3
+                ? 13
                 : lineCount === 2
-                ? (cardH / 2) - 3
-                : (cardH / 2) + 4;
+                ? (cardH / 2) - 4
+                : (cardH / 2);
 
               return (
                 <g
@@ -683,15 +708,12 @@ export function TimelineCanvas({
                         <text
                           key={lIdx}
                           x={0}
-                          y={startNameY + lIdx * 12.5}
+                          y={startNameY + lIdx * lineStepPx}
                           dominantBaseline={lineCount === 1 && !showSubtitle ? 'middle' : 'auto'}
                           style={{
-                            fontFamily:
-                              tier === 'regular'
-                                ? "'Inter', sans-serif"
-                                : "'Fraunces', Georgia, serif",
+                            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                             fontWeight: tier === 'regular' ? 500 : 600,
-                            fontSize: tier === 'star' ? '12.5px' : tier === 'notable' ? '11.5px' : '11px',
+                            fontSize: `${fontSizePx}px`,
                           }}
                           fill="hsl(var(--foreground))"
                         >
