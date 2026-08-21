@@ -40,13 +40,13 @@ export function PersonCard({
     <div
       className={cn(
         'relative rounded-xl text-left cursor-pointer transition-all duration-200 select-none overflow-hidden',
-        'border',
+        'border shadow-sm',
         tier === 'star'
-          ? 'bg-gradient-to-br from-[#242A5C] to-[#1E2350] border-[#C9A94E] shadow-[0_4px_20px_rgba(201,169,78,0.18)]'
+          ? 'bg-card border-[#C9A94E] shadow-[0_4px_20px_rgba(201,169,78,0.22)]'
           : tier === 'notable'
-          ? 'bg-[#1E2350] hover:bg-[#242A5C] border-[#C9A94E]/25 shadow-sm'
-          : 'bg-[#1E2350] hover:bg-[#242A5C] border-white/5',
-        isSelected && 'ring-2 ring-[#C9A94E] ring-offset-2 ring-offset-[#14183B]',
+          ? 'bg-card hover:bg-muted/70 border-[#C9A94E]/40'
+          : 'bg-card hover:bg-muted/70 border-border',
+        isSelected && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
         className
       )}
       style={{
@@ -73,15 +73,15 @@ export function PersonCard({
         <div className="min-w-0 flex-1">
           <div
             className={cn(
-              'leading-tight text-white line-clamp-2',
-              tier === 'regular' ? 'text-xs font-medium text-[#C7CAE6]' : 'text-sm font-semibold font-serif font-display'
+              'leading-tight text-foreground line-clamp-2',
+              tier === 'regular' ? 'text-xs font-medium' : 'text-sm font-semibold font-serif font-display'
             )}
           >
             {displayName}
           </div>
 
           {secondaryName && tier !== 'regular' && (
-            <div className="text-[10px] text-[#9AA0C4] truncate mt-0.5 font-sans">
+            <div className="text-[10.5px] text-muted-foreground truncate mt-0.5 font-sans">
               {secondaryName}
             </div>
           )}
@@ -90,7 +90,7 @@ export function PersonCard({
             <div
               className={cn(
                 'text-[10.5px] mt-1 font-sans tabular-nums',
-                tier === 'star' ? 'text-[#C9A94E] font-medium' : 'text-[#9AA0C4]'
+                tier === 'star' ? 'text-[#C9A94E] font-medium' : 'text-muted-foreground'
               )}
             >
               {lifespanLabel}
@@ -98,7 +98,7 @@ export function PersonCard({
           )}
 
           {hook && (tier !== 'regular' || isHovered) && (
-            <div className="mt-2 text-[11px] leading-relaxed text-[#9AA0C4] italic border-l-2 pl-2 border-[#C9A94E]/40 font-sans">
+            <div className="mt-2 text-[11px] leading-relaxed text-muted-foreground italic border-l-2 pl-2 border-[#C9A94E]/50 font-sans">
               {hook}
             </div>
           )}

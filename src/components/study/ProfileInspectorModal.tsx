@@ -372,6 +372,7 @@ export function ProfileInspectorModal({ slug, open, onClose, hideWorkSection = f
     (Array.isArray(factsWork?.categories) ? factsWork.categories.join(', ') : undefined);
   const images = Array.isArray(factsWork?.images) ? factsWork.images : [];
   const heroImage = images[0];
+  const secondaryImages = images.slice(1, 4);
   const authorFactsObj = (facts as any)?.author || {};
   const sealColor = getPersonSealColor({
     slug: slug || '',

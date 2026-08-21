@@ -350,11 +350,11 @@ export function TimelineCanvas({
         >
           <defs>
             <linearGradient id="star-card-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#242A5C" />
-              <stop offset="100%" stopColor="#1E2350" />
+              <stop offset="0%" stopColor="hsl(var(--card))" />
+              <stop offset="100%" stopColor="hsl(var(--muted))" />
             </linearGradient>
             <filter id="star-card-glow" x="-15%" y="-15%" width="130%" height="130%">
-              <feDropShadow dx="0" dy="3" stdDeviation="5" floodColor="#C9A94E" floodOpacity="0.28" />
+              <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#C9A94E" floodOpacity="0.3" />
             </filter>
           </defs>
 
@@ -384,17 +384,17 @@ export function TimelineCanvas({
                     width={n.width}
                     height={n.height}
                     rx={10}
-                    fill="#14183B"
+                    fill="hsl(var(--card))"
                     stroke={color}
                     strokeWidth={1.5}
-                    opacity={n.collapsed ? 0.85 : 0.95}
+                    opacity={n.collapsed ? 0.9 : 0.98}
                   />
                   <text
                     x={14}
                     y={18}
                     className="font-semibold text-sm select-none"
                     style={{ fontFamily: "'Fraunces', Georgia, serif" }}
-                    fill="#EDEEF2"
+                    fill="hsl(var(--foreground))"
                   >
                     {n.period.name_ru}
                   </text>
@@ -403,7 +403,7 @@ export function TimelineCanvas({
                     y={32}
                     className="text-[11px] font-medium select-none"
                     style={{ fontFamily: "'Inter', sans-serif" }}
-                    fill="#9AA0C4"
+                    fill="hsl(var(--muted-foreground))"
                   >
                     {n.period.startYear} — {n.period.endYear}
                   </text>
@@ -443,8 +443,8 @@ export function TimelineCanvas({
                     width={n.width}
                     height={n.height}
                     rx={14}
-                    fill="#14183B"
-                    opacity={0.5}
+                    fill="hsl(var(--card))"
+                    fillOpacity={0.35}
                     className="pointer-events-none"
                   />
                   <rect
@@ -454,7 +454,7 @@ export function TimelineCanvas({
                     height={n.height}
                     rx={14}
                     fill={color}
-                    opacity={n.period.id === 'torah' ? 0.08 : 0.04}
+                    fillOpacity={n.period.id === 'torah' ? 0.09 : 0.05}
                     stroke={color}
                     strokeWidth={1.5}
                     strokeOpacity={0.4}
@@ -472,9 +472,10 @@ export function TimelineCanvas({
                 y1={n.y1}
                 x2={n.x2}
                 y2={n.y2}
-                stroke="rgba(255, 255, 255, 0.08)"
+                stroke="hsl(var(--border))"
                 strokeWidth={1}
                 strokeDasharray="4 4"
+                strokeOpacity={0.6}
               />
             ))}
             
@@ -486,7 +487,7 @@ export function TimelineCanvas({
                 y={n.y}
                 className="text-xs font-semibold select-none"
                 style={{ fontFamily: "'Inter', sans-serif" }}
-                fill="#9AA0C4"
+                fill="hsl(var(--muted-foreground))"
                 opacity={n.periodId === 'torah' && n.label.toLowerCase().includes('поколение') ? 0 : 0.9}
               >
                 {n.label}
@@ -519,30 +520,68 @@ export function TimelineCanvas({
               const baseSealSize = isUltraNarrow
                 ? Math.min(22, Math.max(14, cardW - 8))
                 : tier === 'star'
-                ? 34
+                ? 32
                 : tier === 'notable'
-                ? 26
+                ? 24
                 : 16;
               const sealSize = Math.min(baseSealSize, cardH - 8);
               const sealScale = sealSize / 100;
 
-              const sealX = isUltraNarrow ? (cardW - sealSize) / 2 : 8;
+              const sealX = isUltraNarrow ? (cardW - sealSize) / 2 : 7;
               const sealY = (cardH - sealSize) / 2;
 
-              // Name line formatting
-              const maxChars = isNarrow
-                ? Math.max(6, Math.floor((cardW - sealSize - 16) / 7.5))
-                : Math.max(10, Math.floor((cardW - sealSize - (tier === 'star' ? 32 : 20)) / 7.8));
+              // Multi-line name wrapping calculation
+              const textLeft = sealX + sealSize + 6;
+              const availableTextW = Math.max(20, cardW - textLeft - (tier === 'star' ? 18 : 6));
+              const maxCharsPerLine = Math.max(6, Math.floor(availableTextW / 7.2));
 
-              const truncateText = (str: string, limit: number) => {
-                if (str.length <= limit) return str;
-                return str.slice(0, Math.max(3, limit - 1)) + '…';
+              // Wrap name into up to 2 lines
+              const wrapNameWords = (fullName: string, limitPerLine: number): string[] => {
+                const words = fullName.split(/\s+/);
+                const lines: string[] = [];
+                let curr = '';
+
+                for (let i = 0; i < words.length; i++) {
+                  const w = words[i];
+                  if (!curr) {
+                    curr = w;
+                  } else if ((curr + ' ' + w).length <= limitPerLine) {
+                    curr += ' ' + w;
+                  } else {
+                    lines.push(curr);
+                    curr = w;
+                    if (lines.length === 1) {
+                      // Second line gets remaining words (with truncation if too long)
+                      const rest = words.slice(i).join(' ');
+                      if (rest.length > limitPerLine) {
+                        lines.push(rest.slice(0, Math.max(3, limitPerLine - 1)) + '…');
+                      } else {
+                        lines.push(rest);
+                      }
+                      curr = '';
+                      break;
+                    }
+                  }
+                }
+                if (curr && lines.length < 2) {
+                  if (curr.length > limitPerLine) {
+                    lines.push(curr.slice(0, Math.max(3, limitPerLine - 1)) + '…');
+                  } else {
+                    lines.push(curr);
+                  }
+                }
+                return lines;
               };
 
-              const nameText = truncateText(displayName, maxChars);
+              const nameLines = isUltraNarrow ? [] : wrapNameWords(displayName, maxCharsPerLine);
 
-              // Background styling
-              const bgFill = tier === 'star' ? 'url(#star-card-grad)' : isHovered ? '#242A5C' : '#1E2350';
+              // Background & border styling using theme variables
+              const bgFill = tier === 'star'
+                ? 'url(#star-card-grad)'
+                : isHovered
+                ? 'hsl(var(--muted))'
+                : 'hsl(var(--card))';
+
               const borderStroke = isSelected
                 ? '#C9A94E'
                 : tier === 'star'
@@ -550,17 +589,25 @@ export function TimelineCanvas({
                 : tier === 'notable'
                 ? isHovered
                   ? sealColor
-                  : 'rgba(201, 169, 78, 0.3)'
+                  : 'rgba(201, 169, 78, 0.4)'
                 : isHovered
-                ? 'rgba(255, 255, 255, 0.2)'
-                : 'rgba(255, 255, 255, 0.06)';
+                ? 'hsl(var(--foreground))'
+                : 'hsl(var(--border))';
 
               const strokeWidth = isSelected ? 2.5 : tier === 'star' ? 1.8 : 1;
 
-              // LOD text visibility rules
+              // LOD and metadata visibility
               const showText = lod !== 'low' || tier !== 'regular';
-              const showSubtitle = (tier !== 'regular' || isHovered) && isStandard && lifespanLabel && cardH >= 42;
-              const showHook = isHovered && hook && cardW >= 150 && tier !== 'regular';
+              const showSubtitle = (tier !== 'regular' || isHovered) && isStandard && lifespanLabel && cardH >= 44 && nameLines.length === 1;
+              const showHook = isHovered && hook && cardW >= 160 && tier !== 'regular' && nameLines.length === 1;
+
+              // Vertical positions for name lines
+              const lineCount = nameLines.length;
+              const startNameY = showSubtitle
+                ? 17
+                : lineCount === 2
+                ? (cardH / 2) - 3
+                : (cardH / 2) + 4;
 
               return (
                 <g
@@ -588,8 +635,8 @@ export function TimelineCanvas({
                   {/* Star mark for Star tier */}
                   {tier === 'star' && cardW >= 60 && (
                     <text
-                      x={cardW - 12}
-                      y={15}
+                      x={cardW - 10}
+                      y={14}
                       textAnchor="middle"
                       fill="#C9A94E"
                       fontSize={11}
@@ -631,38 +678,41 @@ export function TimelineCanvas({
                   {/* Card Text & Metadata (when width allows) */}
                   {!isUltraNarrow && showText && (
                     <g
-                      transform={`translate(${sealX + sealSize + 8}, 0)`}
+                      transform={`translate(${textLeft}, 0)`}
                       className="pointer-events-none"
                     >
-                      {/* Name */}
-                      <text
-                        x={0}
-                        y={showSubtitle ? 18 : cardH / 2 + 4}
-                        dominantBaseline={showSubtitle ? 'auto' : 'middle'}
-                        style={{
-                          fontFamily:
-                            tier === 'regular'
-                              ? "'Inter', sans-serif"
-                              : "'Fraunces', Georgia, serif",
-                          fontWeight: tier === 'regular' ? 500 : 600,
-                          fontSize: tier === 'star' ? '13px' : tier === 'notable' ? '12px' : '11px',
-                        }}
-                        fill={tier === 'regular' ? '#C7CAE6' : '#EDEEF2'}
-                      >
-                        {nameText}
-                      </text>
+                      {/* Name lines */}
+                      {nameLines.map((line, lIdx) => (
+                        <text
+                          key={lIdx}
+                          x={0}
+                          y={startNameY + lIdx * 12.5}
+                          dominantBaseline={lineCount === 1 && !showSubtitle ? 'middle' : 'auto'}
+                          style={{
+                            fontFamily:
+                              tier === 'regular'
+                                ? "'Inter', sans-serif"
+                                : "'Fraunces', Georgia, serif",
+                            fontWeight: tier === 'regular' ? 500 : 600,
+                            fontSize: tier === 'star' ? '12.5px' : tier === 'notable' ? '11.5px' : '11px',
+                          }}
+                          fill="hsl(var(--foreground))"
+                        >
+                          {line}
+                        </text>
+                      ))}
 
                       {/* Lifespan / Generation Subtitle */}
                       {showSubtitle && (
                         <text
                           x={0}
-                          y={34}
+                          y={33}
                           style={{
                             fontFamily: "'Inter', sans-serif",
-                            fontSize: '10px',
+                            fontSize: '9.5px',
                             fontWeight: tier === 'star' ? 600 : 400,
                           }}
-                          fill={tier === 'star' ? '#C9A94E' : '#9AA0C4'}
+                          fill={tier === 'star' ? '#C9A94E' : 'hsl(var(--muted-foreground))'}
                         >
                           {lifespanLabel}
                         </text>
@@ -672,15 +722,15 @@ export function TimelineCanvas({
                       {showHook && (
                         <text
                           x={0}
-                          y={46}
+                          y={44}
                           style={{
                             fontFamily: "'Inter', sans-serif",
-                            fontSize: '9.5px',
+                            fontSize: '9px',
                             fontStyle: 'italic',
                           }}
-                          fill="#9AA0C4"
+                          fill="hsl(var(--muted-foreground))"
                         >
-                          {truncateText(hook, Math.floor((cardW - sealSize - 24) / 5.5))}
+                          {hook.length > 25 ? hook.slice(0, 24) + '…' : hook}
                         </text>
                       )}
                     </g>
