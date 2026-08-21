@@ -11,7 +11,9 @@ export type PersonTier = 'star' | 'notable' | 'regular';
  */
 export function getPersonTier(person: TimelinePerson): PersonTier {
   if (person.is_star === true) return 'star';
-  if (person.summary_html && person.summary_html.trim().length > 60) return 'notable';
+  const len = (person.summary_html || '').trim().length;
+  if (len > 180) return 'star';
+  if (len > 30) return 'notable';
   return 'regular';
 }
 

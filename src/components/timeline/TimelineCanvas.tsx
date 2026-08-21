@@ -533,44 +533,40 @@ export function TimelineCanvas({
               // Multi-line name wrapping calculation
               const textLeft = sealX + sealSize + 6;
               const availableTextW = Math.max(20, cardW - textLeft - (tier === 'star' ? 18 : 6));
-              const maxCharsPerLine = Math.max(6, Math.floor(availableTextW / 7.2));
+              const maxCharsPerLine = Math.max(6, Math.floor(availableTextW / 6.8));
 
-              // Wrap name into up to 2 lines
+              // Wrap name into 1 or 2 lines cleanly by words
               const wrapNameWords = (fullName: string, limitPerLine: number): string[] => {
-                const words = fullName.split(/\s+/);
-                const lines: string[] = [];
-                let curr = '';
+                if (!fullName) return [];
+                const words = fullName.trim().split(/\s+/);
+                if (words.length <= 1) {
+                  if (fullName.length <= limitPerLine) return [fullName];
+                  return [fullName.slice(0, Math.max(3, limitPerLine - 1)) + '…'];
+                }
 
-                for (let i = 0; i < words.length; i++) {
-                  const w = words[i];
-                  if (!curr) {
-                    curr = w;
-                  } else if ((curr + ' ' + w).length <= limitPerLine) {
-                    curr += ' ' + w;
-                  } else {
-                    lines.push(curr);
-                    curr = w;
-                    if (lines.length === 1) {
-                      // Second line gets remaining words (with truncation if too long)
-                      const rest = words.slice(i).join(' ');
-                      if (rest.length > limitPerLine) {
-                        lines.push(rest.slice(0, Math.max(3, limitPerLine - 1)) + '…');
-                      } else {
-                        lines.push(rest);
-                      }
-                      curr = '';
-                      break;
-                    }
-                  }
+                // If entire name fits on one line, return 1 line
+                if (fullName.length <= limitPerLine) {
+                  return [fullName];
                 }
-                if (curr && lines.length < 2) {
-                  if (curr.length > limitPerLine) {
-                    lines.push(curr.slice(0, Math.max(3, limitPerLine - 1)) + '…');
-                  } else {
-                    lines.push(curr);
-                  }
+
+                // Find optimal split point
+                let line1 = words[0];
+                let splitIdx = 1;
+                while (splitIdx < words.length && (line1 + ' ' + words[splitIdx]).length <= limitPerLine) {
+                  line1 += ' ' + words[splitIdx];
+                  splitIdx++;
                 }
-                return lines;
+
+                if (splitIdx >= words.length) {
+                  return [line1];
+                }
+
+                const line2Raw = words.slice(splitIdx).join(' ');
+                const line2 = line2Raw.length <= limitPerLine
+                  ? line2Raw
+                  : line2Raw.slice(0, Math.max(3, limitPerLine - 1)) + '…';
+
+                return [line1, line2];
               };
 
               const nameLines = isUltraNarrow ? [] : wrapNameWords(displayName, maxCharsPerLine);
@@ -620,6 +616,7 @@ export function TimelineCanvas({
                   opacity={isDimmed ? 0.35 : 1}
                   filter={tier === 'star' && !isDimmed ? 'url(#star-card-glow)' : undefined}
                 >
+                  <title>{displayName}{lifespanLabel ? ` (${lifespanLabel})` : ''}</title>
                   {/* Card base background */}
                   <rect
                     x={0}
