@@ -364,6 +364,10 @@ export function useStudyMode() {
       setLocalFocus(pendingRef, fallbackSegment);
     }
 
+    const nearWindowEdge =
+      isLocalNavigation &&
+      (existingIndex <= 1 || existingIndex >= Math.max(segments.length - 2, 0));
+
     // Если нужный отрывок уже есть в текущем окне и мы не на краю окна — синхронизируем фокус чата на бэке и не перезагружаем всё окно
     if (isLocalNavigation && !nearWindowEdge) {
       authorizedFetch('/api/study/chat/set_focus', {

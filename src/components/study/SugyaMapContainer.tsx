@@ -132,9 +132,12 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
     });
   }, []);
 
-  // Auto-restore cached map from V4 memory/localStorage or fetch from PostgreSQL DB on mount
+  // Auto-restore cached map from V4 memory/localStorage on mount or ref change (NO automatic LLM calculation)
   useEffect(() => {
-    if (!currentRef) return;
+    if (!currentRef) {
+      setMapData(null);
+      return;
+    }
 
     const normalizedRef = currentRef.replace(/[: ]/g, '.');
     const existing =
@@ -163,32 +166,9 @@ export const SugyaMapContainer: React.FC<SugyaMapContainerProps> = ({
       // ignore
     }
 
-    // Deduplication guard: don't issue duplicate parallel network requests for the exact same ref
-    if (fetchingRef.current === currentRef) {
-      return;
-    }
-
-    fetchingRef.current = currentRef;
-    let isMounted = true;
-    calculateSugyaMap(currentRef, segments, undefined, false)
-      .then((data) => {
-        if (isMounted && data && data.nodes && data.nodes.length > 0) {
-          cacheMapForTopic(data, currentRef);
-          setMapData(data);
-        }
-      })
-      .catch(() => {
-        // Silently ignore if no map exists in DB yet
-      })
-      .finally(() => {
-        if (fetchingRef.current === currentRef) {
-          fetchingRef.current = null;
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    // If no cache exists, reset mapData to null so the "Просчитать" button is shown.
+    // We intentionally do NOT trigger automatic background LLM requests here to save tokens.
+    setMapData(null);
   }, [currentRef, cacheMapForTopic]);
 
   // Apply sugya text highlights and notify reader components whenever mapData or currentRef updates
