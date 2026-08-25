@@ -771,6 +771,11 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
         }
       };
 
+      // 1. Текст Гемары (оригинал на иврите/арамейском и английский перевод)
+      const gemaraHebrew = stripHtml(activeHebrewText || activeSegmentData?.he_text || activeSegmentData?.heText || '');
+      const gemaraEnglish = stripHtml(activeEnglishText || activeSegmentData?.en_text || activeSegmentData?.enText || '');
+
+      // 2. Комментарии Раши (оригинал и английский перевод, если есть)
       const formattedComments = segmentRashi.map((comment, index) => {
         const heText = comment.he || "";
         const { dh, restHtml } = parseCommentDh(heText);
@@ -778,12 +783,23 @@ export const TraditionalTalmudDaf: React.FC<TraditionalTalmudDafProps> = ({
 
         let entry = `${index + 1}. ${hebrewText}`;
         if (typeof comment.en === 'string' && comment.en.trim() && comment.en !== heText) {
-          entry += `\n   Translation: ${stripHtml(comment.en)}`;
+          entry += `\n   English: ${stripHtml(comment.en)}`;
         }
         return entry;
       });
 
-      const textToCopy = `Комментарии Раши (${activeSegmentRef}):\n${formattedComments.join('\n\n')}`;
+      const parts: string[] = [`[${activeSegmentRef}]`];
+
+      if (gemaraHebrew) {
+        parts.push(`📖 Гемара (Оригинал):\n${gemaraHebrew}`);
+      }
+      if (gemaraEnglish) {
+        parts.push(`🇬🇧 Гемара (English):\n${gemaraEnglish}`);
+      }
+
+      parts.push(`✍️ Раши:\n${formattedComments.join('\n\n')}`);
+
+      const textToCopy = parts.join('\n\n');
 
       const success = await copyToClipboard(textToCopy);
       if (success) {
