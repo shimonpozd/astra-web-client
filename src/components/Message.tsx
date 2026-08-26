@@ -5,6 +5,8 @@ import { Doc, DocV1 } from '../types/text';
 import { cn } from '../lib/utils';
 import { coerceDoc } from '../lib/text/normalize';
 
+import { MarkdownRenderer } from './chat/MarkdownRenderer';
+
 interface MessageProps {
   message: MessageType;
 }
@@ -15,7 +17,6 @@ export default function Message({ message }: MessageProps) {
   // Handle both old Message format and new ChatMessage format
   const isChatMessage = 'content_type' in message;
   const content = isChatMessage ? message.content : message.content;
-  const contentType = isChatMessage ? message.content_type : 'text.v1';
 
   let renderedContent: React.ReactNode;
 
@@ -27,25 +28,8 @@ export default function Message({ message }: MessageProps) {
       </p>
     );
   } else {
-    // Assistant/system messages
-    if (contentType === 'doc.v1' && typeof content === 'object' && content !== null) {
-      renderedContent = <MessageRenderer doc={content as DocV1} />;
-    } else if (typeof content === 'string') {
-      const doc = coerceDoc(content);
-      if (doc) {
-        renderedContent = <MessageRenderer doc={doc} />;
-      } else {
-        renderedContent = (
-          <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
-        );
-      }
-    } else {
-      renderedContent = (
-        <p className="whitespace-pre-wrap leading-relaxed">
-          {JSON.stringify(content)}
-        </p>
-      );
-    }
+    // Assistant/system messages rendered via modern MarkdownRenderer
+    renderedContent = <MarkdownRenderer content={content} />;
   }
 
   return (

@@ -1,44 +1,54 @@
 /* =============================================================================
-   СИСТЕМА ДОКУМЕНТОВ (.doc) - стили для контента сообщений
-   Все стили типографики и элементов контента должны находиться здесь
+   СИСТЕМА ДОКУМЕНТОВ (.doc) - стили для Markdown-контента сообщений
+   Все стили типографики и элементов контента сообщений находятся здесь
    ============================================================================= */
 
 @layer components {
 
-  /* Контейнер для ВСЕГО doc.v1 */
+  /* 
+   * ЦВЕТОВАЯ СХЕМА ДОКУМЕНТОВ
+   * Все цвета 100% производные от токенов темы (--background, --foreground, --primary)
+   * Безупречно адаптируются как под светлую (бумажную), так и под тёмную тему
+   */
+  :root {
+    --doc-bg: hsl(var(--background));
+    --doc-fg: hsl(var(--foreground));
+    
+    /* Приглушённый текст */
+    --doc-dim: color-mix(in oklab, var(--doc-fg) 80%, var(--doc-bg));
+    /* Очень приглушённый */
+    --doc-muted: color-mix(in oklab, var(--doc-fg) 55%, var(--doc-bg));
+    
+    /* Акцентный цвет (привязан к primary токену темы) */
+    --doc-accent: hsl(var(--primary));
+    
+    /* Границы и разделители */
+    --doc-border: color-mix(in oklab, var(--doc-fg) 14%, var(--doc-bg));
+    --doc-hr: color-mix(in oklab, var(--doc-fg) 12%, var(--doc-bg));
+    
+    /* Фоновые подложки */
+    --doc-code-bg: color-mix(in oklab, var(--doc-fg) 5.5%, var(--doc-bg));
+    --doc-quote-bg: color-mix(in oklab, var(--doc-fg) 3%, var(--doc-bg));
+    
+    /* Ссылки */
+    --doc-link: hsl(var(--primary));
+    --doc-link-hover: color-mix(in oklab, var(--doc-link) 80%, var(--doc-fg));
+  }
+
+  /* Контейнер сообщений */
   .doc {
     @apply mx-auto max-w-[85ch] antialiased;
-    font-size: 16px;
+    font-size: 1rem;
     line-height: 1.75;
     color: var(--doc-fg);
   }
 
-  /* 
-   * ЦВЕТОВАЯ СХЕМА ДОКУМЕНТОВ
-   * Все цвета производные от основной темы для консистентности
-   * Процентные значения подобраны для оптимального контраста
-   */
-  :root {
-    --doc-fg: var(--foreground);
-    /* Основной текст */
-    --doc-dim: color-mix(in oklab, var(--doc-fg) 75%, black);
-    /* Приглушённый текст */
-    --doc-accent: #b8d3ea;
-    /* Акцентный цвет (мягкий синий) */
-    --doc-muted: color-mix(in oklab, var(--doc-fg) 55%, black);
-    /* Очень приглушённый */
-    --doc-border: color-mix(in oklab, var(--doc-fg) 14%, black);
-    /* Границы */
-    --doc-code-bg: color-mix(in oklab, var(--doc-fg) 5.5%, black);
-    /* Фон кода */
-    --doc-quote-bg: color-mix(in oklab, var(--doc-fg) 3.2%, black);
-    /* Фон цитат */
-    --doc-hr: color-mix(in oklab, var(--doc-fg) 9%, black);
-    /* Разделители */
-    --doc-link: #86b3cf;
-    /* Ссылки */
-    --doc-link-hover: #a9c8db;
-    /* Ссылки при наведении */
+  /* Сброс внешних отступов первого и последнего дочерних элементов */
+  .doc > :first-child {
+    margin-top: 0 !important;
+  }
+  .doc > :last-child {
+    margin-bottom: 0 !important;
   }
 
   /* Базовый вертикальный ритм */
@@ -48,19 +58,20 @@
   .doc blockquote,
   .doc pre,
   .doc table,
-  .doc hr {
+  .doc hr,
+  .doc figure {
     @apply mb-4;
   }
 
-  /* Абзацы с улучшенными переносами */
+  /* Абзацы */
   .doc p {
-    @apply selection:bg-white/20;
+    @apply selection:bg-primary/20;
     text-wrap: pretty;
     hyphens: auto;
     word-break: normal;
   }
 
-  /* Заголовки с балансировкой строк и консистентными размерами */
+  /* Заголовки */
   .doc h1,
   .doc h2,
   .doc h3,
@@ -74,33 +85,38 @@
   }
 
   .doc h1 {
-    font-size: 1.875rem;
-    line-height: 1.2;
+    font-size: 1.75rem;
+    line-height: 1.25;
+    border-bottom: 1px solid var(--doc-border);
+    padding-bottom: 0.5rem;
+    color: var(--doc-accent);
   }
 
   .doc h2 {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     line-height: 1.3;
   }
 
   .doc h3 {
-    font-size: 1.25rem;
+    font-size: 1.2rem;
     line-height: 1.4;
+    color: color-mix(in oklab, var(--doc-accent) 85%, var(--doc-fg));
   }
 
   .doc h4 {
-    font-size: 1.125rem;
+    font-size: 1.05rem;
     line-height: 1.4;
   }
 
   .doc h5 {
-    font-size: 1rem;
+    font-size: 0.95rem;
     line-height: 1.5;
   }
 
   .doc h6 {
     font-size: 0.875rem;
     line-height: 1.5;
+    color: var(--doc-muted);
   }
 
   /* Ссылки */
@@ -108,34 +124,66 @@
     color: var(--doc-link);
     text-decoration: none;
     border-bottom: 1px dashed color-mix(in oklab, var(--doc-link) 50%, transparent);
+    transition: color 0.15s ease, border-color 0.15s ease;
   }
 
   .doc a:hover {
     color: var(--doc-link-hover);
     border-bottom-style: solid;
+    border-bottom-color: var(--doc-link-hover);
   }
 
   .doc a:focus-visible {
     outline: 2px solid var(--doc-link);
     outline-offset: 2px;
+    border-radius: 2px;
   }
 
-  /* Жирный/курсив */
+  /* Форматирование шрифта */
   .doc strong {
-    @apply font-semibold;
+    @apply font-semibold text-foreground;
   }
 
   .doc em {
     @apply italic;
   }
 
-  /* Инлайн код с унифицированным фоном */
-  .doc code {
-    @apply text-[0.95em] px-1 py-0.5 rounded;
-    background: var(--doc-code-bg);
+  /* GFM форматирование: зачёркивание, подсветка, индексы */
+  .doc del,
+  .doc s {
+    color: var(--doc-muted);
+    text-decoration: line-through;
   }
 
-  /* Многострочный код с унифицированным фоном */
+  .doc mark {
+    background: color-mix(in oklab, var(--doc-accent) 22%, transparent);
+    color: inherit;
+    padding: 0.1em 0.3em;
+    border-radius: 0.25rem;
+  }
+
+  .doc sub,
+  .doc sup {
+    font-size: 0.75em;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+  }
+  .doc sup {
+    top: -0.5em;
+  }
+  .doc sub {
+    bottom: -0.25em;
+  }
+
+  /* Инлайн код */
+  .doc code {
+    @apply text-[0.9em] px-1.5 py-0.5 rounded font-mono;
+    background: var(--doc-code-bg);
+    border: 1px solid var(--doc-border);
+  }
+
+  /* Многострочный код */
   .doc pre {
     @apply rounded-xl p-4 overflow-auto;
     border: 1px solid var(--doc-border);
@@ -143,30 +191,28 @@
   }
 
   .doc pre code {
-    @apply p-0 bg-transparent;
+    @apply p-0 bg-transparent border-none text-[0.875rem];
   }
 
   /* Цитаты */
   .doc blockquote {
-    border-left: 2px solid var(--doc-border);
-    background: color-mix(in oklab, var(--doc-fg) 2.2%, transparent);
-    padding: 0.5rem 1rem 0.5rem 1rem;
-    margin: 0 0 1rem 0;
-    border-radius: 0.5rem;
+    border-left: 3px solid var(--doc-accent);
+    background: var(--doc-quote-bg);
+    padding: 0.75rem 1.25rem;
+    margin: 1rem 0;
+    border-radius: 0 0.5rem 0.5rem 0;
     color: var(--doc-dim);
   }
 
-  /* убираем лишние вертикальные пробелы внутри цитаты */
-  .doc blockquote> :first-child {
+  .doc blockquote > :first-child {
     margin-top: 0;
   }
 
-  .doc blockquote> :last-child {
+  .doc blockquote > :last-child {
     margin-bottom: 0;
   }
 
-  /* вложенные цитаты/списки не раздувают вертикальный ритм */
-  .doc li>blockquote {
+  .doc li > blockquote {
     margin: 0.5rem 0;
   }
 
@@ -180,48 +226,79 @@
   }
 
   .doc li {
-    @apply mb-1;
+    @apply mb-1.5;
   }
 
-  .doc li>ul,
-  .doc li>ol {
+  .doc li > ul,
+  .doc li > ol {
     @apply mt-1 mb-0;
   }
 
-  /* Горизонтальная линия */
+  /* GFM Task Lists (чекбоксы задач) */
+  .doc ul:has(input[type="checkbox"]) {
+    list-style-type: none;
+    padding-left: 0;
+    margin-left: 0.25rem;
+  }
+
+  .doc li:has(input[type="checkbox"]) {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .doc input[type="checkbox"] {
+    accent-color: var(--doc-accent);
+    margin-top: 0.2rem;
+    cursor: pointer;
+  }
+
+  /* Разделитель */
   .doc hr {
     @apply my-6;
     border: none;
     border-top: 1px solid var(--doc-hr);
   }
 
-  /* Таблицы */
+  /* Таблицы со стильной зеброй и выделением шапки */
   .doc table {
-    @apply w-full border-collapse text-[15px];
+    @apply w-full border-collapse text-sm;
+    border-radius: 0.5rem;
+    overflow: hidden;
   }
 
   .doc th,
   .doc td {
-    @apply border border-[var(--doc-border)] px-3 py-2;
+    @apply border border-[var(--doc-border)] px-3.5 py-2.5;
   }
 
-  .doc th {
-    @apply font-medium;
+  .doc thead th {
+    background: color-mix(in oklab, var(--doc-fg) 6%, var(--doc-bg));
+    color: var(--doc-fg);
+    font-weight: 600;
   }
 
-  /* Термины - элегантные карточки */
+  .doc tbody tr:nth-child(even) {
+    background: color-mix(in oklab, var(--doc-fg) 2.5%, var(--doc-bg));
+  }
+
+  .doc tbody tr:hover {
+    background: color-mix(in oklab, var(--doc-accent) 6%, var(--doc-bg));
+  }
+
+  /* Карточки терминов (.term) */
   .doc .term {
     @apply mb-4 rounded-xl border;
     padding: 1rem 1.25rem;
-    background: color-mix(in oklab, var(--doc-accent) 8%, transparent);
-    border-color: color-mix(in oklab, var(--doc-accent) 20%, transparent);
+    background: color-mix(in oklab, var(--doc-accent) 8%, var(--doc-bg));
+    border-color: color-mix(in oklab, var(--doc-accent) 25%, var(--doc-bg));
     position: relative;
     transition: all 0.2s ease;
   }
 
   .doc .term:hover {
-    background: color-mix(in oklab, var(--doc-accent) 12%, transparent);
-    border-color: color-mix(in oklab, var(--doc-accent) 30%, transparent);
+    background: color-mix(in oklab, var(--doc-accent) 12%, var(--doc-bg));
+    border-color: color-mix(in oklab, var(--doc-accent) 35%, var(--doc-bg));
     transform: translateY(-1px);
     box-shadow: 0 4px 12px color-mix(in oklab, var(--doc-accent) 15%, transparent);
   }
@@ -251,10 +328,6 @@
     margin: 0;
   }
 
-  .doc .term p:last-child {
-    margin-bottom: 0;
-  }
-
   /* Изображения */
   .doc figure {
     @apply my-4;
@@ -277,7 +350,7 @@
   .doc :where([lang="he"], [lang="he-IL"]) {
     font-family: "Noto Rashi Hebrew", "Mugrabi", "Noto Sans Hebrew",
       "Times New Roman", serif;
-    font-size: 1.3em;
+    font-size: 1.25em;
     line-height: 1.6;
   }
 
@@ -287,5 +360,59 @@
     background: var(--doc-code-bg);
     border: 1px solid var(--doc-border);
     color: var(--doc-fg);
+  }
+
+  /* GitHub Alerts / Callouts */
+  .doc .markdown-alert {
+    @apply my-4 rounded-xl border px-4 py-3 text-sm;
+  }
+
+  .doc .markdown-alert .markdown-alert-title {
+    @apply font-semibold flex items-center gap-2 mb-1.5 text-xs uppercase tracking-wider;
+  }
+
+  .doc .markdown-alert-note {
+    border-color: color-mix(in oklab, #38bdf8 40%, var(--doc-border));
+    background: color-mix(in oklab, #38bdf8 8%, var(--doc-bg));
+    color: var(--doc-fg);
+  }
+  .doc .markdown-alert-note .markdown-alert-title {
+    color: #38bdf8;
+  }
+
+  .doc .markdown-alert-tip {
+    border-color: color-mix(in oklab, #34d399 40%, var(--doc-border));
+    background: color-mix(in oklab, #34d399 8%, var(--doc-bg));
+    color: var(--doc-fg);
+  }
+  .doc .markdown-alert-tip .markdown-alert-title {
+    color: #34d399;
+  }
+
+  .doc .markdown-alert-important {
+    border-color: color-mix(in oklab, #a855f7 40%, var(--doc-border));
+    background: color-mix(in oklab, #a855f7 8%, var(--doc-bg));
+    color: var(--doc-fg);
+  }
+  .doc .markdown-alert-important .markdown-alert-title {
+    color: #a855f7;
+  }
+
+  .doc .markdown-alert-warning {
+    border-color: color-mix(in oklab, #fbbf24 40%, var(--doc-border));
+    background: color-mix(in oklab, #fbbf24 8%, var(--doc-bg));
+    color: var(--doc-fg);
+  }
+  .doc .markdown-alert-warning .markdown-alert-title {
+    color: #fbbf24;
+  }
+
+  .doc .markdown-alert-caution {
+    border-color: color-mix(in oklab, #f87171 40%, var(--doc-border));
+    background: color-mix(in oklab, #f87171 8%, var(--doc-bg));
+    color: var(--doc-fg);
+  }
+  .doc .markdown-alert-caution .markdown-alert-title {
+    color: #f87171;
   }
 }
