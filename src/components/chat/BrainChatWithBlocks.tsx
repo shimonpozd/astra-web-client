@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { debugLog } from '../../utils/debugLogger';
 import React, { useState, useRef, useEffect } from 'react';
 import { api } from '../../services/api';
 import { ChatRequest, Message as MessageType, StreamHandler } from '../../types';
@@ -7,26 +6,15 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Loader2, AlertCircle, MessageSquare, ArrowLeft } from 'lucide-react';
-import { BlockStreamRenderer, useBlockStream } from './BlockStreamRenderer';
-import { MessageRenderer } from '../MessageRenderer';
-import { DocV1 } from '../../types/text';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface BrainChatWithBlocksProps {
   persona: string;
   sessionId?: string;
   onPersonaChange?: (persona: string) => void;
-  personas?: Array<{id: string, name: string, description: string}>;
+  personas?: Array<{ id: string; name: string; description: string }>;
   onBack?: () => void;
 }
-
-// interface ResearchState {
-//   currentStatus: string;
-//   currentPlan: any;
-//   currentDraft: string;
-//   currentCritique: string[];
-//   isResearching: boolean;
-//   error: string | null;
-// }
 
 export default function BrainChatWithBlocks({
   persona,
@@ -39,7 +27,7 @@ export default function BrainChatWithBlocks({
   const [input, setInput] = useState('');
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [currentStreamingBlocks, setCurrentStreamingBlocks] = useState<DocV1 | null>(null);
+  const [streamingText, setStreamingText] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -49,13 +37,11 @@ export default function BrainChatWithBlocks({
   };
 
   useEffect(() => {
-    // Добавляем задержку чтобы избежать конфликтов с другими скроллами
     const timeoutId = setTimeout(() => {
       scrollToBottom();
     }, 100);
-    
     return () => clearTimeout(timeoutId);
-  }, [messages, currentStreamingBlocks]);
+  }, [messages, streamingText]);
 
   const handleSendMessage = async () => {
     if (!input.trim() || isStreaming) return;
@@ -68,126 +54,58 @@ export default function BrainChatWithBlocks({
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input;
     setInput('');
     setIsStreaming(true);
-    setCurrentStreamingBlocks(null);
+    setStreamingText('');
     setConnectionError(null);
 
     const request: ChatRequest = {
-      text: input,
+      text: currentInput,
       session_id: sessionId || crypto.randomUUID(),
       agent_id: persona
     };
 
+    let accumulatedText = '';
+
     const streamHandler: StreamHandler = {
-      onBlockStart: (blockData) => {
-        debugLog('Block start:', blockData);
-        // Initialize streaming blocks if not already done
-        if (!currentStreamingBlocks) {
-          setCurrentStreamingBlocks({
-            version: '1.0',
-            blocks: []
-          });
-        }
+      onChunk: (chunk: string) => {
+        accumulatedText += chunk;
+        setStreamingText(accumulatedText);
       },
-      
-      onBlockDelta: (blockData) => {
-        debugLog('Block delta:', blockData);
-        // Update streaming blocks
-        setCurrentStreamingBlocks(prev => {
-          if (!prev) return prev;
-          
-          const newBlocks = [...prev.blocks];
-          const { block_index, content } = blockData;
-          
-          // Ensure we have enough blocks
-          while (newBlocks.length <= block_index) {
-            newBlocks.push({
-              type: 'paragraph',
-              text: ''
-            });
-          }
-          
-          // Update the block
-          newBlocks[block_index] = {
-            ...newBlocks[block_index],
-            ...content
-          };
-          
-          return {
-            ...prev,
-            blocks: newBlocks
-          } as DocV1;
-        });
+
+      onDoc: (doc: any) => {
+        setStreamingText(typeof doc === 'string' ? doc : JSON.stringify(doc));
       },
-      
-      onBlockEnd: (blockData) => {
-        debugLog('Block end:', blockData);
-        // Finalize the block
-        setCurrentStreamingBlocks(prev => {
-          if (!prev) return prev;
-          
-          const newBlocks = [...prev.blocks];
-          const { block_index, content } = blockData;
-          
-          if (newBlocks[block_index]) {
-            newBlocks[block_index] = {
-              ...newBlocks[block_index],
-              ...content
-            };
-          }
-          
-          return {
-            ...prev,
-            blocks: newBlocks
-          } as DocV1;
-        });
-      },
-      
-      onChunk: (chunk) => {
-        debugLog('Chunk:', chunk);
-        // Handle regular text chunks if needed
-      },
-      
-      onDoc: (doc) => {
-        debugLog('Doc:', doc);
-        // Handle complete doc.v1 documents
-        setCurrentStreamingBlocks(doc);
-      },
-      
+
       onComplete: () => {
-        debugLog('Stream complete');
         setIsStreaming(false);
-        
-        // Save the final message
-        if (currentStreamingBlocks) {
+        if (accumulatedText) {
           const assistantMessage: MessageType = {
             id: Date.now() + 1,
             role: 'assistant',
-            content: currentStreamingBlocks as DocV1,
-            content_type: 'doc.v1',
+            content: accumulatedText,
             timestamp: new Date()
           };
-          
           setMessages(prev => [...prev, assistantMessage]);
-          setCurrentStreamingBlocks(null);
         }
+        setStreamingText('');
       },
-      
-      onError: (error) => {
+
+      onError: (error: Error) => {
         console.error('Stream error:', error);
         setIsStreaming(false);
-        setCurrentStreamingBlocks(null);
+        setStreamingText('');
         setConnectionError(error.message);
       }
     };
 
     try {
-      await api.sendMessageWithBlocks(request, streamHandler);
+      await api.sendMessage(request, streamHandler);
     } catch (error) {
       console.error('Failed to send message:', error);
       setIsStreaming(false);
-      setCurrentStreamingBlocks(null);
+      setStreamingText('');
       setConnectionError(error instanceof Error ? error.message : 'Unknown error');
     }
   };
@@ -197,18 +115,6 @@ export default function BrainChatWithBlocks({
       e.preventDefault();
       handleSendMessage();
     }
-  };
-
-  const renderMessage = (message: MessageType) => {
-    if ((message as any).content_type === 'doc.v1' && typeof message.content === 'object') {
-      return <MessageRenderer doc={message.content as DocV1} />;
-    }
-    
-    return (
-      <div className="whitespace-pre-wrap">
-        {typeof message.content === 'string' ? message.content : JSON.stringify(message.content)}
-      </div>
-    );
   };
 
   return (
@@ -239,7 +145,7 @@ export default function BrainChatWithBlocks({
             </div>
           </div>
         </CardHeader>
-        
+
         <CardContent className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto space-y-4 mb-4">
             {messages.map((message) => (
@@ -254,16 +160,22 @@ export default function BrainChatWithBlocks({
                       : 'bg-muted'
                   }`}
                 >
-                  {renderMessage(message)}
+                  {message.role === 'user' ? (
+                    <div className="whitespace-pre-wrap">
+                      {typeof message.content === 'string' ? message.content : JSON.stringify(message.content)}
+                    </div>
+                  ) : (
+                    <MarkdownRenderer content={message.content} />
+                  )}
                 </div>
               </div>
             ))}
-            
-            {/* Streaming blocks */}
-            {currentStreamingBlocks && (
+
+            {/* Streaming message */}
+            {streamingText && (
               <div className="flex justify-start">
                 <div className="max-w-[80%] rounded-lg px-4 py-2 bg-muted">
-                  <MessageRenderer doc={currentStreamingBlocks} />
+                  <MarkdownRenderer content={streamingText} />
                   {isStreaming && (
                     <div className="streaming-cursor animate-pulse mt-2">
                       <span className="text-gray-400">▋</span>
@@ -272,7 +184,7 @@ export default function BrainChatWithBlocks({
                 </div>
               </div>
             )}
-            
+
             {connectionError && (
               <div className="flex justify-center">
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -283,10 +195,10 @@ export default function BrainChatWithBlocks({
                 </div>
               </div>
             )}
-            
+
             <div ref={messagesEndRef} />
           </div>
-          
+
           <div className="flex-shrink-0 flex gap-2">
             <Textarea
               value={input}
@@ -313,4 +225,3 @@ export default function BrainChatWithBlocks({
     </div>
   );
 }
-

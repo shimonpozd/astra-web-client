@@ -7,12 +7,13 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Loader2, AlertCircle, FileText, MessageSquare, Search, ArrowLeft } from 'lucide-react';
 import { debugWarn } from '../utils/debugLogger';
+import { MarkdownRenderer } from './chat/MarkdownRenderer';
 
 interface BrainChatProps {
   persona: string;
   sessionId?: string;
   onPersonaChange?: (persona: string) => void;
-  personas?: Array<{id: string, name: string, description: string}>;
+  personas?: Array<{ id: string; name: string; description: string }>;
   onBack?: () => void;
 }
 
@@ -54,11 +55,9 @@ export default function BrainChat({
   };
 
   useEffect(() => {
-    // Добавляем задержку чтобы избежать конфликтов с другими скроллами
     const timeoutId = setTimeout(() => {
       scrollToBottom();
     }, 100);
-    
     return () => clearTimeout(timeoutId);
   }, [messages, researchState]);
 
@@ -83,9 +82,9 @@ export default function BrainChat({
 
         if (historyMessages.length > 0) {
           const firstMessage = historyMessages[0].content as string;
-          const title = firstMessage.length > 50
+          const title = typeof firstMessage === 'string' && firstMessage.length > 50
             ? firstMessage.slice(0, 50) + '...'
-            : firstMessage;
+            : String(firstMessage || 'Новый чат');
           setChatTitle(title);
         } else {
           setChatTitle('Новый чат');
@@ -115,67 +114,58 @@ export default function BrainChat({
     setInput('');
 
     const request: ChatRequest = {
-        text: currentInput,
-        agent_id: persona,
-        session_id: sessionId,
+      text: currentInput,
+      agent_id: persona,
+      session_id: sessionId,
     };
 
     const assistantMessageId = `asst_${Date.now()}`;
     const assistantMessage: MessageType = {
-        id: assistantMessageId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date()
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date()
     };
     setMessages(prev => [...prev, assistantMessage]);
 
     const appendChunk = (chunk?: string) => {
-        if (!chunk) {
-            return;
-        }
-        setMessages(prev => prev.map(msg =>
-            msg.id === assistantMessageId
-                ? {
-                    ...msg,
-                    content: `${typeof msg.content === 'string' ? msg.content : ''}${chunk}`
-                  }
-                : msg
-        ));
+      if (!chunk) return;
+      setMessages(prev => prev.map(msg =>
+        msg.id === assistantMessageId
+          ? {
+              ...msg,
+              content: `${typeof msg.content === 'string' ? msg.content : ''}${chunk}`
+            }
+          : msg
+      ));
     };
 
     const streamHandler: ApiStreamHandler = {
-        onChunk: appendChunk,
-        onDraft: (draft) => {
-            if (!draft) {
-                return;
-            }
-            const chunk =
-                typeof draft === 'string'
-                    ? draft
-                    : draft.chunk ?? draft.draft ?? '';
-            appendChunk(chunk);
-        },
-        onComplete: () => {
-            // Optional: any action on completion
-        },
-        onError: (error: Error) => {
-            setMessages(prev => prev.map(msg =>
-                msg.id === assistantMessageId
-                    ? { ...msg, content: `Error: ${error.message}` }
-                    : msg
-            ));
-        }
+      onChunk: appendChunk,
+      onDraft: (draft) => {
+        if (!draft) return;
+        const chunk = typeof draft === 'string' ? draft : draft.chunk ?? draft.draft ?? '';
+        appendChunk(chunk);
+      },
+      onComplete: () => {},
+      onError: (error: Error) => {
+        setMessages(prev => prev.map(msg =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: `Error: ${error.message}` }
+            : msg
+        ));
+      }
     };
 
     try {
-        await api.sendMessage(request, streamHandler);
+      await api.sendMessage(request, streamHandler);
     } catch (error) {
-        console.error('❌ Error sending message:', error);
-        setMessages(prev => prev.map(msg =>
-            msg.id === assistantMessageId
-                ? { ...msg, content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` }
-                : msg
-        ));
+      console.error('❌ Error sending message:', error);
+      setMessages(prev => prev.map(msg =>
+        msg.id === assistantMessageId
+          ? { ...msg, content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` }
+          : msg
+      ));
     }
   };
 
@@ -219,16 +209,16 @@ export default function BrainChat({
 
       const streamHandler: LegacyStreamHandler = {
         onStatus: (message: string) => {
-            setResearchState(prev => ({ ...prev, currentStatus: message }));
+          setResearchState(prev => ({ ...prev, currentStatus: message }));
         },
         onPlan: (plan: any) => {
-            setResearchState(prev => ({ ...prev, currentPlan: plan }));
+          setResearchState(prev => ({ ...prev, currentPlan: plan }));
         },
         onDraft: (draft: any) => {
-            setResearchState(prev => ({ ...prev, currentDraft: draft.draft }));
+          setResearchState(prev => ({ ...prev, currentDraft: draft.draft }));
         },
         onCritique: (critique: any) => {
-            setResearchState(prev => ({ ...prev, currentCritique: [...prev.currentCritique, ...critique.feedback] }));
+          setResearchState(prev => ({ ...prev, currentCritique: [...prev.currentCritique, ...critique.feedback] }));
         },
         onError: (error: any) => {
           setResearchState(prev => ({ ...prev, error: error.message, isResearching: false }));
@@ -239,7 +229,6 @@ export default function BrainChat({
       };
 
       await api.sendMessage(request, streamHandler);
-
     } catch (error) {
       console.error('❌ Error starting research:', error);
       setResearchState(prev => ({
@@ -347,7 +336,7 @@ export default function BrainChat({
                 className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {message.role === 'assistant' && (
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
                     <MessageSquare className="w-4 h-4" />
                   </div>
                 )}
@@ -358,15 +347,19 @@ export default function BrainChat({
                       : 'bg-muted'
                   }`}
                 >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                    {message.content as string}
-                  </p>
+                  {message.role === 'user' ? (
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {typeof message.content === 'string' ? message.content : JSON.stringify(message.content)}
+                    </p>
+                  ) : (
+                    <MarkdownRenderer content={message.content} />
+                  )}
                   <p className="text-xs mt-2 opacity-70">
                     {message.timestamp ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                   </p>
                 </div>
                 {message.role === 'user' && (
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0 mt-1">
                     <span className="text-xs font-medium">Вы</span>
                   </div>
                 )}

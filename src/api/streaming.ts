@@ -104,7 +104,14 @@ export async function processStream(
 
     for (const chunk of chunks) {
       const trimmed = chunk.trim();
-      if (trimmed === '' || !trimmed.startsWith('{') || trimmed.startsWith('```')) continue;
+      if (!trimmed) continue;
+
+      if (!trimmed.startsWith('{')) {
+        // Plain text / markdown chunk
+        handler.onChunk?.(chunk);
+        continue;
+      }
+
       try {
         const parsed = JSON.parse(trimmed);
 
@@ -191,8 +198,9 @@ export async function processStream(
             break;
           }
         }
-      } catch (e) {
-        console.error('Failed to parse stream event:', trimmed, e);
+      } catch {
+        // Fallback to plain text chunk if JSON parse fails
+        handler.onChunk?.(chunk);
       }
     }
   }
